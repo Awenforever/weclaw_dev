@@ -10,10 +10,14 @@ import (
 
 // Config holds the application configuration.
 type Config struct {
-	DefaultAgent string                 `json:"default_agent"`
-	APIAddr      string                 `json:"api_addr,omitempty"`
-	SaveDir      string                 `json:"save_dir,omitempty"`
-	Agents       map[string]AgentConfig `json:"agents"`
+	DefaultAgent        string                 `json:"default_agent"`
+	APIAddr             string                 `json:"api_addr,omitempty"`
+	SaveDir             string                 `json:"save_dir,omitempty"`
+	StreamUpdates       bool                   `json:"stream_updates,omitempty"`
+	StreamIntervalMS    int                    `json:"stream_interval_ms,omitempty"`
+	StreamMaxChunkChars int                    `json:"stream_max_chunk_chars,omitempty"`
+	StreamToolEvents    bool                   `json:"stream_tool_events"`
+	Agents              map[string]AgentConfig `json:"agents"`
 }
 
 // AgentConfig holds configuration for a single agent.
@@ -67,7 +71,10 @@ func BuildAliasMap(agents map[string]AgentConfig) map[string]string {
 // DefaultConfig returns an empty configuration.
 func DefaultConfig() *Config {
 	return &Config{
-		Agents: make(map[string]AgentConfig),
+		StreamIntervalMS:    1500,
+		StreamMaxChunkChars: 1200,
+		StreamToolEvents:    true,
+		Agents:              make(map[string]AgentConfig),
 	}
 }
 
@@ -104,9 +111,31 @@ func Load() (*Config, error) {
 	if cfg.Agents == nil {
 		cfg.Agents = make(map[string]AgentConfig)
 	}
+	applyConfigDefaults(cfg, data)
 
 	loadEnv(cfg)
 	return cfg, nil
+}
+
+func applyConfigDefaults(cfg *Config, data []byte) {
+	if cfg.StreamIntervalMS <= 0 {
+		cfg.StreamIntervalMS = 1500
+	}
+	if cfg.StreamMaxChunkChars <= 0 {
+		cfg.StreamMaxChunkChars = 1200
+	}
+	if cfg.StreamUpdates && !hasJSONKey(data, "stream_tool_events") {
+		cfg.StreamToolEvents = true
+	}
+}
+
+func hasJSONKey(data []byte, key string) bool {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return false
+	}
+	_, ok := raw[key]
+	return ok
 }
 
 func loadEnv(cfg *Config) {

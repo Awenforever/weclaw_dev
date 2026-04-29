@@ -1,5 +1,7 @@
 # Binary
 weclaw
+bin/
+.tools/
 
 # Air hot reload
 tmp/
@@ -18,6 +20,7 @@ Thumbs.db
 # Environment & config
 .env
 *.local
+dialogue_*.log
 
 # Claude Code
 .claude/

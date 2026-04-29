@@ -1,9 +1,11 @@
 #!/bin/sh
 set -e
 
-REPO="fastclaw-ai/weclaw"
-BINARY="weclaw"
+REPO="${REPO:-Awenforever/weclaw_dev}"
+BINARY="${BINARY:-weclaw}"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+VERSION="${VERSION:-}"
+REF="${REF:-main}"
 
 # Detect OS
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -22,33 +24,74 @@ esac
 
 echo "Detected: ${OS}/${ARCH}"
 
-# Get latest version
-echo "Fetching latest release..."
-VERSION=$(curl -fsSL -H "User-Agent: weclaw-installer" "https://api.github.com/repos/${REPO}/releases/latest" | sed -n 's/.*"tag_name" *: *"\([^"]*\)".*/\1/p')
+fetch_release_version() {
+  curl -fsSL -H "User-Agent: weclaw-installer" "https://api.github.com/repos/${REPO}/releases/latest" | sed -n 's/.*"tag_name" *: *"\([^"]*\)".*/\1/p'
+}
 
-if [ -z "$VERSION" ]; then
-  echo "Error: could not determine latest version. Is there a release on GitHub?"
-  exit 1
-fi
+install_release() {
+  echo "Fetching latest release..."
+  if [ -z "$VERSION" ]; then
+    VERSION=$(fetch_release_version || true)
+  fi
+  if [ -z "$VERSION" ]; then
+    return 1
+  fi
 
-echo "Latest version: ${VERSION}"
+  echo "Latest version: ${VERSION}"
 
-# Download
-FILENAME="${BINARY}_${OS}_${ARCH}"
-URL="https://github.com/${REPO}/releases/download/${VERSION}/${FILENAME}"
+  FILENAME="${BINARY}_${OS}_${ARCH}"
+  URL="https://github.com/${REPO}/releases/download/${VERSION}/${FILENAME}"
 
-echo "Downloading ${URL}..."
-TMP=$(mktemp)
-curl -fsSL -o "$TMP" "$URL"
+  echo "Downloading ${URL}..."
+  TMP=$(mktemp)
+  if ! curl -fsSL -o "$TMP" "$URL"; then
+    rm -f "$TMP"
+    return 1
+  fi
 
-# Install
-chmod +x "$TMP"
-if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
-  mv "$TMP" "${INSTALL_DIR}/${BINARY}"
-else
-  echo "Installing to ${INSTALL_DIR} (requires sudo)..."
-  sudo mkdir -p "$INSTALL_DIR"
-  sudo mv "$TMP" "${INSTALL_DIR}/${BINARY}"
+  chmod +x "$TMP"
+  if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
+    mv "$TMP" "${INSTALL_DIR}/${BINARY}"
+  else
+    echo "Installing to ${INSTALL_DIR} (requires sudo)..."
+    sudo mkdir -p "$INSTALL_DIR"
+    sudo mv "$TMP" "${INSTALL_DIR}/${BINARY}"
+  fi
+}
+
+install_from_source() {
+  if ! command -v git >/dev/null 2>&1; then
+    echo "Error: git is required to build from source."
+    exit 1
+  fi
+  if ! command -v go >/dev/null 2>&1; then
+    echo "Error: go is required to build from source when no release is available."
+    exit 1
+  fi
+
+  echo "No release found; building from source..."
+  TMPDIR=$(mktemp -d)
+  SRC="$TMPDIR/src"
+  trap 'rm -rf "$TMPDIR"' EXIT INT TERM
+
+  git clone --depth 1 "https://github.com/${REPO}.git" "$SRC"
+  if [ -n "$REF" ] && [ "$REF" != "main" ]; then
+    (cd "$SRC" && git checkout "$REF")
+  fi
+
+  (cd "$SRC" && go build -o "$TMPDIR/${BINARY}" .)
+  chmod +x "$TMPDIR/${BINARY}"
+  if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
+    mv "$TMPDIR/${BINARY}" "${INSTALL_DIR}/${BINARY}"
+  else
+    echo "Installing to ${INSTALL_DIR} (requires sudo)..."
+    sudo mkdir -p "$INSTALL_DIR"
+    sudo mv "$TMPDIR/${BINARY}" "${INSTALL_DIR}/${BINARY}"
+  fi
+}
+
+if ! install_release; then
+  install_from_source
 fi
 
 # Clear macOS quarantine attributes
@@ -58,7 +101,12 @@ if [ "$OS" = "darwin" ]; then
 fi
 
 echo ""
-echo "weclaw ${VERSION} installed to ${INSTALL_DIR}/${BINARY}"
+if [ -n "$VERSION" ]; then
+  echo "weclaw ${VERSION} installed to ${INSTALL_DIR}/${BINARY}"
+else
+  echo "weclaw installed to ${INSTALL_DIR}/${BINARY}"
+fi
 echo ""
 echo "Get started:"
 echo "  weclaw start"
+echo "  weclaw start --stdout"

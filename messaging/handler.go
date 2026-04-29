@@ -29,6 +29,16 @@ type AgentMeta struct {
 	Model   string
 }
 
+// StreamConfig controls optional progress forwarding while an agent is working.
+type StreamConfig struct {
+	Enabled       bool
+	Interval      time.Duration
+	MaxChunkChars int
+	ToolEvents    bool
+}
+
+type streamSenderFunc func(ctx context.Context, client *ilink.Client, toUserID, text, contextToken, clientID string) error
+
 // Handler processes incoming WeChat messages and dispatches replies.
 type Handler struct {
 	mu            sync.RWMutex
@@ -39,9 +49,13 @@ type Handler struct {
 	customAliases map[string]string      // custom alias -> agent name (from config)
 	factory       AgentFactory
 	saveDefault   SaveDefaultFunc
-	contextTokens sync.Map   // map[userID]contextToken
-	saveDir       string     // directory to save images/files to
-	seenMsgs      sync.Map   // map[int64]time.Time — dedup by message_id
+	contextTokens sync.Map // map[userID]contextToken
+	saveDir       string   // directory to save images/files to
+	seenMsgs      sync.Map // map[int64]time.Time — dedup by message_id
+	streamConfig  StreamConfig
+	streamSender  streamSenderFunc
+	streamPace    time.Duration
+	userTurns     sync.Map // map[userID]*sync.Mutex — serializes agent turns per user
 }
 
 // NewHandler creates a new message handler.
@@ -51,7 +65,27 @@ func NewHandler(factory AgentFactory, saveDefault SaveDefaultFunc) *Handler {
 		agentWorkDirs: make(map[string]string),
 		factory:       factory,
 		saveDefault:   saveDefault,
+		streamConfig: StreamConfig{
+			Interval:      1500 * time.Millisecond,
+			MaxChunkChars: 1200,
+			ToolEvents:    true,
+		},
+		streamSender: SendTextReply,
+		streamPace:   streamSendPaceDelay,
 	}
+}
+
+// SetStreamConfig enables or disables progress forwarding.
+func (h *Handler) SetStreamConfig(cfg StreamConfig) {
+	if cfg.Interval <= 0 {
+		cfg.Interval = 1500 * time.Millisecond
+	}
+	if cfg.MaxChunkChars <= 0 {
+		cfg.MaxChunkChars = 1200
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.streamConfig = cfg
 }
 
 // SetSaveDir sets the directory for saving images and files.
@@ -313,9 +347,9 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 			var reply string
 			if err != nil {
 				log.Printf("[handler] link save failed: %v", err)
-				reply = fmt.Sprintf("保存失败: %v", err)
+				reply = fmt.Sprintf("Failed to save link: %v", err)
 			} else {
-				reply = fmt.Sprintf("已保存: %s", title)
+				reply = fmt.Sprintf("Saved link: %s", title)
 			}
 			if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
 				log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
@@ -416,28 +450,36 @@ func (h *Handler) sendToDefaultAgent(ctx context.Context, client *ilink.Client, 
 		}
 	}()
 
+	unlock := h.lockUserTurn(msg.FromUserID)
+	defer unlock()
+
 	h.mu.RLock()
 	defaultName := h.defaultName
 	h.mu.RUnlock()
 
 	ag := h.getDefaultAgent()
 	var reply string
+	var streamedText bool
 	if ag != nil {
 		var err error
-		reply, err = h.chatWithAgent(ctx, ag, msg.FromUserID, text)
+		reply, streamedText, err = h.chatWithAgent(ctx, client, msg, ag, msg.FromUserID, text)
 		if err != nil {
 			reply = fmt.Sprintf("Error: %v", err)
+			streamedText = false
 		}
 	} else {
 		log.Printf("[handler] agent not ready, using echo mode for %s", msg.FromUserID)
 		reply = "[echo] " + text
 	}
 
-	h.sendReplyWithMedia(ctx, client, msg, defaultName, reply, clientID)
+	h.sendReplyWithMediaOptions(ctx, client, msg, defaultName, reply, clientID, !streamedText)
 }
 
 // sendToNamedAgent sends the message to a specific agent and replies.
 func (h *Handler) sendToNamedAgent(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, name, message, clientID string) {
+	unlock := h.lockUserTurn(msg.FromUserID)
+	defer unlock()
+
 	ag, agErr := h.getAgent(ctx, name)
 	if agErr != nil {
 		log.Printf("[handler] agent %q not available: %v", name, agErr)
@@ -446,16 +488,20 @@ func (h *Handler) sendToNamedAgent(ctx context.Context, client *ilink.Client, ms
 		return
 	}
 
-	reply, err := h.chatWithAgent(ctx, ag, msg.FromUserID, message)
+	reply, streamedText, err := h.chatWithAgent(ctx, client, msg, ag, msg.FromUserID, message)
 	if err != nil {
 		reply = fmt.Sprintf("Error: %v", err)
+		streamedText = false
 	}
-	h.sendReplyWithMedia(ctx, client, msg, name, reply, clientID)
+	h.sendReplyWithMediaOptions(ctx, client, msg, name, reply, clientID, !streamedText)
 }
 
 // broadcastToAgents sends the message to multiple agents in parallel.
 // Each reply is sent as a separate message with the agent name prefix.
 func (h *Handler) broadcastToAgents(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, names []string, message string) {
+	unlock := h.lockUserTurn(msg.FromUserID)
+	defer unlock()
+
 	type result struct {
 		name  string
 		reply string
@@ -470,7 +516,7 @@ func (h *Handler) broadcastToAgents(ctx context.Context, client *ilink.Client, m
 				ch <- result{name: n, reply: fmt.Sprintf("Error: %v", err)}
 				return
 			}
-			reply, err := h.chatWithAgent(ctx, ag, msg.FromUserID, message)
+			reply, _, err := h.chatWithAgent(ctx, nil, msg, ag, msg.FromUserID, message)
 			if err != nil {
 				ch <- result{name: n, reply: fmt.Sprintf("Error: %v", err)}
 				return
@@ -490,9 +536,15 @@ func (h *Handler) broadcastToAgents(ctx context.Context, client *ilink.Client, m
 
 // sendReplyWithMedia sends a text reply and any extracted image URLs.
 func (h *Handler) sendReplyWithMedia(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, agentName, reply, clientID string) {
+	h.sendReplyWithMediaOptions(ctx, client, msg, agentName, reply, clientID, true)
+}
+
+func (h *Handler) sendReplyWithMediaOptions(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, agentName, reply, clientID string, sendText bool) bool {
 	imageURLs := ExtractImageURLs(reply)
 	attachmentPaths := extractLocalAttachmentPaths(reply)
 	allowedRoots := h.allowedAttachmentRoots(agentName)
+	contextToken := h.latestContextToken(msg.FromUserID, msg.ContextToken)
+	textDelivered := !sendText
 
 	var sentPaths []string
 	var failedPaths []string
@@ -502,7 +554,7 @@ func (h *Handler) sendReplyWithMedia(ctx context.Context, client *ilink.Client, 
 			failedPaths = append(failedPaths, attachmentPath)
 			continue
 		}
-		if err := SendMediaFromPath(ctx, client, msg.FromUserID, attachmentPath, msg.ContextToken); err != nil {
+		if err := SendMediaFromPath(ctx, client, msg.FromUserID, attachmentPath, contextToken); err != nil {
 			log.Printf("[handler] failed to send attachment to %s: %v", msg.FromUserID, err)
 			failedPaths = append(failedPaths, attachmentPath)
 			continue
@@ -511,16 +563,49 @@ func (h *Handler) sendReplyWithMedia(ctx context.Context, client *ilink.Client, 
 	}
 
 	reply = rewriteReplyWithAttachmentResults(reply, sentPaths, failedPaths)
-
-	if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
-		log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+	if sendText {
+		chunks := finalReplyTextChunks(reply)
+		textDelivered = true
+		for i, chunk := range chunks {
+			chunkClientID := clientID
+			if i > 0 {
+				chunkClientID = NewClientID()
+			}
+			if err := SendTextReply(ctx, client, msg.FromUserID, chunk, contextToken, chunkClientID); err != nil {
+				log.Printf("[handler] failed to send reply chunk %d to %s: %v", i+1, msg.FromUserID, err)
+				textDelivered = false
+				break
+			}
+		}
 	}
 
 	for _, imgURL := range imageURLs {
-		if err := SendMediaFromURL(ctx, client, msg.FromUserID, imgURL, msg.ContextToken); err != nil {
+		if err := SendMediaFromURL(ctx, client, msg.FromUserID, imgURL, contextToken); err != nil {
 			log.Printf("[handler] failed to send image to %s: %v", msg.FromUserID, err)
 		}
 	}
+	return textDelivered
+}
+
+func finalReplyTextChunks(reply string) []string {
+	chunks := PlainTextReplyChunks(reply)
+	out := make([]string, 0, len(chunks)+1)
+	for _, chunk := range chunks {
+		if strings.TrimSpace(chunk) == "Done." {
+			continue
+		}
+		out = append(out, chunk)
+	}
+	return append(out, "Done.")
+}
+
+func (h *Handler) latestContextToken(userID, fallback string) string {
+	if value, ok := h.contextTokens.Load(userID); ok {
+		if token, ok := value.(string); ok && token != "" {
+			return token
+		}
+	}
+	return fallback
 }
 
 func (h *Handler) allowedAttachmentRoots(agentName string) []string {
@@ -538,21 +623,344 @@ func (h *Handler) allowedAttachmentRoots(agentName string) []string {
 }
 
 // chatWithAgent sends a message to an agent and returns the reply, with logging.
-func (h *Handler) chatWithAgent(ctx context.Context, ag agent.Agent, userID, message string) (string, error) {
+func (h *Handler) chatWithAgent(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, ag agent.Agent, userID, message string) (string, bool, error) {
 	info := ag.Info()
 	log.Printf("[handler] dispatching to agent (%s) for %s", info, userID)
 
 	start := time.Now()
-	reply, err := ag.Chat(ctx, userID, message)
+	reply, streamedText, err := h.chatMaybeStream(ctx, client, msg, ag, userID, message)
 	elapsed := time.Since(start)
 
 	if err != nil {
 		log.Printf("[handler] agent error (%s, elapsed=%s): %v", info, elapsed, err)
-		return "", err
+		return "", false, err
 	}
 
 	log.Printf("[handler] agent replied (%s, elapsed=%s): %q", info, elapsed, truncate(reply, 100))
-	return reply, nil
+	return reply, streamedText, nil
+}
+
+func (h *Handler) chatMaybeStream(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, ag agent.Agent, userID, message string) (string, bool, error) {
+	h.mu.RLock()
+	cfg := h.streamConfig
+	sender := h.streamSender
+	pace := h.streamPace
+	h.mu.RUnlock()
+
+	streamingAg, ok := ag.(agent.StreamingAgent)
+	if !cfg.Enabled || !ok || client == nil || sender == nil {
+		reply, err := ag.Chat(ctx, userID, message)
+		return reply, false, err
+	}
+
+	rawSendStreamText := func(text string) error {
+		return sender(ctx, client, msg.FromUserID, text, h.latestContextToken(msg.FromUserID, msg.ContextToken), NewClientID())
+	}
+	streamSender := newOrderedStreamSenderWithPace(rawSendStreamText, pace)
+	progress := newTurnProgressController(streamSender.Send)
+	defer progress.Close()
+
+	streamState := struct {
+		answerTextSeen      bool
+		answerDeliveryError bool
+		completionSent      bool
+		sentBlocks          map[string]struct{}
+	}{sentBlocks: make(map[string]struct{})}
+	streamedText := func() bool {
+		return streamState.answerTextSeen && !streamState.answerDeliveryError && streamState.completionSent
+	}
+	sendAssistantComplete := func(evt agent.ProgressEvent) {
+		if streamState.answerDeliveryError {
+			return
+		}
+		key := evt.ID
+		if key == "" {
+			key = strings.TrimSpace(normalizeLineEndings(evt.Text))
+		}
+		if key != "" {
+			if _, ok := streamState.sentBlocks[key]; ok {
+				return
+			}
+		}
+		chunks := PlainTextReplyChunks(evt.Text)
+		if len(chunks) == 0 {
+			return
+		}
+		for _, chunk := range chunks {
+			if err := streamSender.Send(chunk); err != nil {
+				log.Printf("[handler] failed to send assistant message block: %v", err)
+				streamState.answerDeliveryError = true
+				return
+			}
+		}
+		streamState.answerTextSeen = true
+		if key != "" {
+			streamState.sentBlocks[key] = struct{}{}
+		}
+	}
+	handleProgressEvent := func(evt agent.ProgressEvent) {
+		if evt.Type == agent.ProgressEventAssistantMessageComplete {
+			sendAssistantComplete(evt)
+			return
+		}
+		if evt.Type == agent.ProgressEventAssistantDelta {
+			return
+		}
+		if cfg.ToolEvents {
+			progress.Handle(evt)
+		}
+	}
+
+	type streamResult struct {
+		reply string
+		err   error
+	}
+	eventCh := make(chan agent.ProgressEvent, 64)
+	doneCh := make(chan streamResult, 1)
+	go func() {
+		reply, err := streamingAg.ChatStream(ctx, userID, message, func(evt agent.ProgressEvent) error {
+			select {
+			case eventCh <- evt:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		})
+		doneCh <- streamResult{reply: reply, err: err}
+	}()
+
+	for {
+		select {
+		case evt := <-eventCh:
+			handleProgressEvent(evt)
+		case result := <-doneCh:
+			for {
+				select {
+				case evt := <-eventCh:
+					handleProgressEvent(evt)
+				default:
+					if result.err != nil {
+						return "", streamedText(), result.err
+					}
+					progress.Close()
+					if streamState.answerTextSeen && !streamState.answerDeliveryError {
+						if err := streamSender.SendCompletion("Done."); err != nil {
+							log.Printf("[handler] failed to send assistant stream completion: %v", err)
+							streamState.answerDeliveryError = true
+						} else {
+							streamState.completionSent = true
+						}
+					}
+					return result.reply, streamedText(), nil
+				}
+			}
+		case <-ctx.Done():
+			return "", streamedText(), ctx.Err()
+		}
+	}
+}
+
+const (
+	streamSendPaceDelay        = 1200 * time.Millisecond
+	streamCompletionAttempts   = 3
+	streamCompletionRetryDelay = 80 * time.Millisecond
+)
+
+type orderedStreamSender struct {
+	mu   sync.Mutex
+	send func(string) error
+	pace time.Duration
+	last time.Time
+}
+
+func newOrderedStreamSender(send func(string) error) *orderedStreamSender {
+	return newOrderedStreamSenderWithPace(send, streamSendPaceDelay)
+}
+
+func newOrderedStreamSenderWithPace(send func(string) error, pace time.Duration) *orderedStreamSender {
+	if pace < 0 {
+		pace = 0
+	}
+	return &orderedStreamSender{
+		send: send,
+		pace: pace,
+	}
+}
+
+func (s *orderedStreamSender) Send(text string) error {
+	if s == nil || s.send == nil || strings.TrimSpace(text) == "" {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.last.IsZero() {
+		if wait := s.pace - time.Since(s.last); wait > 0 {
+			time.Sleep(wait)
+		}
+	}
+	err := s.send(text)
+	s.last = time.Now()
+	return err
+}
+
+func (s *orderedStreamSender) SendCompletion(text string) error {
+	var err error
+	for attempt := 0; attempt < streamCompletionAttempts; attempt++ {
+		if attempt > 0 {
+			time.Sleep(streamCompletionRetryDelay)
+		}
+		err = s.Send(text)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
+}
+
+func (h *Handler) lockUserTurn(userID string) func() {
+	if userID == "" {
+		userID = "default"
+	}
+	value, _ := h.userTurns.LoadOrStore(userID, &sync.Mutex{})
+	mu := value.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
+}
+
+func compactStreamEvent(evt agent.ProgressEvent) (string, bool) {
+	switch evt.Type {
+	case agent.ProgressEventToolStart, agent.ProgressEventToolProgress:
+		name := compactToolName(evt.Text)
+		if !isUsefulToolName(name) {
+			return "", false
+		}
+		return "using " + name, true
+	default:
+		return "", false
+	}
+}
+
+func compactToolName(text string) string {
+	text = strings.TrimSpace(text)
+	for _, prefix := range []string{
+		"tool started:",
+		"tool progress:",
+		"tool completed:",
+		"using",
+	} {
+		if rest, ok := strings.CutPrefix(text, prefix); ok {
+			text = strings.TrimSpace(rest)
+			break
+		}
+	}
+	if before, _, ok := strings.Cut(text, ":"); ok {
+		text = strings.TrimSpace(before)
+	}
+	if before, _, ok := strings.Cut(text, " ("); ok {
+		text = strings.TrimSpace(before)
+	}
+	return text
+}
+
+func isUsefulToolName(name string) bool {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false
+	}
+	lower := strings.ToLower(name)
+	switch lower {
+	case "mcptoolcall", "tool", "tools", "status", "started", "completed", "running":
+		return false
+	}
+	if strings.HasPrefix(lower, "call_") || strings.HasPrefix(lower, "toolu_") {
+		return false
+	}
+	if strings.ContainsAny(name, " \t\r\n") {
+		return false
+	}
+	parts := strings.Split(name, ".")
+	if len(parts) < 2 {
+		return false
+	}
+	for _, part := range parts {
+		if part == "" {
+			return false
+		}
+		for _, r := range part {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+				continue
+			}
+			return false
+		}
+	}
+	return true
+}
+
+const (
+	maxProgressSendsPerTurn     = 3
+	maxProgressToolSendsPerTurn = 2
+)
+
+type turnProgressController struct {
+	mu        sync.Mutex
+	send      func(string) error
+	disabled  bool
+	sent      int
+	toolSent  int
+	seenTools map[string]struct{}
+}
+
+func newTurnProgressController(send func(string) error) *turnProgressController {
+	p := &turnProgressController{
+		send:      send,
+		seenTools: make(map[string]struct{}),
+	}
+	return p
+}
+
+func (p *turnProgressController) Handle(evt agent.ProgressEvent) {
+	text, ok := compactStreamEvent(evt)
+	if !ok {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.disabled {
+		return
+	}
+	if _, exists := p.seenTools[text]; exists {
+		return
+	}
+	if p.sent >= maxProgressSendsPerTurn || p.toolSent >= maxProgressToolSendsPerTurn {
+		return
+	}
+	p.seenTools[text] = struct{}{}
+	if p.sendLocked(text) {
+		p.toolSent++
+	}
+}
+
+func (p *turnProgressController) Close() {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.disabled = true
+}
+
+func (p *turnProgressController) sendLocked(text string) bool {
+	if p.send == nil {
+		return false
+	}
+	if err := p.send(text); err != nil {
+		log.Printf("[handler] failed to send stream progress: %v", err)
+		p.disabled = true
+		return false
+	}
+	p.sent++
+	return true
 }
 
 // switchDefault switches the default agent. Starts it on demand if needed.
@@ -581,25 +989,55 @@ func (h *Handler) switchDefault(ctx context.Context, name string) string {
 
 	info := ag.Info()
 	log.Printf("[handler] switched default agent: %s -> %s (%s)", old, name, info)
-	return fmt.Sprintf("switch to %s", name)
+	return fmt.Sprintf("Switched default agent to %s.", userFacingAgentLabel(name, info))
 }
 
 // resetDefaultSession resets the session for the given userID on the default agent.
 func (h *Handler) resetDefaultSession(ctx context.Context, userID string) string {
+	h.mu.RLock()
+	defaultName := h.defaultName
+	h.mu.RUnlock()
+
 	ag := h.getDefaultAgent()
 	if ag == nil {
 		return "No agent running."
 	}
-	name := ag.Info().Name
+	info := ag.Info()
+	name := userFacingAgentLabel(defaultName, info)
 	sessionID, err := ag.ResetSession(ctx, userID)
 	if err != nil {
 		log.Printf("[handler] reset session failed for %s: %v", userID, err)
 		return fmt.Sprintf("Failed to reset session: %v", err)
 	}
 	if sessionID != "" {
-		return fmt.Sprintf("已创建新的%s会话\n%s", name, sessionID)
+		return fmt.Sprintf("Created a new %s session: %s", name, sessionID)
 	}
-	return fmt.Sprintf("已创建新的%s会话", name)
+	return fmt.Sprintf("Created a new %s session.", name)
+}
+
+func userFacingAgentLabel(preferred string, info agent.AgentInfo) string {
+	if label := friendlyAgentName(preferred); label != "" {
+		return label
+	}
+	if label := friendlyAgentName(info.Name); label != "" {
+		return label
+	}
+	if label := friendlyAgentName(info.Command); label != "" {
+		return label
+	}
+	return "agent"
+}
+
+func friendlyAgentName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+	name = strings.TrimRight(name, `/\`)
+	if strings.ContainsAny(name, `/\`) || filepath.IsAbs(name) {
+		name = filepath.Base(strings.ReplaceAll(name, `\`, `/`))
+	}
+	return name
 }
 
 // handleCwd handles the /cwd command. It updates the working directory for all running agents.

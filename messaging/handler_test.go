@@ -1,10 +1,16 @@
 package messaging
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fastclaw-ai/weclaw/agent"
+	"github.com/fastclaw-ai/weclaw/ilink"
 )
 
 func newTestHandler() *Handler {
@@ -137,4 +143,133 @@ func TestBuildHelpText(t *testing.T) {
 	if !strings.Contains(text, "/help") {
 		t.Error("help text should mention /help")
 	}
+}
+
+func TestResetDefaultSessionUsesConfiguredAgentName(t *testing.T) {
+	h := newTestHandler()
+	h.SetDefaultAgent("codex", &fakeAgent{
+		info:      agent.AgentInfo{Name: "/usr/local/bin/codex", Type: "acp"},
+		sessionID: "session-123",
+	})
+
+	got := h.resetDefaultSession(context.Background(), "user-1")
+	want := "Created a new codex session: session-123"
+	if got != want {
+		t.Fatalf("resetDefaultSession() = %q, want %q", got, want)
+	}
+}
+
+func TestSwitchDefaultUsesEnglishReply(t *testing.T) {
+	h := NewHandler(func(ctx context.Context, name string) agent.Agent {
+		if name != "codex" {
+			return nil
+		}
+		return &fakeAgent{info: agent.AgentInfo{Name: "/usr/local/bin/codex", Type: "acp"}}
+	}, nil)
+
+	got := h.switchDefault(context.Background(), "codex")
+	want := "Switched default agent to codex."
+	if got != want {
+		t.Fatalf("switchDefault() = %q, want %q", got, want)
+	}
+}
+
+func TestSendReplyWithMediaChunksFinalReply(t *testing.T) {
+	client, sent := newCaptureClient(t)
+	h := NewHandler(nil, nil)
+	msg := ilink.WeixinMessage{FromUserID: "user-1", ContextToken: "ctx-token"}
+
+	h.sendReplyWithMedia(context.Background(), client, msg, "codex", "First paragraph.\n\nSecond paragraph.", "client-1")
+
+	if len(*sent) != 3 {
+		t.Fatalf("sent %d messages, want 3: %#v", len(*sent), *sent)
+	}
+	wantTexts := []string{"First paragraph.", "Second paragraph.", "Done."}
+	for i, want := range wantTexts {
+		got := (*sent)[i].Msg.ItemList[0].TextItem.Text
+		if got != want {
+			t.Fatalf("sent[%d] text = %q, want %q", i, got, want)
+		}
+	}
+	if (*sent)[0].Msg.ClientID != "client-1" {
+		t.Fatalf("first client ID = %q, want client-1", (*sent)[0].Msg.ClientID)
+	}
+	if (*sent)[1].Msg.ClientID == "" || (*sent)[1].Msg.ClientID == "client-1" {
+		t.Fatalf("second client ID = %q, want a new non-empty ID", (*sent)[1].Msg.ClientID)
+	}
+}
+
+func TestProgressSenderIsNotParagraphChunked(t *testing.T) {
+	h := NewHandler(nil, nil)
+	ag := &fakeStreamingAgent{
+		events: []agent.ProgressEvent{
+			{Type: agent.ProgressEventToolStart, Text: "memory_router.memory_query"},
+		},
+		reply: "final answer",
+	}
+	var sent []string
+	h.SetStreamConfig(StreamConfig{
+		Enabled:       true,
+		Interval:      time.Hour,
+		MaxChunkChars: 100,
+		ToolEvents:    true,
+	})
+	h.streamSender = func(ctx context.Context, client *ilink.Client, toUserID, text, contextToken, clientID string) error {
+		sent = append(sent, text)
+		return nil
+	}
+
+	_, _, err := h.chatMaybeStream(context.Background(), &ilink.Client{}, ilink.WeixinMessage{
+		FromUserID:   "user-1",
+		ContextToken: "ctx-token",
+	}, ag, "user-1", "hello")
+	if err != nil {
+		t.Fatalf("chatMaybeStream returned error: %v", err)
+	}
+	assertSent(t, sent, []string{"using memory_router.memory_query"})
+}
+
+type fakeAgent struct {
+	info      agent.AgentInfo
+	reply     string
+	sessionID string
+}
+
+func (a *fakeAgent) Chat(ctx context.Context, conversationID string, message string) (string, error) {
+	return a.reply, nil
+}
+
+func (a *fakeAgent) ResetSession(ctx context.Context, conversationID string) (string, error) {
+	return a.sessionID, nil
+}
+
+func (a *fakeAgent) Info() agent.AgentInfo {
+	return a.info
+}
+
+func (a *fakeAgent) SetCwd(cwd string) {}
+
+func newCaptureClient(t *testing.T) (*ilink.Client, *[]ilink.SendMessageRequest) {
+	t.Helper()
+	var sent []ilink.SendMessageRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ilink/bot/sendmessage" {
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+		var req ilink.SendMessageRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		sent = append(sent, req)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ret":0}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client := ilink.NewClient(&ilink.Credentials{
+		BotToken:   "token",
+		ILinkBotID: "bot-1",
+		BaseURL:    server.URL,
+	})
+	return client, &sent
 }

@@ -77,7 +77,7 @@ func isAllowedAttachmentPath(path string, allowedRoots []string) bool {
 func rewriteReplyWithAttachmentResults(reply string, sentPaths, failedPaths []string) string {
 	sentMap := make(map[string]string, len(sentPaths))
 	for _, path := range sentPaths {
-		sentMap[path] = "已发送附件：" + filepath.Base(path)
+		sentMap[path] = "Sent attachment: " + filepath.Base(path)
 	}
 
 	lines := strings.Split(reply, "\n")
@@ -97,7 +97,7 @@ func rewriteReplyWithAttachmentResults(reply string, sentPaths, failedPaths []st
 			continue
 		}
 		seenFailures[path] = struct{}{}
-		failureLines = append(failureLines, "附件发送失败："+filepath.Base(path))
+		failureLines = append(failureLines, "Attachment send failed: "+filepath.Base(path))
 	}
 	if len(failureLines) == 0 {
 		return rewritten

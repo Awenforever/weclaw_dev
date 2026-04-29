@@ -14,7 +14,7 @@
 
 ```bash
 # 一键安装
-curl -sSL https://raw.githubusercontent.com/fastclaw-ai/weclaw/main/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
 
 # 启动（首次运行会弹出微信扫码登录）
 weclaw start
@@ -29,11 +29,14 @@ weclaw start
 
 使用 `weclaw login` 可以添加更多微信账号。
 
+这个分支默认从 `Awenforever/weclaw_dev` 安装。若仓库已经发布 GitHub
+Release，安装脚本会优先下载发布产物；如果还没有 Release，则会自动回退为源码构建安装。
+
 ### 其他安装方式
 
 ```bash
 # 通过 Go 安装
-go install github.com/fastclaw-ai/weclaw@latest
+go install github.com/Awenforever/weclaw_dev@latest
 
 # 通过 Docker
 docker run -it -v ~/.weclaw:/root/.weclaw ghcr.io/fastclaw-ai/weclaw start

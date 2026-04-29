@@ -93,6 +93,30 @@ func TestDefaultConfigInitializesAgentsMap(t *testing.T) {
 	}
 }
 
+func TestDefaultConfigInitializesStreamDefaults(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.StreamUpdates {
+		t.Fatal("StreamUpdates = true, want disabled by default")
+	}
+	if cfg.StreamIntervalMS != 1500 {
+		t.Fatalf("StreamIntervalMS = %d, want 1500", cfg.StreamIntervalMS)
+	}
+	if cfg.StreamMaxChunkChars != 1200 {
+		t.Fatalf("StreamMaxChunkChars = %d, want 1200", cfg.StreamMaxChunkChars)
+	}
+	if !cfg.StreamToolEvents {
+		t.Fatal("StreamToolEvents = false, want true default")
+	}
+}
+
+func TestApplyConfigDefaultsPreservesExplicitStreamToolEventsFalse(t *testing.T) {
+	cfg := &Config{StreamUpdates: true}
+	applyConfigDefaults(cfg, []byte(`{"stream_updates":true,"stream_tool_events":false}`))
+	if cfg.StreamToolEvents {
+		t.Fatal("StreamToolEvents = true, want explicit false preserved")
+	}
+}
+
 func TestLoadEnvOverridesTopLevelOnly(t *testing.T) {
 	t.Setenv("WECLAW_DEFAULT_AGENT", "codex")
 	t.Setenv("WECLAW_API_ADDR", "127.0.0.1:18011")

@@ -93,3 +93,27 @@ type Agent interface {
 	// SetCwd changes the working directory for subsequent operations.
 	SetCwd(cwd string)
 }
+
+// ProgressEvent is a safe, user-visible streaming update from an agent.
+type ProgressEvent struct {
+	Type  string
+	Text  string
+	ID    string
+	Final bool
+}
+
+const (
+	ProgressEventAssistantDelta           = "assistant_delta"
+	ProgressEventAssistantMessageComplete = "assistant_message_complete"
+	ProgressEventStatus                   = "status"
+	ProgressEventToolStart                = "tool_start"
+	ProgressEventToolProgress             = "tool_progress"
+	ProgressEventToolEnd                  = "tool_end"
+	ProgressEventError                    = "error"
+)
+
+// StreamingAgent is optionally implemented by agents that can emit progress
+// before their final response is complete.
+type StreamingAgent interface {
+	ChatStream(ctx context.Context, conversationID string, message string, onEvent func(ProgressEvent) error) (string, error)
+}

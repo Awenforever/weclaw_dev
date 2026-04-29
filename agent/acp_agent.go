@@ -167,9 +167,12 @@ type codexUserInput struct {
 }
 
 type codexTurnEvent struct {
-	Kind  string
-	Delta string
-	Text  string
+	Kind     string
+	Delta    string
+	Text     string
+	ItemID   string
+	Final    bool
+	Progress *ProgressEvent
 }
 
 func detectACPProtocol(command string, args []string) string {
@@ -360,6 +363,12 @@ func (a *ACPAgent) ResetSession(ctx context.Context, conversationID string) (str
 
 // Chat sends a message and returns the full response.
 func (a *ACPAgent) Chat(ctx context.Context, conversationID string, message string) (string, error) {
+	return a.ChatStream(ctx, conversationID, message, nil)
+}
+
+// ChatStream sends a message and optionally emits safe progress events before
+// returning the final response.
+func (a *ACPAgent) ChatStream(ctx context.Context, conversationID string, message string, onEvent func(ProgressEvent) error) (string, error) {
 	if !a.started {
 		if err := a.Start(ctx); err != nil {
 			return "", err
@@ -368,7 +377,7 @@ func (a *ACPAgent) Chat(ctx context.Context, conversationID string, message stri
 
 	// Route to codex app-server protocol if applicable
 	if a.protocol == protocolCodexAppServer {
-		return a.chatCodexAppServer(ctx, conversationID, message)
+		return a.chatCodexAppServer(ctx, conversationID, message, onEvent)
 	}
 
 	// Get or create session
@@ -425,6 +434,7 @@ func (a *ACPAgent) Chat(ctx context.Context, conversationID string, message stri
 				text := extractChunkText(update)
 				if text != "" {
 					textParts = append(textParts, text)
+					emitProgress(onEvent, ProgressEvent{Type: ProgressEventAssistantDelta, Text: text})
 				}
 			}
 		case done := <-promptDone:
@@ -436,6 +446,7 @@ func (a *ACPAgent) Chat(ctx context.Context, conversationID string, message stri
 						text := extractChunkText(update)
 						if text != "" {
 							textParts = append(textParts, text)
+							emitProgress(onEvent, ProgressEvent{Type: ProgressEventAssistantDelta, Text: text})
 						}
 					}
 				default:
@@ -446,7 +457,7 @@ func (a *ACPAgent) Chat(ctx context.Context, conversationID string, message stri
 			if done.err != nil {
 				return "", fmt.Errorf("prompt error: %w", done.err)
 			}
-			result := strings.TrimSpace(strings.Join(textParts, ""))
+			result := joinACPTextParts(textParts)
 			if result == "" {
 				// Try extracting from prompt result (some agents return content here)
 				result = extractPromptResultText(done.result)
@@ -531,7 +542,7 @@ func (a *ACPAgent) getOrCreateThread(ctx context.Context, conversationID string)
 	return threadResult.Thread.ID, true, nil
 }
 
-func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string, message string) (string, error) {
+func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string, message string, onEvent func(ProgressEvent) error) (string, error) {
 	threadID, isNew, err := a.getOrCreateThread(ctx, conversationID)
 	if err != nil {
 		return "", fmt.Errorf("thread error: %w", err)
@@ -579,23 +590,37 @@ func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string
 	}()
 
 	// Collect text from events until turn/completed
-	var textParts []string
+	var deltaParts []string
+	var completedParts []string
 	for {
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
 		case evt := <-turnCh:
 			if evt.Kind == "error" {
+				emitProgress(onEvent, ProgressEvent{Type: ProgressEventError, Text: evt.Text})
 				return "", fmt.Errorf("turn error: %s", evt.Text)
 			}
+			if evt.Progress != nil {
+				emitProgress(onEvent, *evt.Progress)
+			}
 			if evt.Delta != "" {
-				textParts = append(textParts, evt.Delta)
+				deltaParts = append(deltaParts, evt.Delta)
 			}
 			if evt.Text != "" {
-				textParts = append(textParts, evt.Text)
+				completedParts = append(completedParts, evt.Text)
+				emitProgress(onEvent, ProgressEvent{
+					Type:  ProgressEventAssistantMessageComplete,
+					Text:  evt.Text,
+					ID:    evt.ItemID,
+					Final: evt.Final,
+				})
 			}
 			if evt.Kind == "completed" {
-				result := strings.TrimSpace(strings.Join(textParts, ""))
+				result := joinACPTextParts(completedParts)
+				if result == "" {
+					result = joinACPTextParts(deltaParts)
+				}
 				if result == "" {
 					return "", fmt.Errorf("agent returned empty response")
 				}
@@ -728,18 +753,29 @@ func (a *ACPAgent) readLoop() {
 			a.handleCodexItemDelta(msg.Params)
 		case "item/started":
 			a.handleCodexItemStarted(msg.Params)
+		case "item/completed":
+			a.handleCodexItemCompleted(msg.Params)
+		case "item/mcpToolCall/progress":
+			a.handleCodexToolProgress(msg.Params)
 		case "turn/started", "turn/completed":
 			a.handleCodexTurnEvent(msg.Method, msg.Params)
+		case "thread/status/changed":
+			a.handleCodexThreadStatusChanged(msg.Params)
+		case "mcpServer/startupStatus/updated":
+			a.handleCodexMCPStartupStatus(msg.Params)
 		case "codex/event/agent_message", "codex/event/task_complete",
 			"codex/event/item_completed", "codex/event/token_count",
-			"item/completed", "thread/tokenUsage/updated",
-			"account/rateLimits/updated", "thread/status/changed":
+			"thread/tokenUsage/updated", "account/rateLimits/updated",
+			"skills/changed", "thread/started", "item/reasoning/textDelta":
 			// Known events we don't need to act on
 		case "turn/approval/request":
 			a.handlePermissionRequest(line)
 
 		default:
 			if msg.Method != "" {
+				if strings.Contains(strings.ToLower(msg.Method), "reasoning") {
+					continue
+				}
 				log.Printf("[acp] unhandled method: %s (raw: %.200s)", msg.Method, line)
 			}
 		}
@@ -844,13 +880,17 @@ func (a *ACPAgent) handleCodexItemDelta(params json.RawMessage) {
 }
 
 // handleCodexItemStarted handles "item/started" events.
-// When type=agentMessage, extracts text from content array.
 func (a *ACPAgent) handleCodexItemStarted(params json.RawMessage) {
 	var p struct {
 		ThreadID string `json:"threadId"`
 		Item     struct {
-			Type    string `json:"type"`
-			Content []struct {
+			Type      string `json:"type"`
+			Name      string `json:"name"`
+			ToolName  string `json:"toolName"`
+			Title     string `json:"title"`
+			CallID    string `json:"callId"`
+			StartedAt string `json:"startedAt"`
+			Content   []struct {
 				Type string `json:"type"`
 				Text string `json:"text"`
 			} `json:"content"`
@@ -860,15 +900,83 @@ func (a *ACPAgent) handleCodexItemStarted(params json.RawMessage) {
 		return
 	}
 
+	if isToolItemType(p.Item.Type) {
+		name := firstNonEmpty(p.Item.Name, p.Item.ToolName, p.Item.Title, p.Item.CallID, p.Item.Type)
+		a.dispatchToTurnCh(p.ThreadID, &codexTurnEvent{Progress: &ProgressEvent{
+			Type: ProgressEventToolStart,
+			Text: "using " + name,
+		}})
+	}
+}
+
+func (a *ACPAgent) handleCodexItemCompleted(params json.RawMessage) {
+	var p struct {
+		ThreadID   string  `json:"threadId"`
+		DurationMS float64 `json:"durationMs"`
+		Phase      string  `json:"phase"`
+		Item       struct {
+			ID         string  `json:"id"`
+			Type       string  `json:"type"`
+			Name       string  `json:"name"`
+			ToolName   string  `json:"toolName"`
+			Title      string  `json:"title"`
+			CallID     string  `json:"callId"`
+			Text       string  `json:"text"`
+			Phase      string  `json:"phase"`
+			DurationMS float64 `json:"durationMs"`
+			Content    []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return
+	}
 	if p.Item.Type != "agentMessage" {
 		return
 	}
 
-	for _, c := range p.Item.Content {
-		if c.Type == "text" && c.Text != "" {
-			a.dispatchToTurnCh(p.ThreadID, &codexTurnEvent{Text: c.Text})
+	text := p.Item.Text
+	if text == "" {
+		var parts []string
+		for _, c := range p.Item.Content {
+			if c.Type == "text" && c.Text != "" {
+				parts = append(parts, c.Text)
+			}
 		}
+		text = joinACPTextParts(parts)
 	}
+	if text == "" {
+		return
+	}
+
+	phase := firstNonEmpty(p.Item.Phase, p.Phase)
+	a.dispatchToTurnCh(p.ThreadID, &codexTurnEvent{
+		Text:   text,
+		ItemID: p.Item.ID,
+		Final:  isCodexFinalAnswerPhase(phase),
+	})
+}
+
+func (a *ACPAgent) handleCodexToolProgress(params json.RawMessage) {
+	var p struct {
+		ThreadID string `json:"threadId"`
+		Name     string `json:"name"`
+		ToolName string `json:"toolName"`
+		Message  string `json:"message"`
+		Item     struct {
+			Name     string `json:"name"`
+			ToolName string `json:"toolName"`
+			Title    string `json:"title"`
+			CallID   string `json:"callId"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return
+	}
+	name := firstNonEmpty(p.Name, p.ToolName, p.Item.Name, p.Item.ToolName, p.Item.Title, p.Item.CallID, "tool")
+	a.dispatchToTurnCh(p.ThreadID, &codexTurnEvent{Progress: &ProgressEvent{Type: ProgressEventToolProgress, Text: "using " + name}})
 }
 
 // handleCodexTurnEvent handles "turn/started" and "turn/completed" notifications.
@@ -884,6 +992,32 @@ func (a *ACPAgent) handleCodexTurnEvent(method string, params json.RawMessage) {
 	if method == "turn/completed" {
 		a.dispatchToTurnCh(p.ThreadID, &codexTurnEvent{Kind: "completed"})
 	}
+}
+
+func (a *ACPAgent) handleCodexThreadStatusChanged(params json.RawMessage) {
+	var p struct {
+		ThreadID string `json:"threadId"`
+		Status   string `json:"status"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil || p.Status == "" {
+		return
+	}
+	// Thread lifecycle states are internal app-server noise.
+}
+
+func (a *ACPAgent) handleCodexMCPStartupStatus(params json.RawMessage) {
+	var p struct {
+		ThreadID   string `json:"threadId"`
+		Server     string `json:"server"`
+		ServerName string `json:"serverName"`
+		Name       string `json:"name"`
+		Status     string `json:"status"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return
+	}
+	// MCP startup/ready notifications are low-level lifecycle noise. Actual
+	// tool calls still surface through item/mcpToolCall events.
 }
 
 // dispatchToTurnCh sends an event to the turn channel for a thread.
@@ -906,6 +1040,33 @@ func (a *ACPAgent) dispatchToTurnCh(threadID string, evt *codexTurnEvent) {
 		default:
 		}
 	}
+}
+
+func emitProgress(onEvent func(ProgressEvent) error, evt ProgressEvent) {
+	if onEvent == nil || evt.Text == "" {
+		return
+	}
+	if err := onEvent(evt); err != nil {
+		log.Printf("[acp] progress callback failed: %v", err)
+	}
+}
+
+func isToolItemType(itemType string) bool {
+	return strings.Contains(strings.ToLower(itemType), "tool")
+}
+
+func isCodexFinalAnswerPhase(phase string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(phase))
+	return normalized == "final_answer" || normalized == "final-answer" || normalized == "finalanswer"
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func (a *ACPAgent) handlePermissionRequest(raw string) {
@@ -1019,7 +1180,49 @@ func extractPromptResultText(result json.RawMessage) string {
 			parts = append(parts, c.Text)
 		}
 	}
-	return strings.Join(parts, "")
+	return joinACPTextParts(parts)
+}
+
+func joinACPTextParts(parts []string) string {
+	var b strings.Builder
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		if b.Len() > 0 && needsACPTextBoundary(b.String(), part) {
+			b.WriteString("\n\n")
+		}
+		b.WriteString(part)
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func needsACPTextBoundary(prev, next string) bool {
+	prev = strings.TrimRight(prev, " \t\r\n")
+	next = strings.TrimLeft(next, " \t\r\n")
+	if prev == "" || next == "" {
+		return false
+	}
+	prevRunes := []rune(prev)
+	nextRunes := []rune(next)
+	last := prevRunes[len(prevRunes)-1]
+	first := nextRunes[0]
+	if !isACPBoundaryTerminal(last) {
+		return false
+	}
+	if first == '[' || first == '(' || first == '"' || first == '\'' || first == '`' {
+		return true
+	}
+	return (first >= 'A' && first <= 'Z') || (first >= '0' && first <= '9') || first == '#' || first == '-' || first == '*' || first == '+'
+}
+
+func isACPBoundaryTerminal(r rune) bool {
+	switch r {
+	case '.', '!', '?', ':', '。', '！', '？', '：':
+		return true
+	default:
+		return false
+	}
 }
 
 // acpStderrWriter forwards the ACP subprocess stderr to the application log

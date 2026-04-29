@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -24,18 +25,21 @@ import (
 var (
 	foregroundFlag bool
 	apiAddrFlag    string
+	stdoutFlag     bool
 )
 
 func init() {
 	startCmd.Flags().BoolVarP(&foregroundFlag, "foreground", "f", false, "Run in foreground (default is background)")
 	startCmd.Flags().StringVar(&apiAddrFlag, "api-addr", "", "API server listen address (default 127.0.0.1:18011)")
+	startCmd.Flags().BoolVar(&stdoutFlag, "stdout", false, "Save background stdout and stderr to ~/.weclaw/weclaw.log")
 	rootCmd.AddCommand(startCmd)
 }
 
 var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Start the WeChat message bridge (auto-login if needed)",
-	RunE:  runStart,
+	Use:     "start",
+	Short:   "Start the WeChat message bridge (auto-login if needed)",
+	Example: "  weclaw start\n  weclaw start --stdout\n  weclaw start -f",
+	RunE:    runStart,
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
@@ -51,7 +55,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("login failed: %w", err)
 			}
 		}
-		return runDaemon()
+		return runDaemon(stdoutFlag)
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -128,6 +132,12 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	handler.SetAgentMetas(metas)
 	handler.SetAgentWorkDirs(workDirs)
+	handler.SetStreamConfig(messaging.StreamConfig{
+		Enabled:       cfg.StreamUpdates,
+		Interval:      time.Duration(cfg.StreamIntervalMS) * time.Millisecond,
+		MaxChunkChars: cfg.StreamMaxChunkChars,
+		ToolEvents:    cfg.StreamToolEvents,
+	})
 
 	// Load custom aliases from agent configs
 	handler.SetCustomAliases(config.BuildAliasMap(cfg.Agents))
@@ -348,19 +358,13 @@ func logFile() string {
 }
 
 // runDaemon spawns weclaw start (without --daemon) as a background process.
-func runDaemon() error {
+func runDaemon(saveStdout bool) error {
 	// Kill any existing weclaw processes before starting a new one
 	stopAllWeclaw()
 
 	// Ensure log directory exists
 	if err := os.MkdirAll(weclawDir(), 0o700); err != nil {
 		return fmt.Errorf("create weclaw dir: %w", err)
-	}
-
-	// Open log file
-	lf, err := os.OpenFile(logFile(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		return fmt.Errorf("open log file: %w", err)
 	}
 
 	// Re-exec ourselves without --daemon
@@ -370,12 +374,21 @@ func runDaemon() error {
 	}
 
 	cmd := exec.Command(exe, "start", "-f")
-	cmd.Stdout = lf
-	cmd.Stderr = lf
+	if saveStdout {
+		lf, err := os.OpenFile(logFile(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		if err != nil {
+			return fmt.Errorf("open log file: %w", err)
+		}
+		defer lf.Close()
+		cmd.Stdout = lf
+		cmd.Stderr = lf
+	} else {
+		cmd.Stdout = io.Discard
+		cmd.Stderr = io.Discard
+	}
 	setSysProcAttr(cmd)
 
 	if err := cmd.Start(); err != nil {
-		lf.Close()
 		return fmt.Errorf("start daemon: %w", err)
 	}
 
@@ -385,10 +398,13 @@ func runDaemon() error {
 
 	// Detach — don't wait
 	cmd.Process.Release()
-	lf.Close()
 
 	fmt.Printf("weclaw started in background (pid=%d)\n", pid)
-	fmt.Printf("Log: %s\n", logFile())
+	if saveStdout {
+		fmt.Printf("Log: %s\n", logFile())
+	} else {
+		fmt.Println("Background stdout/stderr are discarded by default. Use --stdout to save them to ~/.weclaw/weclaw.log.")
+	}
 	fmt.Printf("Stop: weclaw stop\n")
 	return nil
 }

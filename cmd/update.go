@@ -110,7 +110,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		os.Remove(pidFile())
 
 		fmt.Println("Starting new version...")
-		if err := runDaemon(); err != nil {
+		if err := runDaemon(false); err != nil {
 			log.Printf("Failed to restart: %v", err)
 			fmt.Println("Update complete. Please run 'weclaw start' manually.")
 		}

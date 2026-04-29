@@ -14,7 +14,7 @@ WeChat AI Agent Bridge — connect WeChat to AI agents (Claude, Codex, Gemini, K
 
 ```bash
 # One-line install
-curl -sSL https://raw.githubusercontent.com/fastclaw-ai/weclaw/main/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
 
 # Start (first run will prompt QR code login)
 weclaw start
@@ -28,11 +28,15 @@ That's it. On first start, WeClaw will:
 
 Use `weclaw login` to add additional WeChat accounts.
 
+This fork installs from `Awenforever/weclaw_dev`. The installer uses a GitHub
+release when one exists and falls back to building from source if the fork has
+not published a release yet.
+
 ### Other install methods
 
 ```bash
 # Via Go
-go install github.com/fastclaw-ai/weclaw@latest
+go install github.com/Awenforever/weclaw_dev@latest
 
 # Via Docker
 docker run -it -v ~/.weclaw:/root/.weclaw ghcr.io/fastclaw-ai/weclaw start
@@ -243,6 +247,9 @@ Set `cwd` to specify the agent's working directory (workspace). If omitted, defa
 # Start (runs in background by default)
 weclaw start
 
+# Start and save stdout/stderr to ~/.weclaw/weclaw.log
+weclaw start --stdout
+
 # Check if running
 weclaw status
 
@@ -253,7 +260,8 @@ weclaw stop
 weclaw start -f
 ```
 
-Logs are written to `~/.weclaw/weclaw.log`.
+By default, background stdout/stderr are discarded. Use `weclaw start --stdout`
+if you want them written to `~/.weclaw/weclaw.log`.
 
 ### System service (auto-start on boot)
 
