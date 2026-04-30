@@ -7,3 +7,7 @@ import "os/exec"
 func setSysProcAttr(_ *exec.Cmd) {
 	// No Setsid on Windows — process is already detached via Start()
 }
+
+func processRunning(_ int) bool {
+	return true
+}

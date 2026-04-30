@@ -20,6 +20,9 @@ curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.
 weclaw start
 ```
 
+注意：这个分支的安装脚本会优先使用 GitHub Release；如果还没有发布 Release，
+就会自动回退为源码构建。此时本地需要有 `git`，而 `go` 如果不存在，安装脚本会自动临时引导一份 Go 工具链。
+
 就这么简单。首次启动时，WeClaw 会：
 
 1. 显示二维码 — 用微信扫码登录
@@ -31,6 +34,9 @@ weclaw start
 
 这个分支默认从 `Awenforever/weclaw_dev` 安装。若仓库已经发布 GitHub
 Release，安装脚本会优先下载发布产物；如果还没有 Release，则会自动回退为源码构建安装。
+
+对于 Codex 的 ACP 模式，请直接使用真实的 `codex` 可执行文件，不要额外包一层
+`tee` 或 stdout 抓取脚本，除非你明确需要持久化 NDJSON 日志；否则会改变运行行为并持续写本地文件。
 
 ### 其他安装方式
 
@@ -173,10 +179,8 @@ curl -X POST http://127.0.0.1:18011/api/send \
     },
     "codex": {
       "type": "acp",
-      "command": "/usr/local/bin/codex-acp",
-      "env": {
-        "OPENAI_API_KEY": "sk-xxx"
-      }
+      "command": "/usr/local/bin/codex",
+      "args": ["app-server", "--listen", "stdio://"]
     },
     "openclaw": {
       "type": "http",
@@ -218,6 +222,9 @@ curl -X POST http://127.0.0.1:18011/api/send \
 |-------|------|------|
 | Claude (CLI) | `--dangerously-skip-permissions` | 跳过所有工具权限确认 |
 | Codex (CLI) | `--skip-git-repo-check` | 允许在非 git 仓库目录运行 |
+
+对于 Codex 的 ACP 模式，WeClaw 已经直接使用 `codex app-server --listen stdio://`，
+并以 `approvalPolicy: "never"` 启动 turn；不需要再额外套一层 stdout 抓取包装脚本。
 
 配置示例：
 

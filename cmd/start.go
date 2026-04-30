@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -55,7 +54,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("login failed: %w", err)
 			}
 		}
-		return runDaemon(stdoutFlag)
+		apiAddr, err := resolveAPIAddr()
+		if err != nil {
+			return fmt.Errorf("failed to resolve API address: %w", err)
+		}
+		return runDaemon(stdoutFlag, apiAddr)
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -174,11 +177,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 		apiAddr = apiAddrFlag
 	}
 	apiServer := api.NewServer(clients, apiAddr)
-	go func() {
-		if err := apiServer.Run(ctx); err != nil {
-			log.Printf("API server error: %v", err)
-		}
-	}()
+	if err := apiServer.Start(ctx); err != nil {
+		return fmt.Errorf("start API server: %w", err)
+	}
 
 	// Start monitors immediately — they will use echo mode until agent is ready
 	log.Printf("Starting message bridge for %d account(s)...", len(accounts))
@@ -358,9 +359,13 @@ func logFile() string {
 }
 
 // runDaemon spawns weclaw start (without --daemon) as a background process.
-func runDaemon(saveStdout bool) error {
-	// Kill any existing weclaw processes before starting a new one
-	stopAllWeclaw()
+func runDaemon(saveStdout bool, apiAddr string) error {
+	if err := stopManagedWeclaw(); err != nil {
+		return err
+	}
+	if err := waitForAPIAddrFree(apiAddr, 2*time.Second); err != nil {
+		return err
+	}
 
 	// Ensure log directory exists
 	if err := os.MkdirAll(weclawDir(), 0o700); err != nil {
@@ -374,18 +379,23 @@ func runDaemon(saveStdout bool) error {
 	}
 
 	cmd := exec.Command(exe, "start", "-f")
+	var outputFile *os.File
 	if saveStdout {
 		lf, err := os.OpenFile(logFile(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 		if err != nil {
 			return fmt.Errorf("open log file: %w", err)
 		}
-		defer lf.Close()
-		cmd.Stdout = lf
-		cmd.Stderr = lf
+		outputFile = lf
 	} else {
-		cmd.Stdout = io.Discard
-		cmd.Stderr = io.Discard
+		devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+		if err != nil {
+			return fmt.Errorf("open %s: %w", os.DevNull, err)
+		}
+		outputFile = devNull
 	}
+	defer outputFile.Close()
+	cmd.Stdout = outputFile
+	cmd.Stderr = outputFile
 	setSysProcAttr(cmd)
 
 	if err := cmd.Start(); err != nil {
@@ -394,7 +404,19 @@ func runDaemon(saveStdout bool) error {
 
 	// Save PID
 	pid := cmd.Process.Pid
-	os.WriteFile(pidFile(), []byte(fmt.Sprintf("%d", pid)), 0o644)
+	if err := os.WriteFile(pidFile(), []byte(fmt.Sprintf("%d", pid)), 0o644); err != nil {
+		_ = cmd.Process.Kill()
+		return fmt.Errorf("write pid file: %w", err)
+	}
+
+	if err := waitForAPIReady(pid, apiAddr, 8*time.Second); err != nil {
+		_ = cmd.Process.Kill()
+		_ = os.Remove(pidFile())
+		if saveStdout {
+			return fmt.Errorf("%w (see %s)", err, logFile())
+		}
+		return err
+	}
 
 	// Detach — don't wait
 	cmd.Process.Release()
@@ -427,25 +449,5 @@ func processExists(pid int) bool {
 		return false
 	}
 	// Signal 0 checks if process exists without killing it
-	return p.Signal(syscall.Signal(0)) == nil
-}
-
-// stopAllWeclaw kills all running weclaw processes (by PID file and by process scan).
-func stopAllWeclaw() {
-	// 1. Kill by PID file
-	if pid, err := readPid(); err == nil && processExists(pid) {
-		if p, err := os.FindProcess(pid); err == nil {
-			_ = p.Signal(syscall.SIGTERM)
-		}
-	}
-	os.Remove(pidFile())
-
-	// 2. Kill any remaining weclaw processes by scanning
-	exe, err := os.Executable()
-	if err != nil {
-		return
-	}
-	// Use pkill to kill all processes matching the executable path
-	_ = exec.Command("pkill", "-f", exe+" start").Run()
-	time.Sleep(500 * time.Millisecond)
+	return p.Signal(syscall.Signal(0)) == nil && processRunning(pid)
 }

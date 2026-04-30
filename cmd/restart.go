@@ -2,9 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"syscall"
-	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -17,24 +14,28 @@ var restartCmd = &cobra.Command{
 	Use:   "restart",
 	Short: "Restart the background weclaw process",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Stop if running
-		pid, err := readPid()
-		if err == nil && processExists(pid) {
-			fmt.Printf("Stopping weclaw (pid=%d)...\n", pid)
-			if p, err := os.FindProcess(pid); err == nil {
-				p.Signal(syscall.SIGTERM)
+		_, _, live, err := inspectRuntimeState()
+		if err != nil {
+			return err
+		}
+		if len(live) > 0 {
+			fmt.Printf("Stopping %d managed weclaw process(es)...\n", len(live))
+			if err := stopManagedWeclaw(); err != nil {
+				return err
 			}
-			for i := 0; i < 20; i++ {
-				if !processExists(pid) {
-					break
-				}
-				time.Sleep(500 * time.Millisecond)
+		} else {
+			if err := stopManagedWeclaw(); err != nil {
+				return err
 			}
-			os.Remove(pidFile())
+			fmt.Println("No managed weclaw process found; clearing stale runtime state")
 		}
 
-		// Start
+		apiAddr, err := resolveAPIAddr()
+		if err != nil {
+			return fmt.Errorf("failed to resolve API address: %w", err)
+		}
+
 		fmt.Println("Starting weclaw...")
-		return runDaemon(false)
+		return runDaemon(false, apiAddr)
 	},
 }

@@ -20,6 +20,11 @@ curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.
 weclaw start
 ```
 
+Note: this fork's installer uses a GitHub release if one exists. If no release
+has been published yet, it falls back to building from source. It requires
+local `git`, and it will bootstrap a temporary Go toolchain automatically when
+`go` is not already installed.
+
 That's it. On first start, WeClaw will:
 1. Show a QR code — scan with WeChat to login
 2. Auto-detect installed AI agents (Claude, Codex, Gemini, etc.)
@@ -31,6 +36,10 @@ Use `weclaw login` to add additional WeChat accounts.
 This fork installs from `Awenforever/weclaw_dev`. The installer uses a GitHub
 release when one exists and falls back to building from source if the fork has
 not published a release yet.
+
+For Codex ACP mode, use the real `codex` binary directly. Do not wrap it with
+`tee` or a stdout-capture script unless you explicitly want persistent NDJSON
+logs, because that changes the runtime behavior and local file footprint.
 
 ### Other install methods
 
@@ -173,10 +182,8 @@ Config file: `~/.weclaw/config.json`
     },
     "codex": {
       "type": "acp",
-      "command": "/usr/local/bin/codex-acp",
-      "env": {
-        "OPENAI_API_KEY": "sk-xxx"
-      }
+      "command": "/usr/local/bin/codex",
+      "args": ["app-server", "--listen", "stdio://"]
     },
     "openclaw": {
       "type": "http",
@@ -217,6 +224,10 @@ By default, some agents require interactive permission approval which doesn't wo
 |-------|------|-------------|
 | Claude (CLI) | `--dangerously-skip-permissions` | Skip all tool permission prompts |
 | Codex (CLI) | `--skip-git-repo-check` | Allow running outside git repos |
+
+For Codex ACP mode, WeClaw already uses `codex app-server --listen stdio://`
+and starts turns with `approvalPolicy: "never"`. There is no need to add a
+stdout-capture wrapper just to run Codex under WeClaw.
 
 Example:
 

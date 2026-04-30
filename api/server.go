@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 
 	"github.com/fastclaw-ai/weclaw/ilink"
 	"github.com/fastclaw-ai/weclaw/messaging"
 )
+
+const DefaultAddr = "127.0.0.1:18011"
 
 // Server provides an HTTP API for sending messages.
 type Server struct {
@@ -20,7 +23,7 @@ type Server struct {
 // NewServer creates an API server.
 func NewServer(clients []*ilink.Client, addr string) *Server {
 	if addr == "" {
-		addr = "127.0.0.1:18011"
+		addr = DefaultAddr
 	}
 	return &Server{clients: clients, addr: addr}
 }
@@ -34,6 +37,38 @@ type SendRequest struct {
 
 // Run starts the HTTP server. Blocks until ctx is cancelled.
 func (s *Server) Run(ctx context.Context) error {
+	ln, err := s.listen()
+	if err != nil {
+		return err
+	}
+	return s.serve(ctx, ln)
+}
+
+// Start binds the configured address synchronously, then serves in background.
+func (s *Server) Start(ctx context.Context) error {
+	ln, err := s.listen()
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		if err := s.serve(ctx, ln); err != nil {
+			log.Printf("API server error: %v", err)
+		}
+	}()
+	return nil
+}
+
+func (s *Server) listen() (net.Listener, error) {
+	ln, err := net.Listen("tcp", s.addr)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("[api] listening on %s", s.addr)
+	return ln, nil
+}
+
+func (s *Server) serve(ctx context.Context, ln net.Listener) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/send", s.handleSend)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -41,15 +76,14 @@ func (s *Server) Run(ctx context.Context) error {
 		fmt.Fprintln(w, "ok")
 	})
 
-	srv := &http.Server{Addr: s.addr, Handler: mux}
+	srv := &http.Server{Handler: mux}
 
 	go func() {
 		<-ctx.Done()
 		srv.Shutdown(context.Background())
 	}()
 
-	log.Printf("[api] listening on %s", s.addr)
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 		return err
 	}
 	return nil

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -181,10 +182,10 @@ func TestSendReplyWithMediaChunksFinalReply(t *testing.T) {
 
 	h.sendReplyWithMedia(context.Background(), client, msg, "codex", "First paragraph.\n\nSecond paragraph.", "client-1")
 
-	if len(*sent) != 3 {
-		t.Fatalf("sent %d messages, want 3: %#v", len(*sent), *sent)
+	if len(*sent) != 2 {
+		t.Fatalf("sent %d messages, want 2: %#v", len(*sent), *sent)
 	}
-	wantTexts := []string{"First paragraph.", "Second paragraph.", "Done."}
+	wantTexts := []string{"First paragraph.", "Second paragraph."}
 	for i, want := range wantTexts {
 		got := (*sent)[i].Msg.ItemList[0].TextItem.Text
 		if got != want {
@@ -196,6 +197,38 @@ func TestSendReplyWithMediaChunksFinalReply(t *testing.T) {
 	}
 	if (*sent)[1].Msg.ClientID == "" || (*sent)[1].Msg.ClientID == "client-1" {
 		t.Fatalf("second client ID = %q, want a new non-empty ID", (*sent)[1].Msg.ClientID)
+	}
+}
+
+func TestSendReplyWithMediaOptionsSingleTextModeSendsOneFinalReply(t *testing.T) {
+	client, sent := newCaptureClient(t)
+	h := NewHandler(nil, nil)
+	msg := ilink.WeixinMessage{FromUserID: "user-1", ContextToken: "ctx-token"}
+
+	delivered := h.sendReplyWithMediaOptions(
+		context.Background(),
+		client,
+		msg,
+		"codex",
+		"First paragraph.\n\nSecond paragraph.",
+		"client-1",
+		true,
+		replyTextSingle,
+	)
+	if !delivered {
+		t.Fatal("sendReplyWithMediaOptions() = false, want true")
+	}
+
+	if len(*sent) != 1 {
+		t.Fatalf("sent %d messages, want 1: %#v", len(*sent), *sent)
+	}
+	got := (*sent)[0].Msg.ItemList[0].TextItem.Text
+	want := "First paragraph.\n\nSecond paragraph."
+	if got != want {
+		t.Fatalf("sent[0] text = %q, want %q", got, want)
+	}
+	if (*sent)[0].Msg.ClientID != "client-1" {
+		t.Fatalf("client ID = %q, want client-1", (*sent)[0].Msg.ClientID)
 	}
 }
 
@@ -227,6 +260,62 @@ func TestProgressSenderIsNotParagraphChunked(t *testing.T) {
 		t.Fatalf("chatMaybeStream returned error: %v", err)
 	}
 	assertSent(t, sent, []string{"using memory_router.memory_query"})
+}
+
+func TestTypingKeepaliveSendsImmediatelyAndRefreshes(t *testing.T) {
+	h := NewHandler(nil, nil)
+	h.typingEvery = 10 * time.Millisecond
+
+	var mu sync.Mutex
+	var sent int
+	h.typingSender = func(ctx context.Context, client *ilink.Client, userID, contextToken string) error {
+		mu.Lock()
+		sent++
+		mu.Unlock()
+		return nil
+	}
+
+	stop := h.startTypingKeepalive(context.Background(), &ilink.Client{}, "user-1", "ctx-token")
+	defer stop()
+
+	time.Sleep(35 * time.Millisecond)
+
+	mu.Lock()
+	got := sent
+	mu.Unlock()
+	if got < 2 {
+		t.Fatalf("typing sends = %d, want at least 2", got)
+	}
+}
+
+func TestTypingKeepaliveStopsAfterCancel(t *testing.T) {
+	h := NewHandler(nil, nil)
+	h.typingEvery = 10 * time.Millisecond
+
+	var mu sync.Mutex
+	var sent int
+	h.typingSender = func(ctx context.Context, client *ilink.Client, userID, contextToken string) error {
+		mu.Lock()
+		sent++
+		mu.Unlock()
+		return nil
+	}
+
+	stop := h.startTypingKeepalive(context.Background(), &ilink.Client{}, "user-1", "ctx-token")
+	time.Sleep(20 * time.Millisecond)
+	stop()
+
+	mu.Lock()
+	before := sent
+	mu.Unlock()
+	time.Sleep(25 * time.Millisecond)
+	mu.Lock()
+	after := sent
+	mu.Unlock()
+
+	if after != before {
+		t.Fatalf("typing sends after stop = %d, want unchanged from %d", after, before)
+	}
 }
 
 type fakeAgent struct {

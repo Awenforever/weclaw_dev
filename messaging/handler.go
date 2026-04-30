@@ -38,6 +38,14 @@ type StreamConfig struct {
 }
 
 type streamSenderFunc func(ctx context.Context, client *ilink.Client, toUserID, text, contextToken, clientID string) error
+type typingSenderFunc func(ctx context.Context, client *ilink.Client, userID, contextToken string) error
+
+type replyTextMode int
+
+const (
+	replyTextChunked replyTextMode = iota
+	replyTextSingle
+)
 
 // Handler processes incoming WeChat messages and dispatches replies.
 type Handler struct {
@@ -55,6 +63,8 @@ type Handler struct {
 	streamConfig  StreamConfig
 	streamSender  streamSenderFunc
 	streamPace    time.Duration
+	typingSender  typingSenderFunc
+	typingEvery   time.Duration
 	userTurns     sync.Map // map[userID]*sync.Mutex — serializes agent turns per user
 }
 
@@ -72,6 +82,8 @@ func NewHandler(factory AgentFactory, saveDefault SaveDefaultFunc) *Handler {
 		},
 		streamSender: SendTextReply,
 		streamPace:   streamSendPaceDelay,
+		typingSender: SendTypingState,
+		typingEvery:  6 * time.Second,
 	}
 }
 
@@ -426,13 +438,6 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 		return
 	}
 
-	// Send typing indicator
-	go func() {
-		if typingErr := SendTypingState(ctx, client, msg.FromUserID, msg.ContextToken); typingErr != nil {
-			log.Printf("[handler] failed to send typing state: %v", typingErr)
-		}
-	}()
-
 	if len(knownNames) == 1 {
 		// Single agent
 		h.sendToNamedAgent(ctx, client, msg, knownNames[0], message, clientID)
@@ -444,11 +449,8 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 
 // sendToDefaultAgent sends the message to the default agent and replies.
 func (h *Handler) sendToDefaultAgent(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, text, clientID string) {
-	go func() {
-		if typingErr := SendTypingState(ctx, client, msg.FromUserID, msg.ContextToken); typingErr != nil {
-			log.Printf("[handler] failed to send typing state: %v", typingErr)
-		}
-	}()
+	stopTyping := h.startTypingKeepalive(ctx, client, msg.FromUserID, msg.ContextToken)
+	defer stopTyping()
 
 	unlock := h.lockUserTurn(msg.FromUserID)
 	defer unlock()
@@ -462,7 +464,7 @@ func (h *Handler) sendToDefaultAgent(ctx context.Context, client *ilink.Client, 
 	var streamedText bool
 	if ag != nil {
 		var err error
-		reply, streamedText, err = h.chatWithAgent(ctx, client, msg, ag, msg.FromUserID, text)
+		reply, streamedText, err = h.chatWithAgentWithoutStreaming(ctx, ag, msg.FromUserID, text)
 		if err != nil {
 			reply = fmt.Sprintf("Error: %v", err)
 			streamedText = false
@@ -472,11 +474,14 @@ func (h *Handler) sendToDefaultAgent(ctx context.Context, client *ilink.Client, 
 		reply = "[echo] " + text
 	}
 
-	h.sendReplyWithMediaOptions(ctx, client, msg, defaultName, reply, clientID, !streamedText)
+	h.sendReplyWithMediaOptions(ctx, client, msg, defaultName, reply, clientID, !streamedText, replyTextSingle)
 }
 
 // sendToNamedAgent sends the message to a specific agent and replies.
 func (h *Handler) sendToNamedAgent(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, name, message, clientID string) {
+	stopTyping := h.startTypingKeepalive(ctx, client, msg.FromUserID, msg.ContextToken)
+	defer stopTyping()
+
 	unlock := h.lockUserTurn(msg.FromUserID)
 	defer unlock()
 
@@ -488,17 +493,20 @@ func (h *Handler) sendToNamedAgent(ctx context.Context, client *ilink.Client, ms
 		return
 	}
 
-	reply, streamedText, err := h.chatWithAgent(ctx, client, msg, ag, msg.FromUserID, message)
+	reply, streamedText, err := h.chatWithAgentWithoutStreaming(ctx, ag, msg.FromUserID, message)
 	if err != nil {
 		reply = fmt.Sprintf("Error: %v", err)
 		streamedText = false
 	}
-	h.sendReplyWithMediaOptions(ctx, client, msg, name, reply, clientID, !streamedText)
+	h.sendReplyWithMediaOptions(ctx, client, msg, name, reply, clientID, !streamedText, replyTextSingle)
 }
 
 // broadcastToAgents sends the message to multiple agents in parallel.
 // Each reply is sent as a separate message with the agent name prefix.
 func (h *Handler) broadcastToAgents(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, names []string, message string) {
+	stopTyping := h.startTypingKeepalive(ctx, client, msg.FromUserID, msg.ContextToken)
+	defer stopTyping()
+
 	unlock := h.lockUserTurn(msg.FromUserID)
 	defer unlock()
 
@@ -536,10 +544,10 @@ func (h *Handler) broadcastToAgents(ctx context.Context, client *ilink.Client, m
 
 // sendReplyWithMedia sends a text reply and any extracted image URLs.
 func (h *Handler) sendReplyWithMedia(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, agentName, reply, clientID string) {
-	h.sendReplyWithMediaOptions(ctx, client, msg, agentName, reply, clientID, true)
+	h.sendReplyWithMediaOptions(ctx, client, msg, agentName, reply, clientID, true, replyTextChunked)
 }
 
-func (h *Handler) sendReplyWithMediaOptions(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, agentName, reply, clientID string, sendText bool) bool {
+func (h *Handler) sendReplyWithMediaOptions(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, agentName, reply, clientID string, sendText bool, textMode replyTextMode) bool {
 	imageURLs := ExtractImageURLs(reply)
 	attachmentPaths := extractLocalAttachmentPaths(reply)
 	allowedRoots := h.allowedAttachmentRoots(agentName)
@@ -564,17 +572,25 @@ func (h *Handler) sendReplyWithMediaOptions(ctx context.Context, client *ilink.C
 
 	reply = rewriteReplyWithAttachmentResults(reply, sentPaths, failedPaths)
 	if sendText {
-		chunks := finalReplyTextChunks(reply)
-		textDelivered = true
-		for i, chunk := range chunks {
-			chunkClientID := clientID
-			if i > 0 {
-				chunkClientID = NewClientID()
-			}
-			if err := SendTextReply(ctx, client, msg.FromUserID, chunk, contextToken, chunkClientID); err != nil {
-				log.Printf("[handler] failed to send reply chunk %d to %s: %v", i+1, msg.FromUserID, err)
+		if textMode == replyTextSingle {
+			textDelivered = true
+			if err := SendTextReply(ctx, client, msg.FromUserID, reply, contextToken, clientID); err != nil {
+				log.Printf("[handler] failed to send final reply to %s: %v", msg.FromUserID, err)
 				textDelivered = false
-				break
+			}
+		} else {
+			chunks := finalReplyTextChunks(reply)
+			textDelivered = true
+			for i, chunk := range chunks {
+				chunkClientID := clientID
+				if i > 0 {
+					chunkClientID = NewClientID()
+				}
+				if err := SendTextReply(ctx, client, msg.FromUserID, chunk, contextToken, chunkClientID); err != nil {
+					log.Printf("[handler] failed to send reply chunk %d to %s: %v", i+1, msg.FromUserID, err)
+					textDelivered = false
+					break
+				}
 			}
 		}
 	}
@@ -588,15 +604,7 @@ func (h *Handler) sendReplyWithMediaOptions(ctx context.Context, client *ilink.C
 }
 
 func finalReplyTextChunks(reply string) []string {
-	chunks := PlainTextReplyChunks(reply)
-	out := make([]string, 0, len(chunks)+1)
-	for _, chunk := range chunks {
-		if strings.TrimSpace(chunk) == "Done." {
-			continue
-		}
-		out = append(out, chunk)
-	}
-	return append(out, "Done.")
+	return PlainTextReplyChunks(reply)
 }
 
 func (h *Handler) latestContextToken(userID, fallback string) string {
@@ -606,6 +614,51 @@ func (h *Handler) latestContextToken(userID, fallback string) string {
 		}
 	}
 	return fallback
+}
+
+func (h *Handler) startTypingKeepalive(ctx context.Context, client *ilink.Client, userID, contextToken string) func() {
+	if client == nil || userID == "" {
+		return func() {}
+	}
+
+	h.mu.RLock()
+	sendTyping := h.typingSender
+	interval := h.typingEvery
+	h.mu.RUnlock()
+
+	if sendTyping == nil {
+		return func() {}
+	}
+	if interval <= 0 {
+		interval = 6 * time.Second
+	}
+
+	typeCtx, cancel := context.WithCancel(ctx)
+	if err := sendTyping(typeCtx, client, userID, contextToken); err != nil {
+		log.Printf("[handler] failed to send typing state: %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-typeCtx.Done():
+				return
+			case <-ticker.C:
+				if err := sendTyping(typeCtx, client, userID, contextToken); err != nil {
+					log.Printf("[handler] failed to refresh typing state: %v", err)
+				}
+			}
+		}
+	}()
+
+	return func() {
+		cancel()
+		<-done
+	}
 }
 
 func (h *Handler) allowedAttachmentRoots(agentName string) []string {
@@ -638,6 +691,23 @@ func (h *Handler) chatWithAgent(ctx context.Context, client *ilink.Client, msg i
 
 	log.Printf("[handler] agent replied (%s, elapsed=%s): %q", info, elapsed, truncate(reply, 100))
 	return reply, streamedText, nil
+}
+
+func (h *Handler) chatWithAgentWithoutStreaming(ctx context.Context, ag agent.Agent, userID, message string) (string, bool, error) {
+	info := ag.Info()
+	log.Printf("[handler] dispatching to agent without WeChat streaming (%s) for %s", info, userID)
+
+	start := time.Now()
+	reply, err := ag.Chat(ctx, userID, message)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		log.Printf("[handler] agent error (%s, elapsed=%s): %v", info, elapsed, err)
+		return "", false, err
+	}
+
+	log.Printf("[handler] agent replied (%s, elapsed=%s): %q", info, elapsed, truncate(reply, 100))
+	return reply, false, nil
 }
 
 func (h *Handler) chatMaybeStream(ctx context.Context, client *ilink.Client, msg ilink.WeixinMessage, ag agent.Agent, userID, message string) (string, bool, error) {
