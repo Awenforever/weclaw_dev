@@ -728,6 +728,10 @@ func (a *ACPAgent) readLoop() {
 			continue
 		}
 
+		if os.Getenv("WECLAW_ACP_RAW_LOG") == "1" {
+			log.Printf("[acp-raw] stdout line: %s", line)
+		}
+
 		var msg rpcResponse
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
 			log.Printf("[acp] failed to parse message: %v", err)
