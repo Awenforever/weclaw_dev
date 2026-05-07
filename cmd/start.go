@@ -35,13 +35,38 @@ func init() {
 }
 
 var startCmd = &cobra.Command{
-	Use:     "start",
-	Short:   "Start the WeChat message bridge (auto-login if needed)",
-	Example: "  weclaw start\n  weclaw start --stdout\n  weclaw start -f",
-	RunE:    runStart,
+	Use:   "start [deepseek|deepseek-thinking]",
+	Short: "Start the WeChat message bridge (auto-login if needed)",
+	Example: "  weclaw start\n" +
+		"  weclaw start deepseek\n" +
+		"  weclaw start deepseek-thinking\n" +
+		"  weclaw start --stdout\n" +
+		"  weclaw start -f",
+	RunE: runStart,
+}
+
+func parseStartProfile(args []string) (string, error) {
+	switch len(args) {
+	case 0:
+		return "", nil
+	case 1:
+		switch args[0] {
+		case "deepseek", "deepseek-thinking":
+			return args[0], nil
+		default:
+			return "", fmt.Errorf("unsupported start profile %q; allowed values are: deepseek, deepseek-thinking", args[0])
+		}
+	default:
+		return "", fmt.Errorf("start accepts at most one profile argument; allowed values are: deepseek, deepseek-thinking")
+	}
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
+	startProfile, err := parseStartProfile(args)
+	if err != nil {
+		return err
+	}
+
 	if !foregroundFlag {
 		// Check if login is needed — if so, do it in foreground first, then daemon
 		accounts, _ := ilink.LoadAllCredentials()
@@ -58,7 +83,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to resolve API address: %w", err)
 		}
-		return runDaemon(stdoutFlag, apiAddr)
+		return runDaemon(stdoutFlag, apiAddr, startProfile)
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -92,6 +117,19 @@ func runStart(cmd *cobra.Command, args []string) error {
 		} else {
 			path, _ := config.ConfigPath()
 			log.Printf("Auto-detected agents saved to %s", path)
+		}
+	}
+
+	if startProfile != "" {
+		if _, ok := cfg.Agents[startProfile]; !ok {
+			return fmt.Errorf("start profile %q is not configured; ensure codex is installed and available in PATH", startProfile)
+		}
+		if cfg.DefaultAgent != startProfile {
+			cfg.DefaultAgent = startProfile
+			if err := config.Save(cfg); err != nil {
+				return fmt.Errorf("save selected start profile %q: %w", startProfile, err)
+			}
+			log.Printf("Selected start profile %q as default agent", startProfile)
 		}
 	}
 
@@ -359,7 +397,7 @@ func logFile() string {
 }
 
 // runDaemon spawns weclaw start (without --daemon) as a background process.
-func runDaemon(saveStdout bool, apiAddr string) error {
+func runDaemon(saveStdout bool, apiAddr string, profile string) error {
 	if err := stopManagedWeclaw(); err != nil {
 		return err
 	}
@@ -378,7 +416,12 @@ func runDaemon(saveStdout bool, apiAddr string) error {
 		return fmt.Errorf("find executable: %w", err)
 	}
 
-	cmd := exec.Command(exe, "start", "-f")
+	daemonArgs := []string{"start"}
+	if profile != "" {
+		daemonArgs = append(daemonArgs, profile)
+	}
+	daemonArgs = append(daemonArgs, "-f")
+	cmd := exec.Command(exe, daemonArgs...)
 	var outputFile *os.File
 	if saveStdout {
 		lf, err := os.OpenFile(logFile(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
@@ -409,7 +452,7 @@ func runDaemon(saveStdout bool, apiAddr string) error {
 		return fmt.Errorf("write pid file: %w", err)
 	}
 
-	if err := waitForAPIReady(pid, apiAddr, 8*time.Second); err != nil {
+	if err := waitForAPIReady(pid, apiAddr, 30*time.Second); err != nil {
 		_ = cmd.Process.Kill()
 		_ = os.Remove(pidFile())
 		if saveStdout {

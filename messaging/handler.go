@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -351,6 +352,12 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 
 	// Intercept URLs: save to Linkhoard directly without AI agent
 	trimmed := strings.TrimSpace(text)
+	if reply, ok := h.handleRuntimeControl(ctx, trimmed, msg.FromUserID); ok {
+		if err := SendTextReply(ctx, client, msg.FromUserID, reply, msg.ContextToken, clientID); err != nil {
+			log.Printf("[handler] failed to send reply to %s: %v", msg.FromUserID, err)
+		}
+		return
+	}
 	if h.saveDir != "" && IsURL(trimmed) {
 		rawURL := ExtractURL(trimmed)
 		if rawURL != "" {
@@ -445,6 +452,172 @@ func (h *Handler) HandleMessage(ctx context.Context, client *ilink.Client, msg i
 		// Multi-agent broadcast: parallel dispatch, send replies as they arrive
 		h.broadcastToAgents(ctx, client, msg, knownNames, message)
 	}
+}
+
+func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID string) (string, bool) {
+	fields := strings.Fields(trimmed)
+	if len(fields) == 0 {
+		return "", false
+	}
+
+	switch fields[0] {
+	case "/status":
+		if len(fields) != 1 {
+			return "Usage: /status", true
+		}
+		return h.buildStatus(), true
+
+	case "/balance":
+		if len(fields) != 1 {
+			return "Usage: /balance", true
+		}
+		return runDsproxyCommand(ctx, "balance"), true
+
+	case "/model":
+		if len(fields) != 2 {
+			return "Usage: /model deepseek-v4-pro|deepseek-v4-flash", true
+		}
+		switch fields[1] {
+		case "deepseek-v4-pro", "deepseek-v4-flash":
+			return runDsproxyCommand(ctx, "config", "set-model", fields[1]), true
+		default:
+			return "Unsupported model. Allowed values: deepseek-v4-pro, deepseek-v4-flash", true
+		}
+
+	case "/effort":
+		if len(fields) != 2 {
+			return "Usage: /effort medium|high|xhigh", true
+		}
+		switch fields[1] {
+		case "medium", "high", "xhigh":
+			return runDsproxyCommand(ctx, "config", "set-effort", fields[1]), true
+		default:
+			return "Unsupported effort. Allowed values: medium, high, xhigh", true
+		}
+
+	case "/profile":
+		if len(fields) != 2 {
+			return "Usage: /profile deepseek|deepseek-thinking", true
+		}
+		switch fields[1] {
+		case "deepseek", "deepseek-thinking":
+			return h.restartProfileAgent(ctx, fields[1], userID), true
+		default:
+			return "Unsupported profile. Allowed values: deepseek, deepseek-thinking", true
+		}
+
+	case "/restart":
+		if len(fields) != 1 {
+			return "Usage: /restart", true
+		}
+		return h.restartCurrentDefaultAgent(ctx, userID), true
+	}
+
+	return "", false
+}
+
+func runDsproxyCommand(ctx context.Context, args ...string) string {
+	runCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(runCtx, "dsproxy", args...)
+	out, err := cmd.CombinedOutput()
+	text := strings.TrimSpace(string(out))
+
+	if runCtx.Err() == context.DeadlineExceeded {
+		if text != "" {
+			return fmt.Sprintf("dsproxy %s timed out.\n%s", strings.Join(args, " "), text)
+		}
+		return fmt.Sprintf("dsproxy %s timed out.", strings.Join(args, " "))
+	}
+
+	if err != nil {
+		if text != "" {
+			return fmt.Sprintf("dsproxy %s failed: %v\n%s", strings.Join(args, " "), err, text)
+		}
+		return fmt.Sprintf("dsproxy %s failed: %v", strings.Join(args, " "), err)
+	}
+
+	if text == "" {
+		return fmt.Sprintf("dsproxy %s completed.", strings.Join(args, " "))
+	}
+	return text
+}
+
+type stoppableAgent interface {
+	Stop()
+}
+
+func stopAgentIfSupported(name string, ag agent.Agent) {
+	if ag == nil {
+		return
+	}
+	stopper, ok := ag.(stoppableAgent)
+	if !ok {
+		return
+	}
+	log.Printf("[handler] stopping agent %q before restart", name)
+	stopper.Stop()
+}
+
+func (h *Handler) restartProfileAgent(ctx context.Context, name, userID string) string {
+	if !h.isKnownAgent(name) {
+		return fmt.Sprintf("Profile %q is not configured. Run weclaw start %s once, or ensure codex is installed and auto-detection can register it.", name, name)
+	}
+
+	h.mu.Lock()
+	oldDefaultName := h.defaultName
+	oldDefault := h.agents[oldDefaultName]
+	oldTarget := h.agents[name]
+	delete(h.agents, name)
+	if oldDefaultName != "" && oldDefaultName != name {
+		delete(h.agents, oldDefaultName)
+	}
+	h.mu.Unlock()
+
+	stopAgentIfSupported(name, oldTarget)
+	if oldDefaultName != "" && oldDefaultName != name {
+		stopAgentIfSupported(oldDefaultName, oldDefault)
+	}
+
+	reply := h.switchDefault(ctx, name)
+	h.mu.RLock()
+	ready := h.defaultName == name && h.agents[name] != nil
+	h.mu.RUnlock()
+	if !ready {
+		return reply
+	}
+
+	sessionReply := h.resetDefaultSession(ctx, userID)
+	return reply + "\n" + sessionReply
+}
+
+func (h *Handler) restartCurrentDefaultAgent(ctx context.Context, userID string) string {
+	h.mu.RLock()
+	name := h.defaultName
+	ag := h.agents[name]
+	h.mu.RUnlock()
+
+	if name == "" {
+		return "No default agent configured."
+	}
+
+	h.mu.Lock()
+	delete(h.agents, name)
+	h.mu.Unlock()
+
+	stopAgentIfSupported(name, ag)
+
+	reply := h.switchDefault(ctx, name)
+	h.mu.RLock()
+	ready := h.defaultName == name && h.agents[name] != nil
+	h.mu.RUnlock()
+	if !ready {
+		return reply
+	}
+
+	sessionReply := h.resetDefaultSession(ctx, userID)
+	return reply + "\n" + sessionReply
 }
 
 // sendToDefaultAgent sends the message to the default agent and replies.

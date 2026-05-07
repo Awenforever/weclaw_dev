@@ -34,6 +34,8 @@ var agentCandidates = []agentCandidate{
 	// codex: prefer ACP, fallback to CLI
 	{Name: "codex", Binary: "codex-acp", Type: "acp", Model: ""},
 	{Name: "codex", Binary: "codex", Args: []string{"app-server", "--listen", "stdio://"}, CheckArgs: []string{"app-server", "--help"}, Type: "acp", Model: ""},
+	{Name: "deepseek", Binary: "codex", Args: []string{"--profile", "deepseek", "app-server", "--listen", "stdio://"}, Type: "acp", Model: "deepseek-v4-flash"},
+	{Name: "deepseek-thinking", Binary: "codex", Args: []string{"--profile", "deepseek-thinking", "app-server", "--listen", "stdio://"}, Type: "acp", Model: "deepseek-v4-pro"},
 	{Name: "codex", Binary: "codex", Type: "cli", Model: ""},
 	// ACP-only agents
 	{Name: "cursor", Binary: "agent", Args: []string{"acp"}, Type: "acp", Model: ""},

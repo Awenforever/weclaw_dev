@@ -36,6 +36,6 @@ var restartCmd = &cobra.Command{
 		}
 
 		fmt.Println("Starting weclaw...")
-		return runDaemon(false, apiAddr)
+		return runDaemon(false, apiAddr, "")
 	},
 }
