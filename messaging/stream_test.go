@@ -181,10 +181,10 @@ func TestHandlerStreamingAssistantFailureFallsBackToFinalReply(t *testing.T) {
 	if streamedText {
 		t.Fatalf("streamedText = true, want false after assistant send failure")
 	}
-	h.sendReplyWithMediaOptions(context.Background(), client, msg, "codex", reply, "final-client", !streamedText)
+	h.sendReplyWithMediaOptions(context.Background(), client, msg, "codex", reply, "final-client", !streamedText, replyTextChunked)
 
 	assertSent(t, streamSent, []string{"First paragraph.", "Second paragraph."})
-	assertCapturedTexts(t, sent, []string{"First paragraph.", "Second paragraph.", "Done."})
+	assertCapturedTexts(t, sent, []string{"First paragraph.", "Second paragraph."})
 }
 
 func TestHandlerStreamingSuccessfulCompletedItemsSkipFinalTextReplay(t *testing.T) {
@@ -206,7 +206,7 @@ func TestHandlerStreamingSuccessfulCompletedItemsSkipFinalTextReplay(t *testing.
 	if !streamedText {
 		t.Fatalf("streamedText = false, want true")
 	}
-	h.sendReplyWithMediaOptions(context.Background(), client, msg, "codex", reply, "final-client", !streamedText)
+	h.sendReplyWithMediaOptions(context.Background(), client, msg, "codex", reply, "final-client", !streamedText, replyTextChunked)
 
 	assertCapturedTexts(t, sent, []string{"final answer", "Done."})
 }

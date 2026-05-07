@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	defaultBaseURL     = "https://ilinkai.weixin.qq.com"
-	longPollTimeout    = 35 * time.Second
-	sendTimeout        = 15 * time.Second
+	defaultBaseURL  = "https://ilinkai.weixin.qq.com"
+	longPollTimeout = 35 * time.Second
+	sendTimeout     = 15 * time.Second
 )
 
 // Client is an iLink HTTP API client.
@@ -26,6 +26,7 @@ type Client struct {
 	botID      string
 	httpClient *http.Client
 	wechatUIN  string
+	sendPacer  *sendMessagePacer
 }
 
 // NewClient creates a new iLink API client.
@@ -40,6 +41,7 @@ func NewClient(creds *Credentials) *Client {
 		botID:      creds.ILinkBotID,
 		httpClient: &http.Client{},
 		wechatUIN:  generateWechatUIN(),
+		sendPacer:  newSendMessagePacer(defaultSendMessageMinGap),
 	}
 }
 
@@ -49,6 +51,7 @@ func NewUnauthenticatedClient() *Client {
 		baseURL:    defaultBaseURL,
 		httpClient: &http.Client{Timeout: 40 * time.Second},
 		wechatUIN:  generateWechatUIN(),
+		sendPacer:  newSendMessagePacer(defaultSendMessageMinGap),
 	}
 }
 
@@ -79,11 +82,32 @@ func (c *Client) SendMessage(ctx context.Context, msg *SendMessageRequest) (*Sen
 	ctx, cancel := context.WithTimeout(ctx, sendTimeout)
 	defer cancel()
 
+	pacer := c.sendPacer
+	if pacer == nil {
+		pacer = newSendMessagePacer(defaultSendMessageMinGap)
+		c.sendPacer = pacer
+	}
+
 	var resp SendMessageResponse
-	if err := c.doPost(ctx, "/ilink/bot/sendmessage", msg, &resp); err != nil {
+	if err := pacer.do(func() error {
+		return c.doPost(ctx, "/ilink/bot/sendmessage", msg, &resp)
+	}); err != nil {
 		return nil, err
 	}
 	return &resp, nil
+}
+
+// SetSendMessageMinGap overrides the minimum spacing between outbound sendmessage calls.
+// Production clients default to a conservative fixed pace; tests may lower this to keep the suite fast.
+func (c *Client) SetSendMessageMinGap(gap time.Duration) {
+	if c == nil {
+		return
+	}
+	if c.sendPacer == nil {
+		c.sendPacer = newSendMessagePacer(gap)
+		return
+	}
+	c.sendPacer.setGap(gap)
 }
 
 // GetConfig fetches bot config for a user (includes typing_ticket).

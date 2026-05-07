@@ -1,6 +1,17 @@
 package messaging
 
-import "testing"
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/fastclaw-ai/weclaw/ilink"
+)
 
 func TestExtractImageURLs(t *testing.T) {
 	text := "check ![img](https://example.com/a.png) and ![](https://example.com/b.jpg)"
@@ -68,6 +79,69 @@ func TestStripQuery(t *testing.T) {
 		got := stripQuery(tt.input)
 		if got != tt.want {
 			t.Errorf("stripQuery(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestTextSendThenMediaSendArePaced(t *testing.T) {
+	const minGap = 40 * time.Millisecond
+	const tolerance = 15 * time.Millisecond
+
+	var sentAt []time.Time
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ilink/bot/sendmessage":
+			var req ilink.SendMessageRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode sendmessage: %v", err)
+			}
+			sentAt = append(sentAt, time.Now())
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ret":0}`))
+		case "/ilink/bot/getuploadurl":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ret":0,"upload_full_url":"` + server.URL + `/cdn/upload"}`))
+		case "/cdn/upload":
+			w.Header().Set("X-Encrypted-Param", "download-token")
+			w.WriteHeader(http.StatusOK)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := ilink.NewClient(&ilink.Credentials{
+		BotToken:   "token",
+		ILinkBotID: "bot-1",
+		BaseURL:    server.URL,
+	})
+	client.SetSendMessageMinGap(minGap)
+
+	filePath := filepath.Join(t.TempDir(), "report.txt")
+	if err := os.WriteFile(filePath, []byte("hello"), 0o644); err != nil {
+		t.Fatalf("write media file: %v", err)
+	}
+
+	if err := SendTextReply(context.Background(), client, "user-1", "hello", "ctx-token", "client-1"); err != nil {
+		t.Fatalf("SendTextReply returned error: %v", err)
+	}
+	if err := SendMediaFromPath(context.Background(), client, "user-1", filePath, "ctx-token"); err != nil {
+		t.Fatalf("SendMediaFromPath returned error: %v", err)
+	}
+
+	assertMinSendGap(t, sentAt, minGap, tolerance)
+}
+
+func assertMinSendGap(t *testing.T, sentAt []time.Time, minGap, tolerance time.Duration) {
+	t.Helper()
+	if len(sentAt) < 2 {
+		t.Fatalf("sentAt has %d entries, want at least 2", len(sentAt))
+	}
+	for i := 1; i < len(sentAt); i++ {
+		gap := sentAt[i].Sub(sentAt[i-1])
+		if gap+tolerance < minGap {
+			t.Fatalf("gap[%d] = %s, want at least %s within tolerance %s", i-1, gap, minGap, tolerance)
 		}
 	}
 }
