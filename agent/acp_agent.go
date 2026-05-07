@@ -1122,6 +1122,13 @@ func (a *ACPAgent) handlePermissionRequest(raw string) {
 	log.Printf("[acp] auto-allowed permission request")
 }
 
+// SetModel updates the model used for subsequent Codex app-server turns.
+func (a *ACPAgent) SetModel(model string) {
+	a.mu.Lock()
+	a.model = model
+	a.mu.Unlock()
+}
+
 // Info returns metadata about this agent.
 func (a *ACPAgent) Info() AgentInfo {
 	info := AgentInfo{

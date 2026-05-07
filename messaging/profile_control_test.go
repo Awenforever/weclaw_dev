@@ -179,3 +179,16 @@ func TestRuntimeControlRestartCurrentDefaultStopsOldAgent(t *testing.T) {
 		t.Fatalf("reply = %q, want switch message", reply)
 	}
 }
+
+func TestRuntimeControlEffortOnlySupportsDeepSeekProfiles(t *testing.T) {
+	h := NewHandler(nil, nil)
+	h.defaultName = "codex"
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/effort max", "user-1")
+	if !ok {
+		t.Fatal("/effort should be intercepted")
+	}
+	if !strings.Contains(reply, "only supported for deepseek and deepseek-thinking") {
+		t.Fatalf("reply = %q, want DeepSeek-only message", reply)
+	}
+}

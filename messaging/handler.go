@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fastclaw-ai/weclaw/agent"
+	"github.com/fastclaw-ai/weclaw/config"
 	"github.com/fastclaw-ai/weclaw/ilink"
 	"github.com/google/uuid"
 )
@@ -477,23 +478,68 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 		if len(fields) != 2 {
 			return "Usage: /model deepseek-v4-pro|deepseek-v4-flash", true
 		}
-		switch fields[1] {
+
+		requestedModel := fields[1]
+		switch requestedModel {
 		case "deepseek-v4-pro", "deepseek-v4-flash":
-			return runDsproxyCommand(ctx, "config", "set-model", fields[1]), true
 		default:
 			return "Unsupported model. Allowed values: deepseek-v4-pro, deepseek-v4-flash", true
 		}
 
+		h.mu.RLock()
+		defaultName := h.defaultName
+		h.mu.RUnlock()
+		if !isDeepSeekRuntimeAgent(defaultName) {
+			return "/model is only supported for deepseek and deepseek-thinking.", true
+		}
+
+		reply := runDsproxyCommand(ctx, "config", "set-model", requestedModel)
+		if err := persistDeepSeekRuntimeModel(defaultName, requestedModel); err != nil {
+			reply += fmt.Sprintf("\nWarning: failed to persist WeClaw model for %s: %v", defaultName, err)
+		} else {
+			reply += fmt.Sprintf("\nWeClaw model for %s: %s", defaultName, requestedModel)
+		}
+		if h.setRunningAgentModel(defaultName, requestedModel) {
+			reply += "\nCurrent agent model updated for subsequent turns."
+		} else {
+			reply += "\nCurrent running agent was not updated. Use /restart if the next turn still uses the old model."
+		}
+		reply += "\nCurrent session was preserved. Use /restart only when you want a new session."
+		return reply, true
+
 	case "/effort":
 		if len(fields) != 2 {
-			return "Usage: /effort medium|high|xhigh", true
+			return "Usage: /effort high|max", true
 		}
-		switch fields[1] {
-		case "medium", "high", "xhigh":
-			return runDsproxyCommand(ctx, "config", "set-effort", fields[1]), true
+
+		requestedEffort := fields[1]
+		dsproxyEffort := ""
+		switch requestedEffort {
+		case "high":
+			dsproxyEffort = "high"
+		case "max":
+			dsproxyEffort = "xhigh"
 		default:
-			return "Unsupported effort. Allowed values: medium, high, xhigh", true
+			return "Unsupported effort. Allowed values: high, max", true
 		}
+
+		h.mu.RLock()
+		defaultName := h.defaultName
+		h.mu.RUnlock()
+		switch defaultName {
+		case "deepseek", "deepseek-thinking":
+		default:
+			return "/effort is only supported for deepseek and deepseek-thinking.", true
+		}
+
+		reply := runDsproxyCommand(ctx, "config", "set-effort", dsproxyEffort)
+		if requestedEffort == "max" {
+			reply += "\nEffort: max (Codex: xhigh, DeepSeek: max)"
+		} else {
+			reply += "\nEffort: high"
+		}
+		reply += "\nCurrent session was preserved. Use /restart only when you want a new session."
+		return reply, true
 
 	case "/profile":
 		if len(fields) != 2 {
@@ -587,6 +633,51 @@ func runDsproxyCommand(ctx context.Context, args ...string) string {
 		return fmt.Sprintf("dsproxy %s completed.", strings.Join(args, " "))
 	}
 	return text
+}
+
+func isDeepSeekRuntimeAgent(name string) bool {
+	return name == "deepseek" || name == "deepseek-thinking"
+}
+
+type runtimeModelSetter interface {
+	SetModel(model string)
+}
+
+func (h *Handler) setRunningAgentModel(name, model string) bool {
+	h.mu.RLock()
+	ag := h.agents[name]
+	h.mu.RUnlock()
+
+	setter, ok := ag.(runtimeModelSetter)
+	if !ok {
+		return false
+	}
+	setter.SetModel(model)
+	return true
+}
+
+func persistDeepSeekRuntimeModel(name, model string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	agCfg, ok := cfg.Agents[name]
+	if !ok {
+		return fmt.Errorf("agent %q is not configured", name)
+	}
+
+	agCfg.Model = model
+	if agCfg.ModelProvider == "" {
+		switch name {
+		case "deepseek":
+			agCfg.ModelProvider = "deepseek-proxy"
+		case "deepseek-thinking":
+			agCfg.ModelProvider = "deepseek-thinking-proxy"
+		}
+	}
+	cfg.Agents[name] = agCfg
+	return config.Save(cfg)
 }
 
 type stoppableAgent interface {
