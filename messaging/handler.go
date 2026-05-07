@@ -465,7 +465,7 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 		if len(fields) != 1 {
 			return "Usage: /status", true
 		}
-		return h.buildStatus(), true
+		return h.buildStatusDiagnostics(ctx), true
 
 	case "/balance":
 		if len(fields) != 1 {
@@ -516,11 +516,56 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 	return "", false
 }
 
+func (h *Handler) buildStatusDiagnostics(ctx context.Context) string {
+	parts := []string{h.buildStatus()}
+
+	dsproxyStatus := runDsproxyCommand(ctx, "status")
+	if strings.TrimSpace(dsproxyStatus) != "" {
+		parts = append(parts, "dsproxy status:\n"+dsproxyStatus)
+	}
+
+	dsproxyConfig := runDsproxyCommand(ctx, "config", "show")
+	if strings.TrimSpace(dsproxyConfig) != "" {
+		parts = append(parts, "dsproxy config:\n"+dsproxyConfig)
+	}
+
+	return strings.Join(parts, "\n\n")
+}
+
+func resolveDsproxyBinary() string {
+	if path, err := exec.LookPath("dsproxy"); err == nil {
+		return path
+	}
+
+	home, err := os.UserHomeDir()
+	if err == nil && home != "" {
+		candidates := []string{
+			filepath.Join(home, "bin", "dsproxy"),
+			filepath.Join(home, ".local", "bin", "dsproxy"),
+			filepath.Join(home, ".cargo", "bin", "dsproxy"),
+		}
+		for _, candidate := range candidates {
+			if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() {
+				return candidate
+			}
+		}
+	}
+
+	for _, candidate := range []string{"/usr/local/bin/dsproxy", "/usr/bin/dsproxy"} {
+		if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() {
+			return candidate
+		}
+	}
+
+	return "dsproxy"
+}
+
 func runDsproxyCommand(ctx context.Context, args ...string) string {
 	runCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(runCtx, "dsproxy", args...)
+	dsproxy := resolveDsproxyBinary()
+	cmd := exec.CommandContext(runCtx, dsproxy, args...)
 	out, err := cmd.CombinedOutput()
 	text := strings.TrimSpace(string(out))
 

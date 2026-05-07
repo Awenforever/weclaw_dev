@@ -71,18 +71,28 @@ func TestRuntimeControlRejectsInvalidProfileAlias(t *testing.T) {
 	}
 }
 
-func TestRuntimeControlStatusAndRestartWithoutDefault(t *testing.T) {
+func TestRuntimeControlStatusReturnsDiagnostics(t *testing.T) {
 	h := NewHandler(nil, nil)
 
 	reply, ok := h.handleRuntimeControl(context.Background(), "/status", "user-1")
 	if !ok {
-		t.Fatal("/status should be intercepted")
+		t.Fatal("/status should be intercepted as diagnostics")
 	}
 	if !strings.Contains(reply, "agent:") {
 		t.Fatalf("status reply = %q, want agent status", reply)
 	}
+	if !strings.Contains(reply, "dsproxy status:") {
+		t.Fatalf("status reply = %q, want dsproxy status section", reply)
+	}
+	if !strings.Contains(reply, "dsproxy config:") {
+		t.Fatalf("status reply = %q, want dsproxy config section", reply)
+	}
+}
 
-	reply, ok = h.handleRuntimeControl(context.Background(), "/restart", "user-1")
+func TestRuntimeControlRestartWithoutDefault(t *testing.T) {
+	h := NewHandler(nil, nil)
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/restart", "user-1")
 	if !ok {
 		t.Fatal("/restart should be intercepted")
 	}
