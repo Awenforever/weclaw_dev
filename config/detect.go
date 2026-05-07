@@ -17,12 +17,13 @@ import (
 // agentCandidate defines one way to run an agent.
 // Multiple candidates can map to the same agent name; the first detected wins.
 type agentCandidate struct {
-	Name      string   // agent name (e.g. "claude", "codex")
-	Binary    string   // binary to look up in PATH
-	Args      []string // extra args (e.g. ["acp"] for cursor)
-	CheckArgs []string // optional capability probe args (must exit 0)
-	Type      string   // "acp", "cli"
-	Model     string   // default model
+	Name          string   // agent name (e.g. "claude", "codex")
+	Binary        string   // binary to look up in PATH
+	Args          []string // extra args (e.g. ["acp"] for cursor)
+	CheckArgs     []string // optional capability probe args (must exit 0)
+	Type          string   // "acp", "cli"
+	Model         string   // default model
+	ModelProvider string   // default model provider
 }
 
 // agentCandidates is ordered by priority: for each agent name, earlier entries
@@ -34,8 +35,8 @@ var agentCandidates = []agentCandidate{
 	// codex: prefer ACP, fallback to CLI
 	{Name: "codex", Binary: "codex-acp", Type: "acp", Model: ""},
 	{Name: "codex", Binary: "codex", Args: []string{"app-server", "--listen", "stdio://"}, CheckArgs: []string{"app-server", "--help"}, Type: "acp", Model: ""},
-	{Name: "deepseek", Binary: "codex", Args: []string{"--profile", "deepseek", "app-server", "--listen", "stdio://"}, Type: "acp", Model: "deepseek-v4-flash"},
-	{Name: "deepseek-thinking", Binary: "codex", Args: []string{"--profile", "deepseek-thinking", "app-server", "--listen", "stdio://"}, Type: "acp", Model: "deepseek-v4-pro"},
+	{Name: "deepseek", Binary: "codex", Args: []string{"--profile", "deepseek", "app-server", "--listen", "stdio://"}, Type: "acp", Model: "deepseek-v4-flash", ModelProvider: "deepseek-proxy"},
+	{Name: "deepseek-thinking", Binary: "codex", Args: []string{"--profile", "deepseek-thinking", "app-server", "--listen", "stdio://"}, Type: "acp", Model: "deepseek-v4-pro", ModelProvider: "deepseek-thinking-proxy"},
 	{Name: "codex", Binary: "codex", Type: "cli", Model: ""},
 	// ACP-only agents
 	{Name: "cursor", Binary: "agent", Args: []string{"acp"}, Type: "acp", Model: ""},
@@ -83,10 +84,11 @@ func DetectAndConfigure(cfg *Config) bool {
 
 		log.Printf("[config] auto-detected %s at %s (type=%s)", candidate.Name, path, candidate.Type)
 		cfg.Agents[candidate.Name] = AgentConfig{
-			Type:    candidate.Type,
-			Command: path,
-			Args:    candidate.Args,
-			Model:   candidate.Model,
+			Type:          candidate.Type,
+			Command:       path,
+			Args:          candidate.Args,
+			Model:         candidate.Model,
+			ModelProvider: candidate.ModelProvider,
 		}
 		modified = true
 	}

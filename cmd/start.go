@@ -284,12 +284,13 @@ func createAgentByName(ctx context.Context, cfg *config.Config, name string) age
 	switch agCfg.Type {
 	case "acp":
 		ag := agent.NewACPAgent(agent.ACPAgentConfig{
-			Command:      agCfg.Command,
-			Args:         agCfg.Args,
-			Cwd:          agCfg.Cwd,
-			Env:          agCfg.Env,
-			Model:        agCfg.Model,
-			SystemPrompt: agCfg.SystemPrompt,
+			Command:       agCfg.Command,
+			Args:          agCfg.Args,
+			Cwd:           agCfg.Cwd,
+			Env:           agCfg.Env,
+			Model:         agCfg.Model,
+			ModelProvider: agCfg.ModelProvider,
+			SystemPrompt:  agCfg.SystemPrompt,
 		})
 		if err := ag.Start(ctx); err != nil {
 			log.Printf("[agent] failed to start ACP agent %q: %v", name, err)
