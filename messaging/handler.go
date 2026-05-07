@@ -1417,6 +1417,12 @@ func buildHelpText() string {
 /new or /clear - Start a new session
 /cwd /path - Switch workspace directory
 /info - Show current agent info
+/status - Show current agent and DeepSeek proxy diagnostics
+/balance - Show DeepSeek account balance
+/model deepseek-v4-pro|deepseek-v4-flash - Set DeepSeek model
+/effort medium|high|xhigh - Set DeepSeek reasoning effort
+/profile deepseek|deepseek-thinking - Switch existing Codex profile
+/restart - Restart the current profile session
 /help - Show this help message
 
 Aliases: /cc(claude) /cx(codex) /cs(cursor) /km(kimi) /gm(gemini) /oc(openclaw) /ocd(opencode) /pi(pi) /cp(copilot) /dr(droid) /if(iflow) /kr(kiro) /qw(qwen)`
