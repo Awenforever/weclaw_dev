@@ -78,14 +78,14 @@ func TestRuntimeControlStatusReturnsDiagnostics(t *testing.T) {
 	if !ok {
 		t.Fatal("/status should be intercepted as diagnostics")
 	}
-	if !strings.Contains(reply, "agent:") {
-		t.Fatalf("status reply = %q, want agent status", reply)
+	if !strings.Contains(reply, "🧩 Agent") {
+		t.Fatalf("status reply = %q, want agent card", reply)
 	}
-	if !strings.Contains(reply, "dsproxy status:") {
-		t.Fatalf("status reply = %q, want dsproxy status section", reply)
+	if !strings.Contains(reply, "🔌 Proxy") {
+		t.Fatalf("status reply = %q, want proxy card", reply)
 	}
-	if !strings.Contains(reply, "dsproxy config:") {
-		t.Fatalf("status reply = %q, want dsproxy config section", reply)
+	if !strings.Contains(reply, "📁 Paths") {
+		t.Fatalf("status reply = %q, want paths card", reply)
 	}
 }
 
@@ -125,8 +125,8 @@ func TestRuntimeControlProfileSwitchDoesNotChat(t *testing.T) {
 	if !strings.Contains(reply, "Switched default agent to deepseek") {
 		t.Fatalf("reply = %q, want profile switch message", reply)
 	}
-	if !strings.Contains(reply, "Created a new deepseek session") {
-		t.Fatalf("reply = %q, want session reset message", reply)
+	if !strings.Contains(reply, "Existing session was preserved") {
+		t.Fatalf("reply = %q, want preserved session message", reply)
 	}
 	if factoryCalls != 1 {
 		t.Fatalf("factoryCalls = %d, want 1", factoryCalls)
@@ -137,8 +137,8 @@ func TestRuntimeControlProfileSwitchDoesNotChat(t *testing.T) {
 	if created.chatCalls != 0 {
 		t.Fatalf("chatCalls = %d, want 0 because control messages must not enter Chat", created.chatCalls)
 	}
-	if created.resetCalls != 1 {
-		t.Fatalf("resetCalls = %d, want 1", created.resetCalls)
+	if created.resetCalls != 0 {
+		t.Fatalf("resetCalls = %d, want 0 because /profile must preserve the current session", created.resetCalls)
 	}
 }
 

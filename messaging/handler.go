@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -470,76 +471,86 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 
 	case "/balance":
 		if len(fields) != 1 {
-			return "Usage: /balance", true
+			return commandCard("ℹ️ Usage", "• /balance"), true
 		}
-		return runDsproxyCommand(ctx, "balance"), true
+
+		balanceReply := runDsproxyCommand(ctx, "balance")
+		return formatBalanceReply(balanceReply), true
 
 	case "/model":
 		if len(fields) != 2 {
-			return "Usage: /model deepseek-v4-pro|deepseek-v4-flash", true
+			return commandCard("ℹ️ Usage", "• /model deepseek-v4-pro|deepseek-v4-flash"), true
 		}
 
 		requestedModel := fields[1]
 		switch requestedModel {
 		case "deepseek-v4-pro", "deepseek-v4-flash":
 		default:
-			return "Unsupported model. Allowed values: deepseek-v4-pro, deepseek-v4-flash", true
+			return commandCard("⚠️ Unsupported model", "• allowed: deepseek-v4-pro, deepseek-v4-flash"), true
 		}
 
 		h.mu.RLock()
 		defaultName := h.defaultName
 		h.mu.RUnlock()
 		if !isDeepSeekRuntimeAgent(defaultName) {
-			return "/model is only supported for deepseek and deepseek-thinking.", true
+			return commandCard("⛔ DeepSeek only", "• /model is only supported for deepseek and deepseek-thinking"), true
 		}
 
-		reply := runDsproxyCommand(ctx, "config", "set-model", requestedModel)
+		dsproxyReply := runDsproxyCommand(ctx, "config", "set-model", requestedModel)
+		persistLine := "• weclaw config: updated"
 		if err := persistDeepSeekRuntimeModel(defaultName, requestedModel); err != nil {
-			reply += fmt.Sprintf("\nWarning: failed to persist WeClaw model for %s: %v", defaultName, err)
-		} else {
-			reply += fmt.Sprintf("\nWeClaw model for %s: %s", defaultName, requestedModel)
+			persistLine = fmt.Sprintf("• weclaw config: Warning: failed to persist WeClaw model for %s: %v", defaultName, err)
 		}
-		if h.setRunningAgentModel(defaultName, requestedModel) {
-			reply += "\nCurrent agent model updated for subsequent turns."
-		} else {
-			reply += "\nCurrent running agent was not updated. Use /restart if the next turn still uses the old model."
+
+		runtimeLine := "• runtime: Current agent model updated for subsequent turns."
+		if !h.setRunningAgentModel(defaultName, requestedModel) {
+			runtimeLine = "• runtime: Current running agent was not updated. Use /restart if the next turn still uses the old model."
 		}
-		reply += "\nCurrent session was preserved. Use /restart only when you want a new session."
-		return reply, true
+
+		return commandCard(
+			"✅ Model updated",
+			"• profile: "+defaultName,
+			"• model: "+requestedModel,
+			"• dsproxy: "+commandStatusFromOutput(dsproxyReply),
+			persistLine,
+			runtimeLine,
+			"• session: Current session was preserved. Use /restart only when you want a new session.",
+		), true
 
 	case "/effort":
 		if len(fields) != 2 {
-			return "Usage: /effort high|max", true
+			return commandCard("ℹ️ Usage", "• /effort high|max"), true
 		}
 
 		requestedEffort := fields[1]
 		dsproxyEffort := ""
+		effortLine := ""
 		switch requestedEffort {
 		case "high":
 			dsproxyEffort = "high"
+			effortLine = "• effort: high"
 		case "max":
 			dsproxyEffort = "xhigh"
+			effortLine = "• effort: max (Codex: xhigh, DeepSeek: max)"
 		default:
-			return "Unsupported effort. Allowed values: high, max", true
+			return commandCard("⚠️ Unsupported effort", "• allowed: high, max"), true
 		}
 
 		h.mu.RLock()
 		defaultName := h.defaultName
 		h.mu.RUnlock()
-		switch defaultName {
-		case "deepseek", "deepseek-thinking":
-		default:
-			return "/effort is only supported for deepseek and deepseek-thinking.", true
+		if !isDeepSeekRuntimeAgent(defaultName) {
+			return commandCard("⛔ DeepSeek only", "• /effort is only supported for deepseek and deepseek-thinking"), true
 		}
 
-		reply := runDsproxyCommand(ctx, "config", "set-effort", dsproxyEffort)
-		if requestedEffort == "max" {
-			reply += "\nEffort: max (Codex: xhigh, DeepSeek: max)"
-		} else {
-			reply += "\nEffort: high"
-		}
-		reply += "\nCurrent session was preserved. Use /restart only when you want a new session."
-		return reply, true
+		dsproxyReply := runDsproxyCommand(ctx, "config", "set-effort", dsproxyEffort)
+		return commandCard(
+			"✅ Effort updated",
+			"• profile: "+defaultName,
+			effortLine,
+			"• dsproxy: "+commandStatusFromOutput(dsproxyReply),
+			"• session: Current session was preserved. Use /restart only when you want a new session.",
+		), true
 
 	case "/profile":
 		if len(fields) != 2 {
@@ -563,19 +574,68 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 }
 
 func (h *Handler) buildStatusDiagnostics(ctx context.Context) string {
-	parts := []string{h.buildStatus()}
+	h.mu.RLock()
+	defaultName := h.defaultName
+	ag := h.agents[defaultName]
+	h.mu.RUnlock()
+
+	agentType := "none"
+	agentModel := "none"
+	if ag != nil {
+		info := ag.Info()
+		agentType = info.Type
+		if info.Model != "" {
+			agentModel = info.Model
+		}
+	}
 
 	dsproxyStatus := runDsproxyCommand(ctx, "status")
-	if strings.TrimSpace(dsproxyStatus) != "" {
-		parts = append(parts, "dsproxy status:\n"+dsproxyStatus)
-	}
-
 	dsproxyConfig := runDsproxyCommand(ctx, "config", "show")
-	if strings.TrimSpace(dsproxyConfig) != "" {
-		parts = append(parts, "dsproxy config:\n"+dsproxyConfig)
+
+	proxyRoute := "default"
+	proxyEndpoint := "127.0.0.1:8000"
+	if defaultName == "deepseek-thinking" {
+		proxyRoute = "thinking"
+		proxyEndpoint = "127.0.0.1:8001"
 	}
 
-	return strings.Join(parts, "\n\n")
+	proxyState := "unknown"
+	statusLower := strings.ToLower(dsproxyStatus)
+	if strings.Contains(statusLower, "reachable") || strings.Contains(statusLower, "\"status\": \"ok\"") || strings.Contains(statusLower, "\"status\":\"ok\"") {
+		proxyState = "reachable"
+	} else if strings.TrimSpace(dsproxyStatus) != "" {
+		proxyState = compactCommandOutput(dsproxyStatus, 180)
+	}
+
+	proxyModel := extractCommandValue(dsproxyConfig, "DEEPSEEK_PROXY_MODEL")
+	if proxyModel == "" {
+		proxyModel = "unknown"
+	}
+	proxyEffort := extractCommandValue(dsproxyConfig, "DEEPSEEK_REASONING_EFFORT")
+	if proxyEffort == "" {
+		proxyEffort = "unknown"
+	}
+
+	return commandCard(
+		"🧩 Agent",
+		"• profile: "+defaultName,
+		"• type: "+agentType,
+		"• model: "+agentModel,
+		"",
+		"🔌 Proxy",
+		"• status: "+proxyState,
+		"• route: "+proxyRoute,
+		"• endpoint: "+proxyEndpoint,
+		"• config model: "+proxyModel,
+		"• config effort: "+proxyEffort,
+		"",
+		"📁 Paths",
+		"• weclaw config: ~/.weclaw/config.json",
+		"• weclaw log: ~/.weclaw/weclaw.log",
+		"• codex config: ~/.codex/config.toml",
+		"• dsproxy env: ~/.config/deepseek-responses-proxy/env",
+		"• dsproxy repo: ~/projects/deepseek-responses-proxy",
+	)
 }
 
 func resolveDsproxyBinary() string {
@@ -680,6 +740,138 @@ func persistDeepSeekRuntimeModel(name, model string) error {
 	return config.Save(cfg)
 }
 
+func commandCard(title string, lines ...string) string {
+	parts := []string{title}
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			parts = append(parts, line)
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
+func compactCommandOutput(text string, limit int) string {
+	text = strings.Join(strings.Fields(text), " ")
+	if limit <= 0 || len(text) <= limit {
+		return text
+	}
+	if limit <= 3 {
+		return text[:limit]
+	}
+	return text[:limit-3] + "..."
+}
+
+func commandStatusFromOutput(text string) string {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return "ok"
+	}
+	lower := strings.ToLower(trimmed)
+	if strings.Contains(lower, "failed") || strings.Contains(lower, "timed out") || strings.Contains(lower, "error") {
+		return compactCommandOutput(trimmed, 220)
+	}
+	return "ok"
+}
+
+type dsproxyBalanceResponse struct {
+	Status  string `json:"status"`
+	Balance struct {
+		IsAvailable  bool `json:"is_available"`
+		BalanceInfos []struct {
+			Currency        string `json:"currency"`
+			TotalBalance    string `json:"total_balance"`
+			GrantedBalance  string `json:"granted_balance"`
+			ToppedUpBalance string `json:"topped_up_balance"`
+		} `json:"balance_infos"`
+	} `json:"balance"`
+}
+
+func formatBalanceReply(text string) string {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return commandCard("💰 Balance", "• status: empty response")
+	}
+
+	var payload dsproxyBalanceResponse
+	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
+		return commandCard(
+			"💰 Balance",
+			"• status: "+commandStatusFromOutput(trimmed),
+			"• detail: "+compactCommandOutput(trimmed, 360),
+		)
+	}
+
+	status := payload.Status
+	if status == "" {
+		status = "ok"
+	}
+
+	available := "no"
+	if payload.Balance.IsAvailable {
+		available = "yes"
+	}
+
+	lines := []string{
+		"• status: " + status,
+		"• available: " + available,
+	}
+
+	if len(payload.Balance.BalanceInfos) == 0 {
+		lines = append(lines, "• balance: none")
+		return commandCard("💰 Balance", lines...)
+	}
+
+	for _, info := range payload.Balance.BalanceInfos {
+		currency := info.Currency
+		if currency == "" {
+			currency = "unknown"
+		}
+		lines = append(lines,
+			fmt.Sprintf("• %s total: %s", currency, valueOrUnknown(info.TotalBalance)),
+			fmt.Sprintf("• %s granted: %s", currency, valueOrUnknown(info.GrantedBalance)),
+			fmt.Sprintf("• %s topped-up: %s", currency, valueOrUnknown(info.ToppedUpBalance)),
+		)
+	}
+
+	return commandCard("💰 Balance", lines...)
+}
+
+func valueOrUnknown(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "unknown"
+	}
+	return value
+}
+
+func extractCommandValue(text, key string) string {
+	for _, marker := range []string{
+		"\"" + key + "\"",
+		key,
+	} {
+		idx := strings.Index(text, marker)
+		if idx < 0 {
+			continue
+		}
+		rest := text[idx+len(marker):]
+		if colon := strings.Index(rest, ":"); colon >= 0 {
+			rest = rest[colon+1:]
+		} else if eq := strings.Index(rest, "="); eq >= 0 {
+			rest = rest[eq+1:]
+		}
+		rest = strings.TrimSpace(rest)
+		rest = strings.Trim(rest, "\", ")
+		if comma := strings.IndexAny(rest, ",\n\r"); comma >= 0 {
+			rest = rest[:comma]
+		}
+		rest = strings.TrimSpace(strings.Trim(rest, "\", "))
+		if rest != "" && rest != "{" && rest != "}" {
+			return rest
+		}
+	}
+	return ""
+}
+
 type stoppableAgent interface {
 	Stop()
 }
@@ -698,25 +890,16 @@ func stopAgentIfSupported(name string, ag agent.Agent) {
 
 func (h *Handler) restartProfileAgent(ctx context.Context, name, userID string) string {
 	if !h.isKnownAgent(name) {
-		return fmt.Sprintf("Profile %q is not configured. Run weclaw start %s once, or ensure codex is installed and auto-detection can register it.", name, name)
-	}
-
-	h.mu.Lock()
-	oldDefaultName := h.defaultName
-	oldDefault := h.agents[oldDefaultName]
-	oldTarget := h.agents[name]
-	delete(h.agents, name)
-	if oldDefaultName != "" && oldDefaultName != name {
-		delete(h.agents, oldDefaultName)
-	}
-	h.mu.Unlock()
-
-	stopAgentIfSupported(name, oldTarget)
-	if oldDefaultName != "" && oldDefaultName != name {
-		stopAgentIfSupported(oldDefaultName, oldDefault)
+		return commandCard(
+			"⚠️ Profile",
+			fmt.Sprintf("• profile: %s", name),
+			"• status: not configured",
+			fmt.Sprintf("• action: Run weclaw start %s once, or ensure codex is installed and auto-detection can register it.", name),
+		)
 	}
 
 	reply := h.switchDefault(ctx, name)
+
 	h.mu.RLock()
 	ready := h.defaultName == name && h.agents[name] != nil
 	h.mu.RUnlock()
@@ -724,8 +907,11 @@ func (h *Handler) restartProfileAgent(ctx context.Context, name, userID string) 
 		return reply
 	}
 
-	sessionReply := h.resetDefaultSession(ctx, userID)
-	return reply + "\n" + sessionReply
+	return reply + "\n" + commandCard(
+		"🧵 Session",
+		"• action: Existing session was preserved when available.",
+		"• restart: Use /restart only when you want a new session.",
+	)
 }
 
 func (h *Handler) restartCurrentDefaultAgent(ctx context.Context, userID string) string {
@@ -735,7 +921,7 @@ func (h *Handler) restartCurrentDefaultAgent(ctx context.Context, userID string)
 	h.mu.RUnlock()
 
 	if name == "" {
-		return "No default agent configured."
+		return commandCard("⚠️ Restart", "• status: No default agent configured.")
 	}
 
 	h.mu.Lock()
@@ -1368,7 +1554,7 @@ func (h *Handler) switchDefault(ctx context.Context, name string) string {
 
 	info := ag.Info()
 	log.Printf("[handler] switched default agent: %s -> %s (%s)", old, name, info)
-	return fmt.Sprintf("Switched default agent to %s.", userFacingAgentLabel(name, info))
+	return commandCard("🔁 Profile switched", fmt.Sprintf("• action: Switched default agent to %s.", userFacingAgentLabel(name, info)))
 }
 
 // resetDefaultSession resets the session for the given userID on the default agent.
@@ -1379,7 +1565,7 @@ func (h *Handler) resetDefaultSession(ctx context.Context, userID string) string
 
 	ag := h.getDefaultAgent()
 	if ag == nil {
-		return "No agent running."
+		return commandCard("⚠️ Session", "• status: No agent running.")
 	}
 	info := ag.Info()
 	name := userFacingAgentLabel(defaultName, info)
@@ -1389,9 +1575,9 @@ func (h *Handler) resetDefaultSession(ctx context.Context, userID string) string
 		return fmt.Sprintf("Failed to reset session: %v", err)
 	}
 	if sessionID != "" {
-		return fmt.Sprintf("Created a new %s session: %s", name, sessionID)
+		return commandCard("🧵 Session", fmt.Sprintf("• action: Created a new %s session: %s", name, sessionID))
 	}
-	return fmt.Sprintf("Created a new %s session.", name)
+	return commandCard("🧵 Session", fmt.Sprintf("• action: Created a new %s session.", name))
 }
 
 func userFacingAgentLabel(preferred string, info agent.AgentInfo) string {
@@ -1501,22 +1687,31 @@ func (h *Handler) buildStatus() string {
 }
 
 func buildHelpText() string {
-	return `Available commands:
-@agent or /agent - Switch default agent
-@agent msg or /agent msg - Send to a specific agent
-@a @b msg - Broadcast to multiple agents
-/new or /clear - Start a new session
-/cwd /path - Switch workspace directory
-/info - Show current agent info
-/status - Show current agent and DeepSeek proxy diagnostics
-/balance - Show DeepSeek account balance
-/model deepseek-v4-pro|deepseek-v4-flash - Set DeepSeek model
-/effort medium|high|xhigh - Set DeepSeek reasoning effort
-/profile deepseek|deepseek-thinking - Switch existing Codex profile
-/restart - Restart the current profile session
-/help - Show this help message
+	return `📖 WeClaw commands
 
-Aliases: /cc(claude) /cx(codex) /cs(cursor) /km(kimi) /gm(gemini) /oc(openclaw) /ocd(opencode) /pi(pi) /cp(copilot) /dr(droid) /if(iflow) /kr(kiro) /qw(qwen)`
+🧩 Agent
+• /profile deepseek|deepseek-thinking - Switch DeepSeek profile
+• /restart - Start a new session for the current profile
+• /status - Show compact runtime diagnostics
+• /info - Show current agent info
+• /help - Show this help message
+
+⚙️ DeepSeek runtime
+• /model deepseek-v4-pro|deepseek-v4-flash - Change DeepSeek model without resetting session
+• /effort high|max - Change DeepSeek effort without resetting session
+• /balance - Show DeepSeek account balance
+
+💬 Chat routing
+• @agent or /agent - Switch default agent
+• @agent msg or /agent msg - Send to a specific agent
+• @a @b msg - Broadcast to multiple agents
+• /new or /clear - Start a new session
+• /cwd /path - Switch workspace directory
+
+Aliases:
+• /cc(claude) /cx(codex) /cs(cursor) /km(kimi) /gm(gemini)
+• /oc(openclaw) /ocd(opencode) /pi(pi) /cp(copilot)
+• /dr(droid) /if(iflow) /kr(kiro) /qw(qwen)`
 }
 
 func extractText(msg ilink.WeixinMessage) string {
