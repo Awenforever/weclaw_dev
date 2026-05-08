@@ -128,6 +128,53 @@ func TestRuntimeControlProfileSwitchDoesNotChat(t *testing.T) {
 	if !strings.Contains(reply, "Existing session was preserved") {
 		t.Fatalf("reply = %q, want preserved session message", reply)
 	}
+	if !strings.Contains(reply, "thinking: disabled") {
+		t.Fatalf("reply = %q, want thinking disabled marker", reply)
+	}
+	if factoryCalls != 1 {
+		t.Fatalf("factoryCalls = %d, want 1", factoryCalls)
+	}
+	if created == nil {
+		t.Fatal("created agent is nil")
+	}
+	if created.chatCalls != 0 {
+		t.Fatalf("chatCalls = %d, want 0 because control messages must not enter Chat", created.chatCalls)
+	}
+	if created.resetCalls != 0 {
+		t.Fatalf("resetCalls = %d, want 0 because /profile must preserve the current session", created.resetCalls)
+	}
+}
+
+func TestRuntimeControlProfileSwitchThinkingEnabled(t *testing.T) {
+	var created *runtimeControlTestAgent
+	factoryCalls := 0
+
+	h := NewHandler(func(ctx context.Context, name string) agent.Agent {
+		if name != "deepseek-thinking" {
+			return nil
+		}
+		factoryCalls++
+		created = &runtimeControlTestAgent{
+			info:      agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-pro"},
+			sessionID: "session-deepseek-thinking",
+		}
+		return created
+	}, nil)
+	h.SetAgentMetas([]AgentMeta{{Name: "deepseek-thinking", Type: "acp", Command: "codex", Model: "deepseek-v4-pro"}})
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/profile deepseek-thinking", "user-1")
+	if !ok {
+		t.Fatal("/profile should be intercepted")
+	}
+	if !strings.Contains(reply, "Switched default agent to deepseek-thinking") {
+		t.Fatalf("reply = %q, want profile switch message", reply)
+	}
+	if !strings.Contains(reply, "Existing session was preserved") {
+		t.Fatalf("reply = %q, want preserved session message", reply)
+	}
+	if !strings.Contains(reply, "thinking: enabled") {
+		t.Fatalf("reply = %q, want thinking enabled marker", reply)
+	}
 	if factoryCalls != 1 {
 		t.Fatalf("factoryCalls = %d, want 1", factoryCalls)
 	}

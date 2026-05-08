@@ -888,6 +888,13 @@ func stopAgentIfSupported(name string, ag agent.Agent) {
 	stopper.Stop()
 }
 
+func profileThinkingLine(name string) string {
+	if name == "deepseek-thinking" {
+		return "• thinking: enabled"
+	}
+	return "• thinking: disabled"
+}
+
 func (h *Handler) restartProfileAgent(ctx context.Context, name, userID string) string {
 	if !h.isKnownAgent(name) {
 		return commandCard(
@@ -910,6 +917,7 @@ func (h *Handler) restartProfileAgent(ctx context.Context, name, userID string) 
 	return reply + "\n" + commandCard(
 		"🧵 Session",
 		"• action: Existing session was preserved when available.",
+		profileThinkingLine(name),
 		"• restart: Use /restart only when you want a new session.",
 	)
 }
