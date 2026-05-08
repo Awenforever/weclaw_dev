@@ -300,6 +300,35 @@ func TestRuntimeControlCancelIdle(t *testing.T) {
 	}
 }
 
+func TestRuntimeControlUnknownSlashCommandIsBlocked(t *testing.T) {
+	h := NewHandler(nil, nil)
+	h.SetAgentMetas([]AgentMeta{{Name: "deepseek", Type: "acp", Command: "codex"}})
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/cancle", "user-1")
+	if !ok {
+		t.Fatal("unknown slash command should be intercepted")
+	}
+	if !strings.Contains(reply, "Unknown slash command") {
+		t.Fatalf("reply = %q, want unknown slash command card", reply)
+	}
+	if !strings.Contains(reply, "Not sent to agent") {
+		t.Fatalf("reply = %q, want local block marker", reply)
+	}
+	if !strings.Contains(reply, "/cancel") {
+		t.Fatalf("reply = %q, want typo suggestion", reply)
+	}
+}
+
+func TestRuntimeControlKnownSlashAgentCommandStillRoutes(t *testing.T) {
+	h := NewHandler(nil, nil)
+	h.SetAgentMetas([]AgentMeta{{Name: "deepseek", Type: "acp", Command: "codex"}})
+
+	_, ok := h.handleRuntimeControl(context.Background(), "/deepseek hello", "user-1")
+	if ok {
+		t.Fatal("known slash agent command should not be intercepted by runtime control")
+	}
+}
+
 func TestRuntimeControlEffortOnlySupportsDeepSeekProfiles(t *testing.T) {
 	h := NewHandler(nil, nil)
 	h.defaultName = "codex"

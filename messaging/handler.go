@@ -813,7 +813,48 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 		return h.restartCurrentDefaultAgent(ctx, userID), true
 	}
 
+	if strings.HasPrefix(fields[0], "/") && !isDeferredBuiltinSlashCommand(fields[0]) && !h.isKnownSlashAgentCommand(trimmed) {
+		return unknownSlashCommandCard(fields[0]), true
+	}
+
 	return "", false
+}
+
+func isDeferredBuiltinSlashCommand(command string) bool {
+	switch command {
+	case "/info", "/help", "/new", "/clear":
+		return true
+	}
+	return strings.HasPrefix(command, "/cwd")
+}
+
+func (h *Handler) isKnownSlashAgentCommand(trimmed string) bool {
+	agentNames, _ := h.parseCommand(trimmed)
+	if len(agentNames) == 0 {
+		return false
+	}
+	return h.isKnownAgent(agentNames[0])
+}
+
+func unknownSlashCommandCard(command string) string {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		command = "/"
+	}
+	lines := []string{
+		"• command: " + command,
+		"• action: Not sent to agent.",
+		"• help: Use /help to list supported commands.",
+	}
+	switch strings.ToLower(command) {
+	case "/cancle", "/canel", "/cnacel":
+		lines = append(lines, "• did you mean: /cancel")
+	case "/stats":
+		lines = append(lines, "• did you mean: /status")
+	case "/restat", "/restrat":
+		lines = append(lines, "• did you mean: /restart")
+	}
+	return commandCard("⚠️ Unknown slash command", lines...)
 }
 
 func (h *Handler) buildStatusDiagnostics(ctx context.Context) string {
@@ -1983,6 +2024,7 @@ func buildHelpText() string {
 • /status - Show compact runtime diagnostics
 • /info - Show current agent info
 • /help - Show this help message
+• unknown /xxx - Blocked locally, not sent to agent
 
 ⚙️ DeepSeek runtime
 • /model deepseek-v4-pro|deepseek-v4-flash - Change DeepSeek model without resetting session
