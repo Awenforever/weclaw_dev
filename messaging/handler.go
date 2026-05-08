@@ -69,6 +69,7 @@ type Handler struct {
 	typingSender  typingSenderFunc
 	typingEvery   time.Duration
 	userTurns     sync.Map // map[userID]*sync.Mutex — serializes agent turns per user
+	runningTurns  sync.Map // map[userID]*runningTurnState — current cancellable agent turn
 }
 
 // NewHandler creates a new message handler.
@@ -88,6 +89,236 @@ func NewHandler(factory AgentFactory, saveDefault SaveDefaultFunc) *Handler {
 		typingSender: SendTypingState,
 		typingEvery:  6 * time.Second,
 	}
+}
+
+type runningTurnSnapshot struct {
+	userID          string
+	agentName       string
+	status          string
+	lastProgress    string
+	startedAt       time.Time
+	lastUpdateAt    time.Time
+	cancelRequested bool
+}
+
+type runningTurnState struct {
+	mu              sync.RWMutex
+	userID          string
+	agentName       string
+	message         string
+	startedAt       time.Time
+	lastUpdateAt    time.Time
+	status          string
+	lastProgress    string
+	cancel          context.CancelFunc
+	cancelRequested bool
+}
+
+func (s *runningTurnState) update(status, progress string) {
+	if s == nil {
+		return
+	}
+	now := time.Now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if strings.TrimSpace(status) != "" {
+		s.status = strings.TrimSpace(status)
+	}
+	if strings.TrimSpace(progress) != "" {
+		s.lastProgress = truncate(normalizeLineEndings(strings.TrimSpace(progress)), 180)
+	}
+	s.lastUpdateAt = now
+}
+
+func (s *runningTurnState) observeProgress(evt agent.ProgressEvent) {
+	if s == nil {
+		return
+	}
+	if text, ok := compactStreamEvent(evt); ok {
+		s.update("working", text)
+		return
+	}
+	switch evt.Type {
+	case agent.ProgressEventStatus:
+		s.update("status", evt.Text)
+	case agent.ProgressEventToolEnd:
+		s.update("tool done", evt.Text)
+	case agent.ProgressEventError:
+		s.update("error", evt.Text)
+	case agent.ProgressEventAssistantMessageComplete:
+		if evt.Final {
+			s.update("finalizing", "final answer ready")
+		} else {
+			s.update("responding", "assistant message received")
+		}
+	}
+}
+
+func (s *runningTurnState) requestCancel() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.cancelRequested = true
+	s.status = "cancelling"
+	s.lastProgress = "cancel requested"
+	s.lastUpdateAt = time.Now()
+	cancel := s.cancel
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func (s *runningTurnState) wasCancelRequested() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.cancelRequested
+}
+
+func (s *runningTurnState) snapshot() runningTurnSnapshot {
+	if s == nil {
+		return runningTurnSnapshot{}
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return runningTurnSnapshot{
+		userID:          s.userID,
+		agentName:       s.agentName,
+		status:          s.status,
+		lastProgress:    s.lastProgress,
+		startedAt:       s.startedAt,
+		lastUpdateAt:    s.lastUpdateAt,
+		cancelRequested: s.cancelRequested,
+	}
+}
+
+func (h *Handler) beginRunningTurn(ctx context.Context, userID, agentName, message string) (context.Context, *runningTurnState, func()) {
+	if userID == "" {
+		userID = "default"
+	}
+	turnCtx, cancel := context.WithCancel(ctx)
+	now := time.Now()
+	state := &runningTurnState{
+		userID:       userID,
+		agentName:    agentName,
+		message:      message,
+		startedAt:    now,
+		lastUpdateAt: now,
+		status:       "running",
+		lastProgress: "dispatching to agent",
+		cancel:       cancel,
+	}
+	h.runningTurns.Store(userID, state)
+	cleanup := func() {
+		if value, ok := h.runningTurns.Load(userID); ok && value == state {
+			h.runningTurns.Delete(userID)
+		}
+	}
+	return turnCtx, state, cleanup
+}
+
+func (h *Handler) runningTurnSnapshot(userID string) (runningTurnSnapshot, bool) {
+	if userID == "" {
+		userID = "default"
+	}
+	value, ok := h.runningTurns.Load(userID)
+	if !ok {
+		return runningTurnSnapshot{}, false
+	}
+	state, ok := value.(*runningTurnState)
+	if !ok {
+		h.runningTurns.Delete(userID)
+		return runningTurnSnapshot{}, false
+	}
+	return state.snapshot(), true
+}
+
+func (h *Handler) cancelRunningTurn(userID string) string {
+	if userID == "" {
+		userID = "default"
+	}
+	value, ok := h.runningTurns.Load(userID)
+	if !ok {
+		return commandCard("ℹ️ No running task", "• action: nothing to cancel")
+	}
+	state, ok := value.(*runningTurnState)
+	if !ok {
+		h.runningTurns.Delete(userID)
+		return commandCard("ℹ️ No running task", "• action: nothing to cancel")
+	}
+	snap := state.snapshot()
+	state.requestCancel()
+	return commandCard(
+		"🛑 Cancel requested",
+		"• profile: "+snap.agentName,
+		"• running: "+formatTurnDuration(time.Since(snap.startedAt)),
+		"• session: preserved",
+	)
+}
+
+func (h *Handler) buildNowStatus(userID string) string {
+	snap, ok := h.runningTurnSnapshot(userID)
+	if !ok {
+		h.mu.RLock()
+		profile := h.defaultName
+		h.mu.RUnlock()
+		if profile == "" {
+			profile = "none"
+		}
+		return commandCard("✅ Idle", "• running: no", "• profile: "+profile)
+	}
+
+	status := snap.status
+	if status == "" {
+		status = "running"
+	}
+	progress := snap.lastProgress
+	if progress == "" {
+		progress = "working"
+	}
+	updated := "unknown"
+	if !snap.lastUpdateAt.IsZero() {
+		updated = formatTurnDuration(time.Since(snap.lastUpdateAt)) + " ago"
+	}
+	return commandCard(
+		"⏳ Current task",
+		"• profile: "+snap.agentName,
+		"• status: "+status,
+		"• running: "+formatTurnDuration(time.Since(snap.startedAt)),
+		"• last update: "+updated,
+		"• now: "+progress,
+	)
+}
+
+func formatTurnDuration(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	if d < time.Second {
+		return "<1s"
+	}
+	seconds := int(d.Round(time.Second) / time.Second)
+	if seconds < 60 {
+		return fmt.Sprintf("%ds", seconds)
+	}
+	minutes := seconds / 60
+	seconds = seconds % 60
+	if minutes < 60 {
+		if seconds == 0 {
+			return fmt.Sprintf("%dm", minutes)
+		}
+		return fmt.Sprintf("%dm%02ds", minutes, seconds)
+	}
+	hours := minutes / 60
+	minutes = minutes % 60
+	if minutes == 0 {
+		return fmt.Sprintf("%dh", hours)
+	}
+	return fmt.Sprintf("%dh%02dm", hours, minutes)
 }
 
 // SetStreamConfig enables or disables progress forwarding.
@@ -476,6 +707,18 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 
 		balanceReply := runDsproxyCommand(ctx, "balance")
 		return formatBalanceReply(balanceReply), true
+
+	case "/now":
+		if len(fields) != 1 {
+			return "Usage: /now", true
+		}
+		return h.buildNowStatus(userID), true
+
+	case "/cancel":
+		if len(fields) != 1 {
+			return "Usage: /cancel", true
+		}
+		return h.cancelRunningTurn(userID), true
 
 	case "/model":
 		if len(fields) != 2 {
@@ -925,29 +1168,25 @@ func (h *Handler) restartProfileAgent(ctx context.Context, name, userID string) 
 func (h *Handler) restartCurrentDefaultAgent(ctx context.Context, userID string) string {
 	h.mu.RLock()
 	name := h.defaultName
-	ag := h.agents[name]
 	h.mu.RUnlock()
 
 	if name == "" {
 		return commandCard("⚠️ Restart", "• status: No default agent configured.")
 	}
 
-	h.mu.Lock()
-	delete(h.agents, name)
-	h.mu.Unlock()
-
-	stopAgentIfSupported(name, ag)
-
-	reply := h.switchDefault(ctx, name)
-	h.mu.RLock()
-	ready := h.defaultName == name && h.agents[name] != nil
-	h.mu.RUnlock()
-	if !ready {
-		return reply
+	if value, ok := h.runningTurns.Load(userID); ok {
+		if state, ok := value.(*runningTurnState); ok {
+			state.requestCancel()
+		}
 	}
 
 	sessionReply := h.resetDefaultSession(ctx, userID)
-	return reply + "\n" + sessionReply
+	return sessionReply + "\n" + commandCard(
+		"🔄 Restart",
+		"• profile: "+name,
+		"• action: Created a new session for the current profile.",
+		"• config: preserved",
+	)
 }
 
 // sendToDefaultAgent sends the message to the default agent and replies.
@@ -966,9 +1205,16 @@ func (h *Handler) sendToDefaultAgent(ctx context.Context, client *ilink.Client, 
 	var reply string
 	var streamedText bool
 	if ag != nil {
+		turnCtx, turnState, finishTurn := h.beginRunningTurn(ctx, msg.FromUserID, defaultName, text)
+		defer finishTurn()
+
 		var err error
-		reply, streamedText, err = h.chatWithAgentWithoutStreaming(ctx, ag, msg.FromUserID, text)
+		reply, streamedText, err = h.chatWithAgentTracking(turnCtx, ag, msg.FromUserID, text, turnState)
 		if err != nil {
+			if turnState.wasCancelRequested() && turnCtx.Err() != nil {
+				log.Printf("[handler] cancelled default agent turn for %s", msg.FromUserID)
+				return
+			}
 			reply = fmt.Sprintf("Error: %v", err)
 			streamedText = false
 		}
@@ -996,8 +1242,15 @@ func (h *Handler) sendToNamedAgent(ctx context.Context, client *ilink.Client, ms
 		return
 	}
 
-	reply, streamedText, err := h.chatWithAgentWithoutStreaming(ctx, ag, msg.FromUserID, message)
+	turnCtx, turnState, finishTurn := h.beginRunningTurn(ctx, msg.FromUserID, name, message)
+	defer finishTurn()
+
+	reply, streamedText, err := h.chatWithAgentTracking(turnCtx, ag, msg.FromUserID, message, turnState)
 	if err != nil {
+		if turnState.wasCancelRequested() && turnCtx.Err() != nil {
+			log.Printf("[handler] cancelled named agent turn for %s", msg.FromUserID)
+			return
+		}
 		reply = fmt.Sprintf("Error: %v", err)
 		streamedText = false
 	}
@@ -1197,11 +1450,33 @@ func (h *Handler) chatWithAgent(ctx context.Context, client *ilink.Client, msg i
 }
 
 func (h *Handler) chatWithAgentWithoutStreaming(ctx context.Context, ag agent.Agent, userID, message string) (string, bool, error) {
+	return h.chatWithAgentTracking(ctx, ag, userID, message, nil)
+}
+
+func (h *Handler) chatWithAgentTracking(ctx context.Context, ag agent.Agent, userID, message string, turnState *runningTurnState) (string, bool, error) {
 	info := ag.Info()
 	log.Printf("[handler] dispatching to agent without WeChat streaming (%s) for %s", info, userID)
 
 	start := time.Now()
-	reply, err := ag.Chat(ctx, userID, message)
+	if turnState != nil {
+		turnState.update("running", "dispatching to "+userFacingAgentLabel("", info))
+	}
+
+	var reply string
+	var err error
+	if streamingAg, ok := ag.(agent.StreamingAgent); ok && turnState != nil {
+		reply, err = streamingAg.ChatStream(ctx, userID, message, func(evt agent.ProgressEvent) error {
+			turnState.observeProgress(evt)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+				return nil
+			}
+		})
+	} else {
+		reply, err = ag.Chat(ctx, userID, message)
+	}
 	elapsed := time.Since(start)
 
 	if err != nil {
@@ -1209,6 +1484,9 @@ func (h *Handler) chatWithAgentWithoutStreaming(ctx context.Context, ag agent.Ag
 		return "", false, err
 	}
 
+	if turnState != nil {
+		turnState.update("done", "final answer ready")
+	}
 	log.Printf("[handler] agent replied (%s, elapsed=%s): %q", info, elapsed, truncate(reply, 100))
 	return reply, false, nil
 }
@@ -1700,6 +1978,8 @@ func buildHelpText() string {
 🧩 Agent
 • /profile deepseek|deepseek-thinking - Switch DeepSeek profile
 • /restart - Start a new session for the current profile
+• /now - Show current task progress
+• /cancel - Cancel the current running task
 • /status - Show compact runtime diagnostics
 • /info - Show current agent info
 • /help - Show this help message

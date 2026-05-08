@@ -189,22 +189,16 @@ func TestRuntimeControlProfileSwitchThinkingEnabled(t *testing.T) {
 	}
 }
 
-func TestRuntimeControlRestartCurrentDefaultStopsOldAgent(t *testing.T) {
+func TestRuntimeControlRestartCurrentDefaultResetsSessionOnly(t *testing.T) {
 	old := &runtimeControlTestAgent{
 		info:      agent.AgentInfo{Name: "deepseek", Type: "acp"},
-		sessionID: "old-session",
+		sessionID: "new-session",
 	}
-	var created *runtimeControlTestAgent
+	factoryCalls := 0
 
 	h := NewHandler(func(ctx context.Context, name string) agent.Agent {
-		if name != "deepseek" {
-			return nil
-		}
-		created = &runtimeControlTestAgent{
-			info:      agent.AgentInfo{Name: "deepseek", Type: "acp"},
-			sessionID: "new-session",
-		}
-		return created
+		factoryCalls++
+		return nil
 	}, nil)
 	h.SetAgentMetas([]AgentMeta{{Name: "deepseek", Type: "acp", Command: "codex"}})
 	h.SetDefaultAgent("deepseek", old)
@@ -213,17 +207,96 @@ func TestRuntimeControlRestartCurrentDefaultStopsOldAgent(t *testing.T) {
 	if !ok {
 		t.Fatal("/restart should be intercepted")
 	}
-	if !old.stopped {
-		t.Fatal("old default agent was not stopped")
+	if old.stopped {
+		t.Fatal("/restart should not stop the current default agent")
 	}
-	if created == nil {
-		t.Fatal("new default agent was not created")
+	if factoryCalls != 0 {
+		t.Fatalf("factoryCalls = %d, want 0 because /restart must not recreate the profile agent", factoryCalls)
 	}
-	if created.chatCalls != 0 {
-		t.Fatalf("chatCalls = %d, want 0 because restart must not enter Chat", created.chatCalls)
+	if old.resetCalls != 1 {
+		t.Fatalf("resetCalls = %d, want 1", old.resetCalls)
 	}
-	if !strings.Contains(reply, "Switched default agent to deepseek") {
-		t.Fatalf("reply = %q, want switch message", reply)
+	if old.chatCalls != 0 {
+		t.Fatalf("chatCalls = %d, want 0 because restart must not enter Chat", old.chatCalls)
+	}
+	if strings.Contains(reply, "Profile switched") || strings.Contains(reply, "Switched default agent") {
+		t.Fatalf("reply = %q, want no profile switch message", reply)
+	}
+	if !strings.Contains(reply, "config: preserved") {
+		t.Fatalf("reply = %q, want config preserved marker", reply)
+	}
+}
+
+func TestRuntimeControlNowReportsRunningTurn(t *testing.T) {
+	h := NewHandler(nil, nil)
+	_, turn, cleanup := h.beginRunningTurn(context.Background(), "user-1", "deepseek-thinking", "check balance")
+	defer cleanup()
+
+	turn.observeProgress(agent.ProgressEvent{
+		Type: agent.ProgressEventToolStart,
+		Text: "using memory_router.memory_query",
+	})
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/now", "user-1")
+	if !ok {
+		t.Fatal("/now should be intercepted")
+	}
+	if !strings.Contains(reply, "Current task") {
+		t.Fatalf("reply = %q, want current task card", reply)
+	}
+	if !strings.Contains(reply, "deepseek-thinking") {
+		t.Fatalf("reply = %q, want profile", reply)
+	}
+	if !strings.Contains(reply, "memory_router.memory_query") {
+		t.Fatalf("reply = %q, want latest progress", reply)
+	}
+}
+
+func TestRuntimeControlNowIdle(t *testing.T) {
+	h := NewHandler(nil, nil)
+	h.defaultName = "deepseek"
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/now", "user-1")
+	if !ok {
+		t.Fatal("/now should be intercepted")
+	}
+	if !strings.Contains(reply, "Idle") {
+		t.Fatalf("reply = %q, want idle card", reply)
+	}
+	if !strings.Contains(reply, "deepseek") {
+		t.Fatalf("reply = %q, want current profile", reply)
+	}
+}
+
+func TestRuntimeControlCancelRunningTurn(t *testing.T) {
+	h := NewHandler(nil, nil)
+	turnCtx, turn, cleanup := h.beginRunningTurn(context.Background(), "user-1", "deepseek-thinking", "long task")
+	defer cleanup()
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/cancel", "user-1")
+	if !ok {
+		t.Fatal("/cancel should be intercepted")
+	}
+	if !strings.Contains(reply, "Cancel requested") {
+		t.Fatalf("reply = %q, want cancel requested card", reply)
+	}
+	if !turn.wasCancelRequested() {
+		t.Fatal("turn was not marked as cancel requested")
+	}
+	if turnCtx.Err() == nil {
+		t.Fatal("turn context was not cancelled")
+	}
+}
+
+func TestRuntimeControlCancelIdle(t *testing.T) {
+	h := NewHandler(nil, nil)
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/cancel", "user-1")
+	if !ok {
+		t.Fatal("/cancel should be intercepted")
+	}
+	if !strings.Contains(reply, "No running task") {
+		t.Fatalf("reply = %q, want no running task card", reply)
 	}
 }
 
