@@ -31,13 +31,6 @@ WeClaw Dev用于把微信消息接入本地或远程AI Agent。
 
 ---
 
-## 语言
-
-- [中文文档](README_CN.md)
-- [English README](README.md)
-
----
-
 ## 效果预览
 
 
@@ -120,34 +113,129 @@ docker run -it -v ~/.weclaw:/root/.weclaw ghcr.io/fastclaw-ai/weclaw start
 
 ---
 
-## 推荐的Codex和DeepSeek工作流
+## 通过Codex让WeClaw使用DeepSeek
 
-Codex ACP模式下，建议直接使用真实的`codex`可执行文件。
+WeClaw不会直接启动DeepSeek模型。WeClaw启动的是Agent进程。推荐的DeepSeek工作流中，这个Agent是Codex，Codex再通过已配置的CoDeepSeedeX profile连接DeepSeek。
 
-除非明确需要持久NDJSON日志，否则不要额外套`tee`、stdout抓取脚本或其他日志包装层。包装进程可能改变Codex运行行为，并产生意料之外的本地文件。
+运行链路是：
 
-典型Codex ACP配置：
+```text
+微信
+→ WeClaw Dev
+→ Codex ACP进程
+→ Codex profile：deepseek或deepseek-thinking
+→ CoDeepSeedeX本地proxy/runtime
+→ DeepSeek模型后端
+```
+
+### 1. 启动或检查CoDeepSeedeX
+
+启动普通DeepSeek后端proxy：
+
+```bash
+dsproxy-start
+dsproxy-status
+curl -sS http://127.0.0.1:8000/healthz
+```
+
+thinking运行态：
+
+```bash
+dsproxy-start-thinking
+dsproxy-status-thinking
+curl -sS http://127.0.0.1:8001/healthz
+```
+
+实际profile名称取决于你的CoDeepSeedeX安装。默认预期通常是：
+
+```text
+deepseek
+deepseek-thinking
+```
+
+### 2. 先确认Codex能使用DeepSeek profile
+
+在接入WeClaw前，先直接测试Codex：
+
+```bash
+codex --profile deepseek
+```
+
+thinking profile：
+
+```bash
+codex --profile deepseek-thinking
+```
+
+如果这些命令不能连到模型后端，应先修复CoDeepSeedeX或Codex profile。WeClaw不能修复已经失效的Codex profile。
+
+### 3. 在WeClaw中配置Codex DeepSeek Agent
+
+编辑：
+
+```text
+~/.weclaw/config.json
+```
+
+普通DeepSeek profile示例：
 
 ```json
 {
+  "default_agent": "codex-deepseek",
   "agents": {
-    "codex": {
+    "codex-deepseek": {
       "type": "acp",
       "command": "/usr/local/bin/codex",
-      "args": ["app-server", "--listen", "stdio://"]
+      "args": ["--profile", "deepseek", "app-server", "--listen", "stdio://"],
+      "aliases": ["codex", "deepseek", "ds"],
+      "cwd": "/home/user/project"
     }
   }
 }
 ```
 
-与CoDeepSeedeX联动时，推荐分工如下：
+thinking profile示例：
+
+```json
+{
+  "default_agent": "codex-thinking",
+  "agents": {
+    "codex-thinking": {
+      "type": "acp",
+      "command": "/usr/local/bin/codex",
+      "args": ["--profile", "deepseek-thinking", "app-server", "--listen", "stdio://"],
+      "aliases": ["think", "deepthink"],
+      "cwd": "/home/user/project"
+    }
+  }
+}
+```
+
+ACP模式下建议直接使用真实的`codex`可执行文件。除非明确需要持久NDJSON日志，否则不要额外套`tee`、stdout抓取脚本或其他日志包装层。包装进程可能改变Codex运行行为，并产生意料之外的本地文件。
+
+### 4. 启动WeClaw
+
+```bash
+weclaw start
+```
+
+然后在微信中发送：
+
+```text
+/deepseek explain this repository
+/ds summarize the current status
+/codex inspect the README
+/think reason through this bug
+```
+
+推荐分工：
 
 | 组件 | 职责 |
 | --- | --- |
 | WeClaw Dev | 微信登录、消息路由、聊天命令和用户侧bot行为 |
+| Codex | ACP Agent进程和项目执行 |
 | CoDeepSeedeX | DeepSeek/Codex运行后端、本地proxy控制、MCP桥接和升级路径 |
-| Codex | Agent执行和项目工作 |
-| DeepSeek | 通过已配置profile/proxy提供模型后端 |
+| DeepSeek | 通过已配置Codex profile访问的模型后端 |
 
 CoDeepSeedeX：
 

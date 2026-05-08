@@ -31,13 +31,6 @@ This fork focuses on practical agent operation from WeChat:
 
 ---
 
-## Language
-
-- [English README](README.md)
-- [中文文档](README_CN.md)
-
----
-
 ## Preview
 
 
@@ -120,34 +113,129 @@ docker run -it -v ~/.weclaw:/root/.weclaw ghcr.io/fastclaw-ai/weclaw start
 
 ---
 
-## Recommended Codex and DeepSeek workflow
+## Run WeClaw with DeepSeek through Codex
 
-For Codex ACP mode, use the real `codex` binary directly.
+WeClaw does not start a DeepSeek model directly. WeClaw starts an agent process. For the recommended DeepSeek workflow, that agent is Codex, and Codex connects to DeepSeek through a configured CoDeepSeedeX profile.
 
-Do not wrap Codex with `tee`, stdout-capture scripts or logging shims unless persistent NDJSON logs are explicitly required. Wrapping can change runtime behavior and create unexpected local files.
+The runtime chain is:
 
-Example Codex ACP config:
+```text
+WeChat
+→ WeClaw Dev
+→ Codex ACP process
+→ Codex profile: deepseek or deepseek-thinking
+→ CoDeepSeedeX local proxy/runtime
+→ DeepSeek model backend
+```
+
+### 1. Start or verify CoDeepSeedeX
+
+Start the normal DeepSeek-backed proxy:
+
+```bash
+dsproxy-start
+dsproxy-status
+curl -sS http://127.0.0.1:8000/healthz
+```
+
+For the thinking profile/runtime:
+
+```bash
+dsproxy-start-thinking
+dsproxy-status-thinking
+curl -sS http://127.0.0.1:8001/healthz
+```
+
+The exact profile names depend on your CoDeepSeedeX installation. The intended default profiles are usually:
+
+```text
+deepseek
+deepseek-thinking
+```
+
+### 2. Verify Codex can use the DeepSeek profile
+
+Run a direct Codex check before involving WeClaw:
+
+```bash
+codex --profile deepseek
+```
+
+For the thinking profile:
+
+```bash
+codex --profile deepseek-thinking
+```
+
+If these commands cannot reach the model backend, fix CoDeepSeedeX or the Codex profile first. WeClaw cannot repair a broken Codex profile.
+
+### 3. Configure WeClaw to start Codex with the DeepSeek profile
+
+Edit:
+
+```text
+~/.weclaw/config.json
+```
+
+Example for the normal DeepSeek profile:
 
 ```json
 {
+  "default_agent": "codex-deepseek",
   "agents": {
-    "codex": {
+    "codex-deepseek": {
       "type": "acp",
       "command": "/usr/local/bin/codex",
-      "args": ["app-server", "--listen", "stdio://"]
+      "args": ["--profile", "deepseek", "app-server", "--listen", "stdio://"],
+      "aliases": ["codex", "deepseek", "ds"],
+      "cwd": "/home/user/project"
     }
   }
 }
 ```
 
-Recommended separation with CoDeepSeedeX:
+Example for the thinking profile:
+
+```json
+{
+  "default_agent": "codex-thinking",
+  "agents": {
+    "codex-thinking": {
+      "type": "acp",
+      "command": "/usr/local/bin/codex",
+      "args": ["--profile", "deepseek-thinking", "app-server", "--listen", "stdio://"],
+      "aliases": ["think", "deepthink"],
+      "cwd": "/home/user/project"
+    }
+  }
+}
+```
+
+Use the real `codex` binary directly. Do not wrap Codex with `tee`, stdout-capture scripts or logging shims unless persistent NDJSON logs are explicitly required. Wrapping can change runtime behavior and create unexpected local files.
+
+### 4. Start WeClaw
+
+```bash
+weclaw start
+```
+
+Then send messages in WeChat:
+
+```text
+/deepseek explain this repository
+/ds summarize the current status
+/codex inspect the README
+/think reason through this bug
+```
+
+Recommended separation:
 
 | Component | Responsibility |
 | --- | --- |
 | WeClaw Dev | WeChat login, message routing, chat commands and user-side bot behavior |
+| Codex | ACP agent process and project execution |
 | CoDeepSeedeX | DeepSeek/Codex runtime backend, local proxy control, MCP bridge and upgrade path |
-| Codex | Agent execution and project work |
-| DeepSeek | Model backend through the configured profile/proxy |
+| DeepSeek | Model backend reached through the configured Codex profile |
 
 CoDeepSeedeX:
 
