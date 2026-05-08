@@ -38,21 +38,17 @@ This fork focuses on practical agent operation from WeChat:
 
 ---
 
-## Screenshots
+## Preview
 
-Put images under `assets/readme/` with the exact filenames shown below. They will render automatically.
 
-| Formatted command output | Long-text formatting |
+| Command output | Long-form response formatting |
 | --- | --- |
-| <img src="assets/readme/weclaw-dev-formatted-status.jpg" width="420" alt="WeClaw Dev formatted status command" /> | <img src="assets/readme/weclaw-dev-codex-session.jpg" width="420" alt="Long text formatting from Codex in WeChat" /> |
+| <img src="assets/readme/weclaw-dev-formatted-status.jpg" width="420" alt="WeClaw Dev formatted status command" /> | <img src="assets/readme/weclaw-dev-codex-session.jpg" width="420" alt="Long-form Codex response formatting in WeChat" /> |
 
 | Typing keepalive | Profile and balance |
 | --- | --- |
 | <img src="assets/readme/weclaw-dev-typing-keepalive.jpg" width="420" alt="Typing keepalive during long replies" /> | <img src="assets/readme/weclaw-dev-profile-balance.jpg" width="420" alt="Profile and balance command examples" /> |
 
-| Codex session reuse | Typing keepalive |
-| --- | --- |
-| <img src="assets/readme/weclaw-dev-codex-session.jpg" width="420" alt="Codex session reuse from WeChat" /> | <img src="assets/readme/weclaw-dev-typing-keepalive.jpg" width="420" alt="Typing keepalive during long replies" /> |
 
 ---
 

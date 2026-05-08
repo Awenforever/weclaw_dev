@@ -38,21 +38,17 @@ WeClaw Dev用于把微信消息接入本地或远程AI Agent。
 
 ---
 
-## 图片示例
+## 效果预览
 
-请把图片放到`assets/readme/`目录，并使用下方精确文件名。图片加入后会自动显示。
 
-| 格式化命令输出 | 长文本格式化 |
+| 命令输出 | 长文本回复格式化 |
 | --- | --- |
-| <img src="assets/readme/weclaw-dev-formatted-status.jpg" width="420" alt="WeClaw Dev格式化状态命令" /> | <img src="assets/readme/weclaw-dev-codex-session.jpg" width="420" alt="Codex长文本回复在微信中的良好格式化" /> |
+| <img src="assets/readme/weclaw-dev-formatted-status.jpg" width="420" alt="WeClaw Dev格式化状态命令" /> | <img src="assets/readme/weclaw-dev-codex-session.jpg" width="420" alt="Codex长文本回复在微信中的格式化效果" /> |
 
 | typing状态保活 | Profile和Balance命令 |
 | --- | --- |
 | <img src="assets/readme/weclaw-dev-typing-keepalive.jpg" width="420" alt="长回复期间typing状态保活" /> | <img src="assets/readme/weclaw-dev-profile-balance.jpg" width="420" alt="Profile和Balance命令示例" /> |
 
-| Codex会话复用 | typing状态保活 |
-| --- | --- |
-| <img src="assets/readme/weclaw-dev-codex-session.jpg" width="420" alt="微信侧Codex会话复用" /> | <img src="assets/readme/weclaw-dev-typing-keepalive.jpg" width="420" alt="长回复期间typing状态保活" /> |
 
 ---
 
