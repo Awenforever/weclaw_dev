@@ -1,100 +1,211 @@
-# WeClaw
+# WeClaw Dev
 
-[中文文档](README_CN.md)
+<p align="center">
+  <strong>WeChat bridge for AI agents, optimized for Codex, DeepSeek and long-running chat workflows.</strong>
+</p>
 
-WeChat AI Agent Bridge — connect WeChat to AI agents (Claude, Codex, Gemini, Kimi, etc.).
+<p align="center">
+  <a href="README.md">English</a> · <a href="README_CN.md">中文文档</a>
+</p>
 
-> This project is inspired by [@tencent-weixin/openclaw-weixin](https://npmx.dev/package/@tencent-weixin/openclaw-weixin). For personal learning only, not for commercial use.
+> `weclaw_dev` is a development fork of [`fastclaw-ai/weclaw`](https://github.com/fastclaw-ai/weclaw).
+> It keeps the upstream WeChat AI Agent bridge model, while adding development-oriented behavior for Codex, DeepSeek, command formatting, session continuity and WeChat chat ergonomics.
+> Personal learning and research use only.
 
-| | | |
-|:---:|:---:|:---:|
-| <img src="previews/preview1.png" width="280" /> | <img src="previews/preview2.png" width="280" /> | <img src="previews/preview3.png" width="280" /> |
+---
 
-## Quick Start
+## What is WeClaw Dev?
+
+WeClaw Dev connects WeChat messages to local or remote AI agents.
+
+A WeChat message is received by WeClaw, routed to a configured agent, then normalized and sent back to WeChat. Agents can be local ACP processes, CLI commands or OpenAI-compatible HTTP backends.
+
+This fork focuses on practical agent operation from WeChat:
+
+- Codex sessions controlled from WeChat
+- DeepSeek-backed Codex workflows through CoDeepSeedeX
+- Cleaner mobile-readable command output
+- Better current-session continuity
+- WeChat typing-state keepalive during long agent turns
+- Refined operational commands such as `/status`, `/help`, `/profile` and `/balance`
+
+---
+
+## Language
+
+- [English README](README.md)
+- [中文文档](README_CN.md)
+
+---
+
+## Screenshots
+
+Put images under `assets/readme/` with the exact filenames shown below. They will render automatically.
+
+| Formatted command output | Long-text formatting |
+| --- | --- |
+| <img src="assets/readme/weclaw-dev-formatted-status.jpg" width="420" alt="WeClaw Dev formatted status command" /> | <img src="assets/readme/weclaw-dev-codex-session.jpg" width="420" alt="Long text formatting from Codex in WeChat" /> |
+
+| Typing keepalive | Profile and balance |
+| --- | --- |
+| <img src="assets/readme/weclaw-dev-typing-keepalive.jpg" width="420" alt="Typing keepalive during long replies" /> | <img src="assets/readme/weclaw-dev-profile-balance.jpg" width="420" alt="Profile and balance command examples" /> |
+
+| Codex session reuse | Typing keepalive |
+| --- | --- |
+| <img src="assets/readme/weclaw-dev-codex-session.jpg" width="420" alt="Codex session reuse from WeChat" /> | <img src="assets/readme/weclaw-dev-typing-keepalive.jpg" width="420" alt="Typing keepalive during long replies" /> |
+
+---
+
+## WeClaw Dev vs upstream WeClaw
+
+| Area | Upstream `fastclaw-ai/weclaw` | `Awenforever/weclaw_dev` |
+| --- | --- | --- |
+| Project role | General WeChat AI Agent bridge | Development fork for Codex, DeepSeek and command-driven WeChat workflows |
+| Install source | `fastclaw-ai/weclaw` | `Awenforever/weclaw_dev` |
+| Installer behavior | Standard install path | Release-first install, with source-build fallback |
+| Agent modes | ACP, CLI and HTTP | Keeps ACP, CLI and HTTP, with additional Codex ACP attention |
+| Codex usage | Basic Codex support | Use the real `codex` binary directly for ACP mode. Avoid stdout wrappers unless persistent NDJSON logging is explicitly required |
+| Conversation | Basic routing and `/new` reset | Current-session reuse, agent/profile switching and WeChat-side continuity |
+| Formatting | Functional plain-text replies | Mobile-readable command summaries and less raw JSON dumping |
+| Model workflow | Local agents and HTTP backends | Designed for Codex profiles, DeepSeek-backed Codex and CoDeepSeedeX |
+| Typing state | Not the main focus | Keeps WeChat typing state alive during long-running agent turns where supported |
+| Commands | Core commands such as `/help`, `/info`, `/cwd`, `/new` | Refined `/status`, `/help`, `/profile`, `/balance` output |
+| Target users | General WeChat-to-agent users | Users operating agents, model profiles, proxies and tool workflows from WeChat |
+| Stability | Upstream release line | Dev branch. Faster iteration and more frequent behavior changes |
+
+---
+
+## Quick start
 
 ```bash
-# One-line install
 curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
-
-# Start (first run will prompt QR code login)
 weclaw start
 ```
 
-Note: this fork's installer uses a GitHub release if one exists. If no release
-has been published yet, it falls back to building from source. It requires
-local `git`, and it will bootstrap a temporary Go toolchain automatically when
-`go` is not already installed.
+On first start, WeClaw will:
 
-That's it. On first start, WeClaw will:
-1. Show a QR code — scan with WeChat to login
-2. Auto-detect installed AI agents (Claude, Codex, Gemini, etc.)
+1. Show a QR code for WeChat login
+2. Detect installed AI agents where possible
 3. Save config to `~/.weclaw/config.json`
 4. Start receiving and replying to WeChat messages
 
-Use `weclaw login` to add additional WeChat accounts.
-
-This fork installs from `Awenforever/weclaw_dev`. The installer uses a GitHub
-release when one exists and falls back to building from source if the fork has
-not published a release yet.
-
-For Codex ACP mode, use the real `codex` binary directly. Do not wrap it with
-`tee` or a stdout-capture script unless you explicitly want persistent NDJSON
-logs, because that changes the runtime behavior and local file footprint.
-
-### Other install methods
+Useful commands:
 
 ```bash
-# Via Go
-go install github.com/Awenforever/weclaw_dev@latest
+weclaw login
+weclaw status
+weclaw stop
+weclaw start -f
+```
 
-# Via Docker
+---
+
+## Installation notes
+
+This fork installs from:
+
+```text
+Awenforever/weclaw_dev
+```
+
+The installer prefers GitHub Release artifacts. If no release exists, it falls back to building from source.
+
+Fallback source build requirements:
+
+- `git` must be available
+- `go` is optional. If missing, the installer can bootstrap a temporary Go toolchain
+
+Other install methods:
+
+```bash
+go install github.com/Awenforever/weclaw_dev@latest
 docker run -it -v ~/.weclaw:/root/.weclaw ghcr.io/fastclaw-ai/weclaw start
 ```
 
-## How It Works
+---
+
+## Recommended Codex and DeepSeek workflow
+
+For Codex ACP mode, use the real `codex` binary directly.
+
+Do not wrap Codex with `tee`, stdout-capture scripts or logging shims unless persistent NDJSON logs are explicitly required. Wrapping can change runtime behavior and create unexpected local files.
+
+Example Codex ACP config:
+
+```json
+{
+  "agents": {
+    "codex": {
+      "type": "acp",
+      "command": "/usr/local/bin/codex",
+      "args": ["app-server", "--listen", "stdio://"]
+    }
+  }
+}
+```
+
+Recommended separation with CoDeepSeedeX:
+
+| Component | Responsibility |
+| --- | --- |
+| WeClaw Dev | WeChat login, message routing, chat commands and user-side bot behavior |
+| CoDeepSeedeX | DeepSeek/Codex runtime backend, local proxy control, MCP bridge and upgrade path |
+| Codex | Agent execution and project work |
+| DeepSeek | Model backend through the configured profile/proxy |
+
+CoDeepSeedeX:
+
+```text
+https://github.com/Awenforever/CoDeepSeedeX
+```
+
+---
+
+## How it works
 
 <p align="center">
-  <img src="previews/architecture.png" width="600" />
+  <img src="assets/readme/weclaw-dev-architecture.jpg" width="720" alt="WeClaw Dev architecture" />
 </p>
 
-**Agent modes:**
+| Mode | How it works | Typical agents |
+| --- | --- | --- |
+| ACP | Long-running subprocess. JSON-RPC over stdio. Fastest because process and session can be reused | Claude, Codex, Gemini, Kimi, Cursor, OpenCode |
+| CLI | Starts a new process per message. Some agents support session resume | Claude CLI, Codex exec |
+| HTTP | OpenAI-compatible Chat Completions API | OpenClaw, custom gateways, local proxies |
 
-| Mode | How it works | Examples |
-|------|-------------|----------|
-| ACP  | Long-running subprocess, JSON-RPC over stdio. Fastest — reuses process and sessions. | Claude, Codex, Kimi, Gemini, Cursor, OpenCode, OpenClaw |
-| CLI  | Spawns a new process per message. Supports session resume via `--resume`. | Claude (`claude -p`), Codex (`codex exec`) |
-| HTTP | OpenAI-compatible chat completions API. | OpenClaw (HTTP fallback) |
+When ACP and CLI are both available, WeClaw prefers ACP.
 
-Auto-detection picks ACP over CLI when both are available.
+---
 
-## Chat Commands
-
-Send these as WeChat messages:
+## Chat commands
 
 | Command | Description |
-|---------|-------------|
-| `hello` | Send to default agent |
-| `/codex write a function` | Send to a specific agent |
-| `/cc explain this code` | Send to agent by alias |
+| --- | --- |
+| `hello` | Send to the default agent |
+| `/codex write a parser` | Route to Codex |
+| `/cc explain this code` | Route through an alias |
 | `/claude` | Switch default agent to Claude |
-| `/cwd /path/to/project` | Switch workspace directory |
-| `/new` | Start a new conversation (clear session) |
-| `/info` | Show current agent info |
-| `/help` | Show help message |
+| `/cwd /path/to/project` | Change working directory |
+| `/new` | Start a new conversation |
+| `/status` | Show runtime and agent status |
+| `/help` | Show concise command help |
+| `/profile` | Show or reuse profile/session context where supported |
+| `/balance` | Show backend balance where supported |
+| `/info` | Show current agent information |
 
-### Aliases
+Default aliases:
 
 | Alias | Agent |
-|-------|-------|
-| `/cc` | claude |
-| `/cx` | codex |
-| `/cs` | cursor |
-| `/km` | kimi |
-| `/gm` | gemini |
-| `/ocd` | opencode |
-| `/oc` | openclaw |
+| --- | --- |
+| `/cc` | Claude |
+| `/cx` | Codex |
+| `/cs` | Cursor |
+| `/km` | Kimi |
+| `/gm` | Gemini |
+| `/ocd` | OpenCode |
+| `/oc` | OpenClaw |
 
-You can also define custom aliases per agent in config:
+Custom aliases:
 
 ```json
 {
@@ -107,83 +218,99 @@ You can also define custom aliases per agent in config:
 }
 ```
 
-Then `/ai hello` or `/c hello` will route to claude.
+---
 
-Switching default agent is persisted to config — survives restarts.
+## Message formatting
 
-## Media Messages
+WeChat is not a terminal. This fork therefore emphasizes readable mobile output:
 
-WeClaw supports sending images, videos, files, and voice messages to/from WeChat.
+- Markdown is converted into WeChat-readable text
+- Code fences can be stripped when plain text is more useful
+- Links remain readable
+- Status-like command output is summarized
+- Large raw JSON payloads are avoided in normal chat replies
+- `/status`, `/help`, `/profile` and `/balance` are formatted for quick reading
 
-**Voice messages:** When you send a voice message in WeChat, WeClaw automatically uses WeChat's speech-to-text transcription and forwards the text to the AI agent. Duplicate voice message events are automatically deduplicated.
+Use local logs for debugging large raw outputs.
 
-**From agent replies:** When an AI agent returns markdown with images (`![](url)`), WeClaw automatically extracts the image URLs, downloads them, uploads to WeChat CDN (AES-128-ECB encrypted), and sends them as image messages.
+---
 
-**Markdown handling:** Agent responses are automatically converted from markdown to plain text for WeChat display — code fences are stripped, links show display text only, bold/italic markers are removed, etc.
+## Typing-state keepalive
 
-## Proactive Messaging
+Long agent turns can make a WeChat bot look inactive. Where supported, WeClaw Dev keeps the WeChat typing state alive while the agent is still working.
 
-Send messages to WeChat users without waiting for them to message first.
+Useful for:
 
-**CLI:**
+- Codex reading or editing a project
+- Long model calls
+- Proxy backends waiting on tool calls
+- Multi-step replies
+
+This improves user feedback. It does not make the model faster.
+
+---
+
+## Media messages
+
+WeClaw supports images, videos, files and voice messages.
+
+Voice messages can be transcribed through WeChat speech-to-text and forwarded to the selected agent. Duplicate voice events are deduplicated where possible.
+
+Agent replies containing Markdown image URLs can be extracted, downloaded and sent back to WeChat.
+
+Supported examples:
+
+- Images: `png`, `jpg`, `gif`, `webp`
+- Videos: `mp4`, `mov`
+- Files: `pdf`, `doc`, `zip`
+
+---
+
+## Proactive messaging
+
+CLI:
 
 ```bash
-# Send text
-weclaw send --to "user_id@im.wechat" --text "Hello from weclaw"
-
-# Send image
+weclaw send --to "user_id@im.wechat" --text "Hello from WeClaw"
 weclaw send --to "user_id@im.wechat" --media "https://example.com/photo.png"
-
-# Send text + image
 weclaw send --to "user_id@im.wechat" --text "Check this out" --media "https://example.com/photo.png"
-
-# Send file
-weclaw send --to "user_id@im.wechat" --media "https://example.com/report.pdf"
 ```
 
-**HTTP API** (runs on `127.0.0.1:18011` when `weclaw start` is running):
+HTTP API while `weclaw start` is running:
 
 ```bash
-# Send text
 curl -X POST http://127.0.0.1:18011/api/send \
   -H "Content-Type: application/json" \
-  -d '{"to": "user_id@im.wechat", "text": "Hello from weclaw"}'
-
-# Send image
-curl -X POST http://127.0.0.1:18011/api/send \
-  -H "Content-Type: application/json" \
-  -d '{"to": "user_id@im.wechat", "media_url": "https://example.com/photo.png"}'
-
-# Send text + media
-curl -X POST http://127.0.0.1:18011/api/send \
-  -H "Content-Type: application/json" \
-  -d '{"to": "user_id@im.wechat", "text": "See this", "media_url": "https://example.com/photo.png"}'
+  -d '{"to": "user_id@im.wechat", "text": "Hello from WeClaw"}'
 ```
 
-Supported media types: images (png, jpg, gif, webp), videos (mp4, mov), files (pdf, doc, zip, etc.).
+Change listen address:
 
-Set `WECLAW_API_ADDR` to change the listen address (e.g. `0.0.0.0:18011`).
+```bash
+export WECLAW_API_ADDR=0.0.0.0:18011
+```
+
+---
 
 ## Configuration
 
-Config file: `~/.weclaw/config.json`
+Config file:
+
+```text
+~/.weclaw/config.json
+```
+
+Example:
 
 ```json
 {
-  "default_agent": "claude",
+  "default_agent": "codex",
   "agents": {
-    "claude": {
-      "type": "acp",
-      "command": "/usr/local/bin/claude-agent-acp",
-      "env": {
-        "ANTHROPIC_API_KEY": "sk-ant-xxx"
-      },
-      "model": "sonnet"
-    },
     "codex": {
       "type": "acp",
       "command": "/usr/local/bin/codex",
-      "args": ["app-server", "--listen", "stdio://"]
+      "args": ["app-server", "--listen", "stdio://"],
+      "cwd": "/home/user/project"
     },
     "openclaw": {
       "type": "http",
@@ -196,166 +323,106 @@ Config file: `~/.weclaw/config.json`
 ```
 
 Environment variables:
-- `WECLAW_DEFAULT_AGENT` — override default agent
-- `OPENCLAW_GATEWAY_URL` — OpenClaw HTTP fallback endpoint
-- `OPENCLAW_GATEWAY_TOKEN` — OpenClaw API token
 
-Custom agent CLI environment variables:
+| Variable | Description |
+| --- | --- |
+| `WECLAW_DEFAULT_AGENT` | Override default agent |
+| `OPENCLAW_GATEWAY_URL` | OpenClaw or compatible HTTP endpoint |
+| `OPENCLAW_GATEWAY_TOKEN` | HTTP gateway token |
+| `WECLAW_API_ADDR` | Proactive messaging API listen address |
 
-```json
-{
-  "default_agent": "...",
-  "agents": {
-    "...": {
-      ...
-      "env": {
-        "ENV_NAME": "ENV_VALUE"
-      }
-    },
-  }
-}
-```
+---
 
-### Permission bypass
+## Permission notes
 
-By default, some agents require interactive permission approval which doesn't work in WeChat. Add `args` to your agent config to bypass:
+Some CLI agents require interactive permission approval, which does not work well in WeChat.
 
-| Agent | Flag | What it does |
-|-------|------|-------------|
-| Claude (CLI) | `--dangerously-skip-permissions` | Skip all tool permission prompts |
-| Codex (CLI) | `--skip-git-repo-check` | Allow running outside git repos |
+| Agent | Flag | Meaning |
+| --- | --- | --- |
+| Claude CLI | `--dangerously-skip-permissions` | Skip interactive tool approval |
+| Codex CLI | `--skip-git-repo-check` | Allow running outside a git repository |
 
-For Codex ACP mode, WeClaw already uses `codex app-server --listen stdio://`
-and starts turns with `approvalPolicy: "never"`. There is no need to add a
-stdout-capture wrapper just to run Codex under WeClaw.
+Only use permission-bypass flags when you understand the security implications. ACP mode should be preferred when available.
 
-Example:
+---
 
-```json
-{
-  "claude": {
-    "type": "cli",
-    "command": "/usr/local/bin/claude",
-    "cwd": "/home/user/my-project",
-    "args": ["--dangerously-skip-permissions"]
-  },
-  "codex": {
-    "type": "cli",
-    "command": "/usr/local/bin/codex",
-    "cwd": "/home/user/my-project",
-    "args": ["--skip-git-repo-check"]
-  }
-}
-```
-
-Set `cwd` to specify the agent's working directory (workspace). If omitted, defaults to `~/.weclaw/workspace`.
-
-> **Warning:** These flags disable safety checks. Only enable them if you understand the risks. ACP agents handle permissions automatically and don't need these flags.
-
-## Background Mode
+## Background mode
 
 ```bash
-# Start (runs in background by default)
 weclaw start
-
-# Start and save stdout/stderr to ~/.weclaw/weclaw.log
 weclaw start --stdout
-
-# Check if running
 weclaw status
-
-# Stop
 weclaw stop
-
-# Run in foreground (for debugging)
 weclaw start -f
 ```
 
-By default, background stdout/stderr are discarded. Use `weclaw start --stdout`
-if you want them written to `~/.weclaw/weclaw.log`.
+`weclaw start --stdout` writes stdout/stderr to `~/.weclaw/weclaw.log`.
 
-### System service (auto-start on boot)
-
-**macOS (launchd):**
-
-```bash
-cp service/com.fastclaw.weclaw.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.fastclaw.weclaw.plist
-```
-
-**Linux (systemd):**
-
-```bash
-sudo cp service/weclaw.service /etc/systemd/system/
-sudo systemctl enable --now weclaw
-```
+---
 
 ## Docker
 
 ```bash
-# Build
 docker build -t weclaw .
-
-# Login (interactive — scan QR code)
 docker run -it -v ~/.weclaw:/root/.weclaw weclaw login
-
-# Start with HTTP agent
 docker run -d --name weclaw \
   -v ~/.weclaw:/root/.weclaw \
   -e OPENCLAW_GATEWAY_URL=https://api.example.com \
   -e OPENCLAW_GATEWAY_TOKEN=sk-xxx \
   weclaw
-
-# View logs
 docker logs -f weclaw
 ```
 
-> Note: ACP and CLI agents require the agent binary inside the container.
-> The Docker image ships only WeClaw itself. For ACP/CLI agents, mount
-> the binary or build a custom image. HTTP agents work out of the box.
+ACP and CLI agents require their binaries inside the container. HTTP mode works with a compatible remote or local HTTP endpoint.
 
-## Release
-
-```bash
-# Tag a new version to trigger GitHub Actions build & release
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-The workflow builds binaries for `darwin/linux/windows` x `amd64/arm64`, creates a GitHub Release, and uploads all artifacts with checksums.
+---
 
 ## Update
 
 ```bash
-# Update to the latest version (auto-restarts if running)
 weclaw update
-
-# Check current version
 weclaw version
 ```
+
+---
 
 ## Development
 
 ```bash
-# Hot reload
 make dev
-
-# Build
 go build -o weclaw .
-
-# Run
 ./weclaw start
 ```
 
-## Contributors
+Recommended checks:
 
-<a href="https://github.com/fastclaw-ai/weclaw/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=fastclaw-ai/weclaw" />
-</a>
+```bash
+git status --short
+go test ./...
+git diff --check
+```
 
-## Star History
+---
 
-[![Star History Chart](https://api.star-history.com/svg?repos=fastclaw-ai/weclaw&type=Timeline)](https://star-history.com/#fastclaw-ai/weclaw&Timeline)
+## Relationship to upstream
+
+This fork keeps the core design of upstream WeClaw:
+
+- WeChat login
+- Message bridge
+- ACP, CLI and HTTP access
+- Chat commands
+- Media handling
+- Background runtime
+
+The dev branch adds practical behavior for daily agent operation from WeChat.
+
+```text
+Upstream: https://github.com/fastclaw-ai/weclaw
+Dev fork: https://github.com/Awenforever/weclaw_dev
+```
+
+---
 
 ## License
 
