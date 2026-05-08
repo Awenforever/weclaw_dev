@@ -113,129 +113,47 @@ docker run -it -v ~/.weclaw:/root/.weclaw ghcr.io/fastclaw-ai/weclaw start
 
 ---
 
-## Run WeClaw with DeepSeek through Codex
+## Start with DeepSeek
 
-WeClaw does not start a DeepSeek model directly. WeClaw starts an agent process. For the recommended DeepSeek workflow, that agent is Codex, and Codex connects to DeepSeek through a configured CoDeepSeedeX profile.
-
-The runtime chain is:
-
-```text
-WeChat
-→ WeClaw Dev
-→ Codex ACP process
-→ Codex profile: deepseek or deepseek-thinking
-→ CoDeepSeedeX local proxy/runtime
-→ DeepSeek model backend
-```
-
-### 1. Start or verify CoDeepSeedeX
-
-Start the normal DeepSeek-backed proxy:
+WeClaw Dev can start directly in a DeepSeek-backed mode.
 
 ```bash
-dsproxy-start
-dsproxy-status
-curl -sS http://127.0.0.1:8000/healthz
+# Start with the normal DeepSeek profile
+weclaw start deepseek
+
+# Start with the DeepSeek thinking profile
+weclaw start deepseek-thinking
 ```
 
-For the thinking profile/runtime:
+After startup, use WeChat normally. Messages are routed through the selected DeepSeek-backed Codex profile.
 
-```bash
-dsproxy-start-thinking
-dsproxy-status-thinking
-curl -sS http://127.0.0.1:8001/healthz
-```
-
-The exact profile names depend on your CoDeepSeedeX installation. The intended default profiles are usually:
+Typical usage:
 
 ```text
-deepseek
-deepseek-thinking
+/codex inspect this repository
+/ds summarize the current status
+/think reason through this bug
 ```
 
-### 2. Verify Codex can use the DeepSeek profile
+The important point is that users do not normally need to edit `~/.weclaw/config.json` by hand for this workflow. The `deepseek` and `deepseek-thinking` startup modes are intended to provide the ready-to-use path.
 
-Run a direct Codex check before involving WeClaw:
+If startup fails, verify the underlying Codex profiles first:
 
 ```bash
 codex --profile deepseek
-```
-
-For the thinking profile:
-
-```bash
 codex --profile deepseek-thinking
 ```
 
-If these commands cannot reach the model backend, fix CoDeepSeedeX or the Codex profile first. WeClaw cannot repair a broken Codex profile.
-
-### 3. Configure WeClaw to start Codex with the DeepSeek profile
-
-Edit:
-
-```text
-~/.weclaw/config.json
-```
-
-Example for the normal DeepSeek profile:
-
-```json
-{
-  "default_agent": "codex-deepseek",
-  "agents": {
-    "codex-deepseek": {
-      "type": "acp",
-      "command": "/usr/local/bin/codex",
-      "args": ["--profile", "deepseek", "app-server", "--listen", "stdio://"],
-      "aliases": ["codex", "deepseek", "ds"],
-      "cwd": "/home/user/project"
-    }
-  }
-}
-```
-
-Example for the thinking profile:
-
-```json
-{
-  "default_agent": "codex-thinking",
-  "agents": {
-    "codex-thinking": {
-      "type": "acp",
-      "command": "/usr/local/bin/codex",
-      "args": ["--profile", "deepseek-thinking", "app-server", "--listen", "stdio://"],
-      "aliases": ["think", "deepthink"],
-      "cwd": "/home/user/project"
-    }
-  }
-}
-```
-
-Use the real `codex` binary directly. Do not wrap Codex with `tee`, stdout-capture scripts or logging shims unless persistent NDJSON logs are explicitly required. Wrapping can change runtime behavior and create unexpected local files.
-
-### 4. Start WeClaw
-
-```bash
-weclaw start
-```
-
-Then send messages in WeChat:
-
-```text
-/deepseek explain this repository
-/ds summarize the current status
-/codex inspect the README
-/think reason through this bug
-```
+If these commands fail, fix the local Codex/CoDeepSeedeX setup first. WeClaw can route messages to the profile, but it cannot repair a broken model backend.
 
 Recommended separation:
 
 | Component | Responsibility |
 | --- | --- |
 | WeClaw Dev | WeChat login, message routing, chat commands and user-side bot behavior |
-| Codex | ACP agent process and project execution |
-| CoDeepSeedeX | DeepSeek/Codex runtime backend, local proxy control, MCP bridge and upgrade path |
-| DeepSeek | Model backend reached through the configured Codex profile |
+| Codex | Agent execution through the selected profile |
+| CoDeepSeedeX | DeepSeek-backed Codex runtime/proxy layer |
+| DeepSeek | Model backend used by the selected profile |
 
 CoDeepSeedeX:
 
