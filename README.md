@@ -115,7 +115,7 @@ docker run -it -v ~/.weclaw:/root/.weclaw ghcr.io/fastclaw-ai/weclaw start
 
 ## Start with DeepSeek
 
-WeClaw Dev can start directly in a DeepSeek-backed mode.
+WeClaw Dev provides DeepSeek-oriented startup modes.
 
 ```bash
 # Start with the normal DeepSeek profile
@@ -125,35 +125,30 @@ weclaw start deepseek
 weclaw start deepseek-thinking
 ```
 
-After startup, use WeChat normally. Messages are routed through the selected DeepSeek-backed Codex profile.
+These are WeClaw startup modes, not WeChat slash commands. After startup, send normal messages in WeChat, or use the documented chat commands in the section below.
 
-Typical usage:
+The intended flow is:
 
 ```text
-/codex inspect this repository
-/ds summarize the current status
-/think reason through this bug
+WeChat message
+→ WeClaw Dev
+→ selected DeepSeek-backed Codex runtime
+→ model response
+→ formatted WeChat reply
 ```
 
-The important point is that users do not normally need to edit `~/.weclaw/config.json` by hand for this workflow. The `deepseek` and `deepseek-thinking` startup modes are intended to provide the ready-to-use path.
+Users normally do not need to hand-edit `~/.weclaw/config.json` for this path. The `deepseek` and `deepseek-thinking` startup modes are the intended entry points.
 
-If startup fails, verify the underlying Codex profiles first:
-
-```bash
-codex --profile deepseek
-codex --profile deepseek-thinking
-```
-
-If these commands fail, fix the local Codex/CoDeepSeedeX setup first. WeClaw can route messages to the profile, but it cannot repair a broken model backend.
+If startup fails, verify the underlying local runtime first. For example, check that the related Codex/CoDeepSeedeX profile works outside WeClaw before debugging WeClaw itself.
 
 Recommended separation:
 
 | Component | Responsibility |
 | --- | --- |
 | WeClaw Dev | WeChat login, message routing, chat commands and user-side bot behavior |
-| Codex | Agent execution through the selected profile |
-| CoDeepSeedeX | DeepSeek-backed Codex runtime/proxy layer |
-| DeepSeek | Model backend used by the selected profile |
+| Codex runtime | Agent execution through the selected startup mode |
+| CoDeepSeedeX | DeepSeek-backed Codex runtime/proxy layer when used |
+| DeepSeek | Model backend used by the selected runtime |
 
 CoDeepSeedeX:
 

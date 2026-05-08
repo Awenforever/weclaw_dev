@@ -115,7 +115,7 @@ docker run -it -v ~/.weclaw:/root/.weclaw ghcr.io/fastclaw-ai/weclaw start
 
 ## 使用DeepSeek启动
 
-WeClaw Dev可以直接以DeepSeek后端模式启动。
+WeClaw Dev提供面向DeepSeek的启动模式。
 
 ```bash
 # 使用普通DeepSeek profile启动
@@ -125,35 +125,30 @@ weclaw start deepseek
 weclaw start deepseek-thinking
 ```
 
-启动后，正常在微信中发送消息即可。消息会通过所选的DeepSeek-backed Codex profile进行处理。
+这两个是WeClaw启动模式，不是微信聊天里的slash命令。启动后，直接在微信中发送普通消息即可，或使用下方“聊天命令”小节中列出的真实命令。
 
-典型用法：
+基本链路是：
 
 ```text
-/codex inspect this repository
-/ds summarize the current status
-/think reason through this bug
+微信消息
+→ WeClaw Dev
+→ 所选DeepSeek-backed Codex runtime
+→ 模型回复
+→ 格式化后的微信回复
 ```
 
-关键点是：普通用户通常不需要手动编辑`~/.weclaw/config.json`来完成这一路径。`deepseek`和`deepseek-thinking`启动模式就是面向直接使用的入口。
+普通用户通常不需要手动编辑`~/.weclaw/config.json`来完成这一路径。`deepseek`和`deepseek-thinking`启动模式就是面向直接使用的入口。
 
-如果启动失败，先检查底层Codex profile是否可用：
-
-```bash
-codex --profile deepseek
-codex --profile deepseek-thinking
-```
-
-如果这些命令失败，应先修复本机Codex/CoDeepSeedeX环境。WeClaw负责把微信消息路由到对应profile，但不能修复已经失效的模型后端。
+如果启动失败，应先检查底层本地runtime是否可用。例如，先确认相关Codex/CoDeepSeedeX profile能在WeClaw之外正常工作，再排查WeClaw本身。
 
 推荐分工：
 
 | 组件 | 职责 |
 | --- | --- |
 | WeClaw Dev | 微信登录、消息路由、聊天命令和用户侧bot行为 |
-| Codex | 通过所选profile执行Agent任务 |
-| CoDeepSeedeX | DeepSeek-backed Codex runtime/proxy层 |
-| DeepSeek | 所选profile使用的模型后端 |
+| Codex runtime | 通过所选启动模式执行Agent任务 |
+| CoDeepSeedeX | 使用时提供DeepSeek-backed Codex runtime/proxy层 |
+| DeepSeek | 所选runtime使用的模型后端 |
 
 CoDeepSeedeX：
 
