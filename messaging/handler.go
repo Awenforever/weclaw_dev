@@ -145,9 +145,15 @@ func (s *runningTurnState) observeProgress(evt agent.ProgressEvent) {
 		s.update("tool done", evt.Text)
 	case agent.ProgressEventError:
 		s.update("error", evt.Text)
+	case agent.ProgressEventAssistantDelta:
+		if text := compactAssistantProgress(evt.Text); text != "" {
+			s.update("responding", "drafting: "+text)
+		}
 	case agent.ProgressEventAssistantMessageComplete:
 		if evt.Final {
 			s.update("finalizing", "final answer ready")
+		} else if text := compactAssistantProgress(evt.Text); text != "" {
+			s.update("responding", "drafting: "+text)
 		} else {
 			s.update("responding", "assistant message received")
 		}
@@ -319,6 +325,25 @@ func formatTurnDuration(d time.Duration) string {
 		return fmt.Sprintf("%dh", hours)
 	}
 	return fmt.Sprintf("%dh%02dm", hours, minutes)
+}
+
+func compactAssistantProgress(text string) string {
+	text = strings.TrimSpace(normalizeLineEndings(text))
+	if text == "" {
+		return ""
+	}
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "```") {
+			continue
+		}
+		lower := strings.ToLower(line)
+		if strings.HasPrefix(lower, "weclaw bridge instruction") {
+			continue
+		}
+		return truncate(line, 140)
+	}
+	return ""
 }
 
 // SetStreamConfig enables or disables progress forwarding.

@@ -252,6 +252,66 @@ func TestRuntimeControlNowReportsRunningTurn(t *testing.T) {
 	}
 }
 
+func TestRuntimeControlNowReportsAssistantProgressPreview(t *testing.T) {
+	h := NewHandler(nil, nil)
+	_, turn, cleanup := h.beginRunningTurn(context.Background(), "user-1", "deepseek-thinking", "audit now command")
+	defer cleanup()
+
+	turn.observeProgress(agent.ProgressEvent{
+		Type: agent.ProgressEventAssistantMessageComplete,
+		Text: "I found the /now handler and am checking the progress state.",
+	})
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/now", "user-1")
+	if !ok {
+		t.Fatal("/now should be intercepted")
+	}
+	if !strings.Contains(reply, "drafting: I found the /now handler") {
+		t.Fatalf("reply = %q, want assistant progress preview", reply)
+	}
+	if strings.Contains(reply, "assistant message received") {
+		t.Fatalf("reply = %q, want no generic assistant placeholder when text is available", reply)
+	}
+}
+
+func TestRuntimeControlNowKeepsGenericAssistantProgressForEmptyText(t *testing.T) {
+	h := NewHandler(nil, nil)
+	_, turn, cleanup := h.beginRunningTurn(context.Background(), "user-1", "deepseek-thinking", "audit now command")
+	defer cleanup()
+
+	turn.observeProgress(agent.ProgressEvent{
+		Type: agent.ProgressEventAssistantMessageComplete,
+		Text: "   \n\n",
+	})
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/now", "user-1")
+	if !ok {
+		t.Fatal("/now should be intercepted")
+	}
+	if !strings.Contains(reply, "assistant message received") {
+		t.Fatalf("reply = %q, want generic assistant placeholder for empty text", reply)
+	}
+}
+
+func TestRuntimeControlNowReportsAssistantDeltaPreviewWithoutStreamingIt(t *testing.T) {
+	h := NewHandler(nil, nil)
+	_, turn, cleanup := h.beginRunningTurn(context.Background(), "user-1", "deepseek-thinking", "draft answer")
+	defer cleanup()
+
+	turn.observeProgress(agent.ProgressEvent{
+		Type: agent.ProgressEventAssistantDelta,
+		Text: "Reading handler.go and checking progress updates.",
+	})
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/now", "user-1")
+	if !ok {
+		t.Fatal("/now should be intercepted")
+	}
+	if !strings.Contains(reply, "drafting: Reading handler.go") {
+		t.Fatalf("reply = %q, want assistant delta progress preview", reply)
+	}
+}
+
 func TestRuntimeControlNowIdle(t *testing.T) {
 	h := NewHandler(nil, nil)
 	h.defaultName = "deepseek"
