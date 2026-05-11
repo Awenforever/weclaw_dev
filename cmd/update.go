@@ -1,25 +1,34 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
 
-const githubRepo = "fastclaw-ai/weclaw"
+const githubRepo = "Awenforever/weclaw_dev"
+
+var uninstallPurgeFlag bool
+
+const updateCheckInterval = 24 * time.Hour
 
 func init() {
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(upgradeCmd)
+	rootCmd.AddCommand(uninstallCmd)
 	rootCmd.AddCommand(versionCmd)
+
+	uninstallCmd.Flags().BoolVar(&uninstallPurgeFlag, "purge", false, "also remove ~/.weclaw user data")
 }
 
 var versionCmd = &cobra.Command{
@@ -32,20 +41,39 @@ var versionCmd = &cobra.Command{
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update weclaw to the latest version and restart",
+	Short: "Update weclaw to the latest GitHub release",
 	RunE:  runUpdate,
 }
 
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
-	Short: "Update weclaw to the latest version and restart (alias for update)",
+	Short: "Upgrade weclaw to the latest GitHub release",
 	RunE:  runUpdate,
 }
 
+var uninstallCmd = &cobra.Command{
+	Use:   "uninstall",
+	Short: "Remove the installed weclaw binary",
+	RunE:  runUninstall,
+}
+
+type githubRelease struct {
+	TagName string `json:"tag_name"`
+}
+
+type updateCheckState struct {
+	LastCheckedAt string `json:"last_checked_at,omitempty"`
+	LatestVersion string `json:"latest_version,omitempty"`
+	LastNotified  string `json:"last_notified,omitempty"`
+}
+
 func runUpdate(cmd *cobra.Command, args []string) error {
-	// 1. Get latest version
 	fmt.Println("Checking for updates...")
-	latest, err := getLatestVersion()
+
+	ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Second)
+	defer cancel()
+
+	latest, err := getLatestVersion(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to check latest version: %w", err)
 	}
@@ -57,25 +85,20 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Current: %s -> Latest: %s\n", Version, latest)
 
-	// 2. Download new binary
-	goos := runtime.GOOS
-	goarch := runtime.GOARCH
-	filename := fmt.Sprintf("weclaw_%s_%s", goos, goarch)
+	filename := releaseAssetName(runtime.GOOS, runtime.GOARCH)
 	url := fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", githubRepo, latest, filename)
 
 	fmt.Printf("Downloading %s...\n", url)
-	tmpFile, err := downloadFile(url)
+	tmpFile, err := downloadFile(ctx, url)
 	if err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
 	defer os.Remove(tmpFile)
 
-	// 3. Replace current binary
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("find executable: %w", err)
 	}
-	// Resolve symlinks
 	if resolved, err := resolveSymlink(exePath); err == nil {
 		exePath = resolved
 	}
@@ -84,15 +107,10 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("replace binary: %w", err)
 	}
 
-	// Clear macOS quarantine/provenance attributes to avoid Gatekeeper killing the binary
-	if runtime.GOOS == "darwin" {
-		exec.Command("xattr", "-d", "com.apple.quarantine", exePath).Run()
-		exec.Command("xattr", "-d", "com.apple.provenance", exePath).Run()
-	}
+	clearMacQuarantineAttrs(exePath)
 
 	fmt.Printf("Updated to %s\n", latest)
 
-	// 4. Restart if running in background
 	_, _, live, err := inspectRuntimeState()
 	if err != nil {
 		return err
@@ -110,8 +128,8 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 		fmt.Println("Starting new version...")
 		if err := runDaemon(false, apiAddr, ""); err != nil {
-			log.Printf("Failed to restart: %v", err)
-			fmt.Println("Update complete. Please run 'weclaw start' manually.")
+			fmt.Printf("Update complete, but restart failed: %v\n", err)
+			fmt.Println("Please run 'weclaw start' manually.")
 		}
 	} else {
 		fmt.Println("Update complete. Run 'weclaw start' to start.")
@@ -120,34 +138,93 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getLatestVersion() (string, error) {
-	resp, err := http.Get(fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", githubRepo))
+func runUninstall(cmd *cobra.Command, args []string) error {
+	if runtime.GOOS == "windows" {
+		return fmt.Errorf("self-uninstall is not supported on Windows; remove the weclaw executable manually")
+	}
+
+	_, _, live, err := inspectRuntimeState()
+	if err != nil {
+		return err
+	}
+	if len(live) > 0 {
+		fmt.Println("Stopping managed weclaw process...")
+		if err := stopManagedWeclaw(); err != nil {
+			return err
+		}
+	}
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("find executable: %w", err)
+	}
+	if resolved, err := resolveSymlink(exePath); err == nil {
+		exePath = resolved
+	}
+
+	fmt.Printf("Removing %s...\n", exePath)
+	if err := removeBinary(exePath); err != nil {
+		return fmt.Errorf("remove binary: %w", err)
+	}
+
+	if uninstallPurgeFlag {
+		dataDir := weclawDir()
+		fmt.Printf("Removing user data at %s...\n", dataDir)
+		if err := os.RemoveAll(dataDir); err != nil {
+			return fmt.Errorf("remove user data: %w", err)
+		}
+		fmt.Println("weclaw uninstalled and user data removed.")
+		return nil
+	}
+
+	fmt.Println("weclaw binary removed.")
+	fmt.Printf("User data is preserved at %s\n", weclawDir())
+	return nil
+}
+
+func getLatestVersion(ctx context.Context) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", githubRepo), nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "weclaw-update-checker")
+
+	resp, err := updateHTTPClient().Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
 		return "", fmt.Errorf("GitHub API returned %d", resp.StatusCode)
 	}
 
-	var release struct {
-		TagName string `json:"tag_name"`
-	}
+	var release githubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return "", err
+	}
+	if release.TagName == "" {
+		return "", fmt.Errorf("latest release has no tag")
 	}
 	return release.TagName, nil
 }
 
-func downloadFile(url string) (string, error) {
-	resp, err := http.Get(url)
+func downloadFile(ctx context.Context, url string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "weclaw-upgrader")
+
+	resp, err := updateHTTPClient().Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
 		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
@@ -161,7 +238,10 @@ func downloadFile(url string) (string, error) {
 		os.Remove(tmp.Name())
 		return "", err
 	}
-	tmp.Close()
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmp.Name())
+		return "", err
+	}
 
 	if err := os.Chmod(tmp.Name(), 0o755); err != nil {
 		os.Remove(tmp.Name())
@@ -171,13 +251,23 @@ func downloadFile(url string) (string, error) {
 	return tmp.Name(), nil
 }
 
+func updateHTTPClient() *http.Client {
+	return &http.Client{Timeout: 30 * time.Second}
+}
+
+func releaseAssetName(goos, goarch string) string {
+	name := fmt.Sprintf("weclaw_%s_%s", goos, goarch)
+	if goos == "windows" {
+		name += ".exe"
+	}
+	return name
+}
+
 func replaceBinary(src, dst string) error {
-	// Check if we can write directly
 	if err := os.Rename(src, dst); err == nil {
 		return nil
 	}
 
-	// Try with sudo on Unix
 	if runtime.GOOS != "windows" {
 		fmt.Printf("Installing to %s (requires sudo)...\n", dst)
 		cmd := exec.Command("sudo", "cp", src, dst)
@@ -190,17 +280,117 @@ func replaceBinary(src, dst string) error {
 	return fmt.Errorf("cannot write to %s", dst)
 }
 
+func removeBinary(path string) error {
+	if err := os.Remove(path); err == nil {
+		return nil
+	}
+
+	if runtime.GOOS != "windows" {
+		fmt.Printf("Removing %s requires sudo...\n", path)
+		cmd := exec.Command("sudo", "rm", "-f", path)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
+
+	return fmt.Errorf("cannot remove %s", path)
+}
+
 func resolveSymlink(path string) (string, error) {
 	for {
 		target, err := os.Readlink(path)
 		if err != nil {
 			return path, nil
 		}
-		if !strings.HasPrefix(target, "/") {
-			// Relative symlink
-			dir := path[:strings.LastIndex(path, "/")+1]
-			target = dir + target
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(path), target)
 		}
 		path = target
 	}
+}
+
+func clearMacQuarantineAttrs(path string) {
+	if runtime.GOOS != "darwin" {
+		return
+	}
+	exec.Command("xattr", "-d", "com.apple.quarantine", path).Run()
+	exec.Command("xattr", "-d", "com.apple.provenance", path).Run()
+}
+
+func maybePrintUpdateNotice(w io.Writer) {
+	if w == nil || Version == "" || Version == "dev" {
+		return
+	}
+
+	now := time.Now()
+	state, _ := readUpdateCheckState()
+	if !updateCheckDue(state, now) {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	latest, err := getLatestVersion(ctx)
+	if err != nil {
+		return
+	}
+
+	state.LastCheckedAt = now.Format(time.RFC3339)
+	state.LatestVersion = latest
+
+	if shouldOfferUpdate(Version, latest) && state.LastNotified != latest {
+		fmt.Fprintf(w, "Update available: weclaw %s -> %s. Run: weclaw upgrade\n", Version, latest)
+		state.LastNotified = latest
+	}
+
+	_ = writeUpdateCheckState(state)
+}
+
+func shouldOfferUpdate(current, latest string) bool {
+	current = strings.TrimSpace(current)
+	latest = strings.TrimSpace(latest)
+	return current != "" && latest != "" && current != latest && current != "dev"
+}
+
+func updateCheckDue(state updateCheckState, now time.Time) bool {
+	if state.LastCheckedAt == "" {
+		return true
+	}
+	last, err := time.Parse(time.RFC3339, state.LastCheckedAt)
+	if err != nil {
+		return true
+	}
+	return now.Sub(last) >= updateCheckInterval
+}
+
+func updateCheckStatePath() string {
+	return filepath.Join(weclawDir(), "update-check.json")
+}
+
+func readUpdateCheckState() (updateCheckState, error) {
+	path := updateCheckStatePath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return updateCheckState{}, err
+	}
+	var state updateCheckState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return updateCheckState{}, err
+	}
+	return state, nil
+}
+
+func writeUpdateCheckState(state updateCheckState) error {
+	path := updateCheckStatePath()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	return os.WriteFile(path, data, 0o600)
 }

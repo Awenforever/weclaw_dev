@@ -67,6 +67,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	maybePrintUpdateNotice(os.Stdout)
+
 	if !foregroundFlag {
 		// Check if login is needed — if so, do it in foreground first, then daemon
 		accounts, _ := ilink.LoadAllCredentials()

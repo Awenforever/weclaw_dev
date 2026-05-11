@@ -374,11 +374,35 @@ ACP和CLI Agent需要容器内存在对应二进制文件。HTTP模式只需要�
 
 ---
 
-## 更新
+## 更新与卸载
+
+可以随时重复运行一行安装命令来安装最新GitHub Release：
 
 ```bash
+curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+```
+
+安装后推荐使用内置更新命令：
+
+```bash
+weclaw upgrade
 weclaw update
 weclaw version
+```
+
+`weclaw start`会定期检查GitHub Release。如果发现新版本，会提示用户运行`weclaw upgrade`。
+
+仅卸载二进制文件并保留`~/.weclaw`用户数据：
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh -s -- --uninstall
+weclaw uninstall
+```
+
+同时删除二进制文件和本地用户数据：
+
+```bash
+weclaw uninstall --purge
 ```
 
 ---

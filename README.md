@@ -374,11 +374,35 @@ ACP and CLI agents require their binaries inside the container. HTTP mode works 
 
 ---
 
-## Update
+## Update and uninstall
+
+Repeat the one-line installer at any time to install the latest GitHub Release:
 
 ```bash
+curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+```
+
+Use the built-in updater after WeClaw is installed:
+
+```bash
+weclaw upgrade
 weclaw update
 weclaw version
+```
+
+`weclaw start` checks GitHub Releases periodically and prints a one-time reminder when a newer release is available.
+
+Uninstall only the binary and keep `~/.weclaw` user data:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh -s -- --uninstall
+weclaw uninstall
+```
+
+Remove the binary and local user data:
+
+```bash
+weclaw uninstall --purge
 ```
 
 ---

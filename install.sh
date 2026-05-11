@@ -7,6 +7,99 @@ INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 VERSION="${VERSION:-}"
 REF="${REF:-main}"
 GO_BOOTSTRAP_VERSION="${GO_BOOTSTRAP_VERSION:-1.25.0}"
+ACTION="install"
+TMP_ROOT=""
+
+usage() {
+  cat <<'USAGE'
+WeClaw Dev installer
+
+Usage:
+  sh install.sh
+  sh install.sh --uninstall
+
+Options:
+  --version VERSION     Install a specific GitHub Release tag
+  --install-dir DIR     Install directory, default: /usr/local/bin
+  --repo OWNER/REPO     GitHub repository, default: Awenforever/weclaw_dev
+  --ref REF             Source build ref, default: main
+  --uninstall           Remove the installed weclaw binary and keep ~/.weclaw data
+  --help                Show this help
+
+Examples:
+  curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+  curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh -s -- --uninstall
+USAGE
+}
+
+parse_args() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --help|-h)
+        ACTION="help"
+        ;;
+      --uninstall|uninstall)
+        ACTION="uninstall"
+        ;;
+      --version)
+        shift
+        if [ "$#" -eq 0 ]; then
+          echo "Error: --version requires a value"
+          return 1
+        fi
+        VERSION="$1"
+        ;;
+      --version=*)
+        VERSION="${1#--version=}"
+        ;;
+      --install-dir)
+        shift
+        if [ "$#" -eq 0 ]; then
+          echo "Error: --install-dir requires a value"
+          return 1
+        fi
+        INSTALL_DIR="$1"
+        ;;
+      --install-dir=*)
+        INSTALL_DIR="${1#--install-dir=}"
+        ;;
+      --repo)
+        shift
+        if [ "$#" -eq 0 ]; then
+          echo "Error: --repo requires a value"
+          return 1
+        fi
+        REPO="$1"
+        ;;
+      --repo=*)
+        REPO="${1#--repo=}"
+        ;;
+      --ref)
+        shift
+        if [ "$#" -eq 0 ]; then
+          echo "Error: --ref requires a value"
+          return 1
+        fi
+        REF="$1"
+        ;;
+      --ref=*)
+        REF="${1#--ref=}"
+        ;;
+      *)
+        echo "Error: unknown option: $1"
+        usage
+        return 1
+        ;;
+    esac
+    shift
+  done
+}
+
+cleanup_tmp() {
+  if [ -n "$TMP_ROOT" ] && [ -d "$TMP_ROOT" ]; then
+    rm -rf "$TMP_ROOT"
+  fi
+}
 
 resolve_tool() {
   tool="$1"
@@ -48,47 +141,48 @@ resolve_tool() {
   return 1
 }
 
-download_go_toolchain() {
-  if ! command -v tar >/dev/null 2>&1; then
-    echo "Error: tar is required to bootstrap Go."
-    exit 1
-  fi
+detect_platform() {
+  OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+  case "$OS" in
+    darwin|linux) ;;
+    *)
+      echo "Unsupported OS: $OS"
+      return 1
+      ;;
+  esac
 
-  GO_OS="$OS"
-  GO_ARCH="$ARCH"
-  URL="https://go.dev/dl/go${GO_BOOTSTRAP_VERSION}.${GO_OS}-${GO_ARCH}.tar.gz"
-  ARCHIVE="$TMPDIR/go-bootstrap.tar.gz"
-  DEST="$TMPDIR/go-bootstrap"
+  ARCH=$(uname -m)
+  case "$ARCH" in
+    x86_64|amd64) ARCH="amd64" ;;
+    aarch64|arm64) ARCH="arm64" ;;
+    *)
+      echo "Unsupported architecture: $ARCH"
+      return 1
+      ;;
+  esac
 
-  echo "Go not found; bootstrapping Go ${GO_BOOTSTRAP_VERSION} from ${URL}..."
-  mkdir -p "$DEST"
-  curl -fsSL -o "$ARCHIVE" "$URL"
-  tar -C "$DEST" -xzf "$ARCHIVE"
-
-  if [ ! -x "$DEST/go/bin/go" ]; then
-    echo "Error: bootstrapped Go toolchain is invalid."
-    exit 1
-  fi
-
-  printf '%s\n' "$DEST/go/bin/go"
+  echo "Detected: ${OS}/${ARCH}"
 }
 
-# Detect OS
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-case "$OS" in
-  darwin|linux) ;;
-  *) echo "Unsupported OS: $OS"; exit 1 ;;
-esac
+ensure_tmp_root() {
+  if [ -z "$TMP_ROOT" ]; then
+    TMP_ROOT=$(mktemp -d 2>/dev/null || mktemp -d -t weclaw-install)
+  fi
+}
 
-# Detect architecture
-ARCH=$(uname -m)
-case "$ARCH" in
-  x86_64|amd64) ARCH="amd64" ;;
-  aarch64|arm64) ARCH="arm64" ;;
-  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
-esac
+install_binary_file() {
+  src="$1"
+  target="${INSTALL_DIR}/${BINARY}"
 
-echo "Detected: ${OS}/${ARCH}"
+  chmod +x "$src"
+  if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
+    mv "$src" "$target"
+  else
+    echo "Installing to ${INSTALL_DIR} (requires sudo)..."
+    sudo mkdir -p "$INSTALL_DIR"
+    sudo mv "$src" "$target"
+  fi
+}
 
 fetch_release_version() {
   curl -fsSL -H "User-Agent: weclaw-installer" "https://api.github.com/repos/${REPO}/releases/latest" | sed -n 's/.*"tag_name" *: *"\([^"]*\)".*/\1/p'
@@ -108,21 +202,42 @@ install_release() {
   FILENAME="${BINARY}_${OS}_${ARCH}"
   URL="https://github.com/${REPO}/releases/download/${VERSION}/${FILENAME}"
 
+  ensure_tmp_root
+  TMP="${TMP_ROOT}/${FILENAME}"
+
   echo "Downloading ${URL}..."
-  TMP=$(mktemp)
   if ! curl -fsSL -o "$TMP" "$URL"; then
     rm -f "$TMP"
     return 1
   fi
 
-  chmod +x "$TMP"
-  if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
-    mv "$TMP" "${INSTALL_DIR}/${BINARY}"
-  else
-    echo "Installing to ${INSTALL_DIR} (requires sudo)..."
-    sudo mkdir -p "$INSTALL_DIR"
-    sudo mv "$TMP" "${INSTALL_DIR}/${BINARY}"
+  install_binary_file "$TMP"
+}
+
+download_go_toolchain() {
+  if ! command -v tar >/dev/null 2>&1; then
+    echo "Error: tar is required to bootstrap Go."
+    return 1
   fi
+
+  ensure_tmp_root
+  GO_OS="$OS"
+  GO_ARCH="$ARCH"
+  URL="https://go.dev/dl/go${GO_BOOTSTRAP_VERSION}.${GO_OS}-${GO_ARCH}.tar.gz"
+  ARCHIVE="${TMP_ROOT}/go-bootstrap.tar.gz"
+  DEST="${TMP_ROOT}/go-bootstrap"
+
+  echo "Go not found; bootstrapping Go ${GO_BOOTSTRAP_VERSION} from ${URL}..."
+  mkdir -p "$DEST"
+  curl -fsSL -o "$ARCHIVE" "$URL"
+  tar -C "$DEST" -xzf "$ARCHIVE"
+
+  if [ ! -x "$DEST/go/bin/go" ]; then
+    echo "Error: bootstrapped Go toolchain is invalid."
+    return 1
+  fi
+
+  printf '%s\n' "$DEST/go/bin/go"
 }
 
 install_from_source() {
@@ -131,13 +246,13 @@ install_from_source() {
 
   if [ -z "$GIT_BIN" ]; then
     echo "Error: git is required to build from source."
-    exit 1
+    return 1
   fi
-  echo "No release found; building from source..."
-  TMPDIR=$(mktemp -d)
-  SRC="$TMPDIR/src"
-  trap 'rm -rf "$TMPDIR"' EXIT INT TERM
 
+  ensure_tmp_root
+  SRC="${TMP_ROOT}/src"
+
+  echo "No release asset found; building from source..."
   if [ -z "$GO_BIN" ]; then
     GO_BIN=$(download_go_toolchain)
   fi
@@ -147,34 +262,81 @@ install_from_source() {
     (cd "$SRC" && "$GIT_BIN" checkout "$REF")
   fi
 
-  (cd "$SRC" && "$GO_BIN" build -o "$TMPDIR/${BINARY}" .)
-  chmod +x "$TMPDIR/${BINARY}"
-  if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
-    mv "$TMPDIR/${BINARY}" "${INSTALL_DIR}/${BINARY}"
-  else
-    echo "Installing to ${INSTALL_DIR} (requires sudo)..."
-    sudo mkdir -p "$INSTALL_DIR"
-    sudo mv "$TMPDIR/${BINARY}" "${INSTALL_DIR}/${BINARY}"
-  fi
+  BUILD_VERSION="${VERSION:-source}"
+  (cd "$SRC" && "$GO_BIN" build -trimpath -ldflags="-s -w -X github.com/fastclaw-ai/weclaw/cmd.Version=${BUILD_VERSION}" -o "${TMP_ROOT}/${BINARY}" .)
+  install_binary_file "${TMP_ROOT}/${BINARY}"
 }
 
-if ! install_release; then
-  install_from_source
-fi
+uninstall_binary() {
+  target="${INSTALL_DIR}/${BINARY}"
+  resolved=$(command -v "$BINARY" 2>/dev/null || true)
+  if [ -n "$resolved" ]; then
+    target="$resolved"
+  fi
 
-# Clear macOS quarantine attributes
-if [ "$OS" = "darwin" ]; then
-  xattr -d com.apple.quarantine "${INSTALL_DIR}/${BINARY}" 2>/dev/null || true
-  xattr -d com.apple.provenance "${INSTALL_DIR}/${BINARY}" 2>/dev/null || true
-fi
+  if [ ! -e "$target" ]; then
+    echo "weclaw binary not found at ${target}"
+    echo "User data, if any, remains at ~/.weclaw"
+    return 0
+  fi
 
-echo ""
-if [ -n "$VERSION" ]; then
-  echo "weclaw ${VERSION} installed to ${INSTALL_DIR}/${BINARY}"
-else
-  echo "weclaw installed to ${INSTALL_DIR}/${BINARY}"
-fi
-echo ""
-echo "Get started:"
-echo "  weclaw start"
-echo "  weclaw start --stdout"
+  echo "Removing ${target}..."
+  if rm -f "$target" 2>/dev/null; then
+    echo "weclaw binary removed."
+  else
+    echo "Removing ${target} requires sudo..."
+    sudo rm -f "$target"
+    echo "weclaw binary removed."
+  fi
+
+  echo "User data is preserved at ~/.weclaw"
+  echo "To reinstall:"
+  echo "  curl -sSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh"
+}
+
+main() {
+  parse_args "$@" || return 1
+
+  if [ "$ACTION" = "help" ]; then
+    usage
+    return 0
+  fi
+
+  if [ "$ACTION" = "uninstall" ]; then
+    uninstall_binary
+    return $?
+  fi
+
+  trap cleanup_tmp 0 2 3 15
+
+  detect_platform || return 1
+
+  if ! install_release; then
+    install_from_source || return 1
+  fi
+
+  if [ "$OS" = "darwin" ]; then
+    xattr -d com.apple.quarantine "${INSTALL_DIR}/${BINARY}" 2>/dev/null || true
+    xattr -d com.apple.provenance "${INSTALL_DIR}/${BINARY}" 2>/dev/null || true
+  fi
+
+  echo ""
+  if [ -n "$VERSION" ]; then
+    echo "weclaw ${VERSION} installed to ${INSTALL_DIR}/${BINARY}"
+  else
+    echo "weclaw installed to ${INSTALL_DIR}/${BINARY}"
+  fi
+  echo ""
+  echo "Get started:"
+  echo "  weclaw start"
+  echo "  weclaw start --stdout"
+  echo ""
+  echo "Update later:"
+  echo "  weclaw upgrade"
+  echo "  curl -sSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh"
+  echo ""
+  echo "Uninstall:"
+  echo "  curl -sSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh -s -- --uninstall"
+}
+
+main "$@"
