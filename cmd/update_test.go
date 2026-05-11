@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -65,5 +67,48 @@ func TestUpdateCheckDue(t *testing.T) {
 				t.Fatalf("updateCheckDue(%+v) = %v, want %v", tc.state, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestManagedProcessPIDsForExecutableOnlyMatchesSameExecutable(t *testing.T) {
+	target := t.TempDir() + "/weclaw"
+	other := t.TempDir() + "/weclaw"
+
+	if err := os.WriteFile(target, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("write target executable: %v", err)
+	}
+	if err := os.WriteFile(other, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("write other executable: %v", err)
+	}
+
+	live := []managedProcess{
+		{PID: 101, Args: []string{target, "start", "-f"}},
+		{PID: 202, Args: []string{other, "start", "-f"}},
+		{PID: 303, Args: []string{"", "start", "-f"}},
+	}
+
+	got := managedProcessPIDsForExecutable(live, target)
+	if len(got) != 1 || got[0] != 101 {
+		t.Fatalf("managedProcessPIDsForExecutable() = %v, want [101]", got)
+	}
+}
+
+func TestSameExecutablePathRejectsDifferentPaths(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "weclaw")
+	other := filepath.Join(dir, "other-weclaw")
+
+	if err := os.WriteFile(target, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("write target executable: %v", err)
+	}
+	if err := os.WriteFile(other, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("write other executable: %v", err)
+	}
+
+	if !sameExecutablePath(target, target) {
+		t.Fatal("sameExecutablePath should accept the same path")
+	}
+	if sameExecutablePath(other, target) {
+		t.Fatal("sameExecutablePath should reject a different executable")
 	}
 }

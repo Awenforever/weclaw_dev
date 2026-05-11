@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -115,11 +116,13 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if len(live) > 0 {
+	targets := managedProcessPIDsForExecutable(live, exePath)
+	if len(targets) > 0 {
 		fmt.Println("Stopping old process...")
-		if err := stopManagedWeclaw(); err != nil {
+		if err := stopManagedPIDs(targets); err != nil {
 			return err
 		}
+		_ = os.Remove(pidFile())
 
 		apiAddr, err := resolveAPIAddr()
 		if err != nil {
@@ -143,23 +146,25 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("self-uninstall is not supported on Windows; remove the weclaw executable manually")
 	}
 
-	_, _, live, err := inspectRuntimeState()
-	if err != nil {
-		return err
-	}
-	if len(live) > 0 {
-		fmt.Println("Stopping managed weclaw process...")
-		if err := stopManagedWeclaw(); err != nil {
-			return err
-		}
-	}
-
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("find executable: %w", err)
 	}
 	if resolved, err := resolveSymlink(exePath); err == nil {
 		exePath = resolved
+	}
+
+	_, _, live, err := inspectRuntimeState()
+	if err != nil {
+		return err
+	}
+	targets := managedProcessPIDsForExecutable(live, exePath)
+	if len(targets) > 0 {
+		fmt.Println("Stopping managed weclaw process for this executable...")
+		if err := stopManagedPIDs(targets); err != nil {
+			return err
+		}
+		_ = os.Remove(pidFile())
 	}
 
 	fmt.Printf("Removing %s...\n", exePath)
@@ -295,6 +300,71 @@ func removeBinary(path string) error {
 	}
 
 	return fmt.Errorf("cannot remove %s", path)
+}
+
+func stopManagedPIDs(targets []int) error {
+	if len(targets) == 0 {
+		return nil
+	}
+
+	signalProcesses(targets, syscall.SIGTERM)
+	if survivors := waitForProcessesExit(targets, 5*time.Second); len(survivors) > 0 {
+		signalProcesses(survivors, syscall.SIGKILL)
+		if survivors = waitForProcessesExit(survivors, 2*time.Second); len(survivors) > 0 {
+			return fmt.Errorf("managed weclaw processes did not exit: %v", survivors)
+		}
+	}
+	return nil
+}
+
+func managedProcessPIDsForExecutable(live []managedProcess, exePath string) []int {
+	var targets []int
+	for _, proc := range live {
+		if len(proc.Args) == 0 {
+			continue
+		}
+		if sameExecutablePath(proc.Args[0], exePath) {
+			targets = append(targets, proc.PID)
+		}
+	}
+	return targets
+}
+
+func sameExecutablePath(candidate, expected string) bool {
+	candidatePath, candidateErr := normalizeExecutablePath(candidate)
+	expectedPath, expectedErr := normalizeExecutablePath(expected)
+	if candidateErr != nil || expectedErr != nil {
+		return false
+	}
+
+	candidateInfo, candidateStatErr := os.Stat(candidatePath)
+	expectedInfo, expectedStatErr := os.Stat(expectedPath)
+	if candidateStatErr == nil && expectedStatErr == nil {
+		return os.SameFile(candidateInfo, expectedInfo)
+	}
+
+	return candidatePath == expectedPath
+}
+
+func normalizeExecutablePath(path string) (string, error) {
+	if path == "" {
+		return "", fmt.Errorf("empty executable path")
+	}
+	if !filepath.IsAbs(path) {
+		resolved, err := exec.LookPath(path)
+		if err != nil {
+			return "", err
+		}
+		path = resolved
+	}
+	if resolved, err := resolveSymlink(path); err == nil {
+		path = resolved
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(abs), nil
 }
 
 func resolveSymlink(path string) (string, error) {
