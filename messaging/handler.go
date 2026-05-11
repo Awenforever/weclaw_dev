@@ -1046,18 +1046,15 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 		}
 	}
 
-	sessionID := ensureAgentSession(ctx, ag, userID)
-	contextLines := buildContextUsageLines(ag, userID, sessionID)
-
-	dsproxyStatus := runDsproxyCommand(ctx, "status")
-	dsproxyConfig := runDsproxyCommand(ctx, "config", "show")
-
 	proxyRoute := "default"
 	proxyEndpoint := "127.0.0.1:8000"
 	if defaultName == "deepseek-thinking" {
 		proxyRoute = "thinking"
 		proxyEndpoint = "127.0.0.1:8001"
 	}
+
+	dsproxyStatus := runDsproxyCommand(ctx, dsproxyStatusArgsForProfile(defaultName)...)
+	dsproxyConfig := runDsproxyCommand(ctx, "config", "show")
 
 	proxyState := "unknown"
 	statusLower := strings.ToLower(dsproxyStatus)
@@ -1075,6 +1072,10 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 	if proxyEffort == "" {
 		proxyEffort = "unknown"
 	}
+
+	sessionID := ensureAgentSession(ctx, ag, userID)
+	contextWindow := fallbackContextWindow(defaultName, agentModel, proxyModel)
+	contextLines := buildContextUsageLines(ag, userID, sessionID, contextWindow)
 
 	lines := []string{
 		"• profile: " + valueOrUnknown(defaultName),
@@ -2343,25 +2344,55 @@ func detectImageExt(data []byte) string {
 	return ".jpg" // default to jpg for WeChat images
 }
 
-func buildContextUsageLines(ag agent.Agent, userID, sessionID string) []string {
+func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWindow int64) []string {
 	lines := []string{
 		"📊 Context",
 		"• session: " + valueOrUnknown(sessionID),
 	}
 	if ag == nil {
-		return append(lines, "• usage: unavailable")
+		return append(lines,
+			formatContextWindowLine(fallbackWindow),
+			"• used: unavailable",
+			"• input: unavailable",
+			"• cached input: unavailable",
+			"• output: unavailable",
+			"• reasoning output: unavailable",
+			"• tools: unknown",
+			"• other: unknown",
+		)
 	}
 	inspector, ok := ag.(agent.TokenUsageInspector)
 	if !ok {
-		return append(lines, "• usage: unavailable")
+		return append(lines,
+			formatContextWindowLine(fallbackWindow),
+			"• used: unavailable",
+			"• input: unavailable",
+			"• cached input: unavailable",
+			"• output: unavailable",
+			"• reasoning output: unavailable",
+			"• tools: unknown",
+			"• other: unknown",
+		)
 	}
 	snapshot, ok := inspector.CurrentTokenUsage(userID)
 	if !ok {
-		return append(lines, "• usage: waiting for tokenUsage event")
+		return append(lines,
+			formatContextWindowLine(fallbackWindow),
+			"• used: waiting for tokenUsage event",
+			"• input: waiting",
+			"• cached input: waiting",
+			"• output: waiting",
+			"• reasoning output: waiting",
+			"• tools: unknown",
+			"• other: unknown",
+		)
 	}
 
 	total := snapshot.Total
 	window := snapshot.ModelContextWindow
+	if window <= 0 {
+		window = fallbackWindow
+	}
 	if window > 0 {
 		lines = append(lines, "• window: "+formatTokenCount(window))
 		lines = append(lines, fmt.Sprintf("• used: %s / %s (%s)", formatTokenCount(total.TotalTokens), formatTokenCount(window), formatTokenPercent(total.TotalTokens, window)))
@@ -2399,4 +2430,28 @@ func formatTokenPercent(used, window int64) string {
 		return "unknown"
 	}
 	return fmt.Sprintf("%.1f%%", float64(used)*100/float64(window))
+}
+
+func dsproxyStatusArgsForProfile(profile string) []string {
+	if profile == "deepseek-thinking" {
+		return []string{"status", "thinking"}
+	}
+	return []string{"status"}
+}
+
+func fallbackContextWindow(profile, agentModel, proxyModel string) int64 {
+	for _, value := range []string{proxyModel, agentModel, profile} {
+		switch strings.ToLower(strings.TrimSpace(value)) {
+		case "deepseek-v4-flash", "deepseek-v4-pro":
+			return 258400
+		}
+	}
+	return 0
+}
+
+func formatContextWindowLine(window int64) string {
+	if window <= 0 {
+		return "• window: unknown"
+	}
+	return "• window: " + formatTokenCount(window)
 }

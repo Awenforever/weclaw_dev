@@ -554,3 +554,41 @@ func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
 		}
 	}
 }
+
+func TestRuntimeControlStatusShowsFallbackContextWindowWhileUsageIsWaiting(t *testing.T) {
+	ag := &runtimeControlTestAgent{
+		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-flash"},
+		currentSessionID: "thread-waiting-1",
+		tokenUsageOK:     false,
+	}
+	h := NewHandler(nil, nil)
+	h.SetDefaultAgent("deepseek-thinking", ag)
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/status", "user-1")
+	if !ok {
+		t.Fatal("/status should be intercepted")
+	}
+	for _, want := range []string{
+		"📊 Context",
+		"session: thread-waiting-1",
+		"window: 258400",
+		"used: waiting for tokenUsage event",
+		"input: waiting",
+		"output: waiting",
+	} {
+		if !strings.Contains(reply, want) {
+			t.Fatalf("status reply = %q, want %q", reply, want)
+		}
+	}
+}
+
+func TestDsproxyStatusArgsForThinkingProfile(t *testing.T) {
+	got := dsproxyStatusArgsForProfile("deepseek-thinking")
+	if len(got) != 2 || got[0] != "status" || got[1] != "thinking" {
+		t.Fatalf("dsproxyStatusArgsForProfile(deepseek-thinking) = %#v, want status thinking", got)
+	}
+	got = dsproxyStatusArgsForProfile("deepseek")
+	if len(got) != 1 || got[0] != "status" {
+		t.Fatalf("dsproxyStatusArgsForProfile(deepseek) = %#v, want status", got)
+	}
+}
