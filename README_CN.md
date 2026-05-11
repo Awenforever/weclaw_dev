@@ -376,6 +376,34 @@ ACP和CLI Agent需要容器内存在对应二进制文件。HTTP模式只需要�
 
 ## 更新与卸载
 
+### 旧版本升级路径
+
+如果已经安装过较旧alpha版本，先重复运行一行安装命令，把本机切到当前release通道：
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+```
+
+安装v0.1.2-alpha或更新版本后，后续可以使用内置更新命令：
+
+```bash
+weclaw upgrade
+```
+
+更新后的会话连续性：
+
+```bash
+# 任务运行中，先在微信端查看当前session/thread ID。
+/now
+
+# 升级或重启后，用该ID恢复Codex会话。
+weclaw start deepseek resume <session-id>
+weclaw start deepseek-thinking resume <session-id>
+```
+
+该resume ID会应用到对应profile收到的第一个微信用户回合。只有明确需要新会话时，才使用`/restart`或`/new`。
+
+
 可以随时重复运行一行安装命令来安装最新GitHub Release：
 
 ```bash

@@ -35,37 +35,68 @@ func init() {
 }
 
 var startCmd = &cobra.Command{
-	Use:   "start [deepseek|deepseek-thinking]",
+	Use:   "start [deepseek|deepseek-thinking] [resume <session-id>]",
 	Short: "Start the WeChat message bridge (auto-login if needed)",
 	Example: "  weclaw start\n" +
 		"  weclaw start deepseek\n" +
 		"  weclaw start deepseek-thinking\n" +
+		"  weclaw start deepseek resume <session-id>\n" +
+		"  weclaw start deepseek-thinking resume <session-id>\n" +
 		"  weclaw start --stdout\n" +
 		"  weclaw start -f",
 	RunE: runStart,
 }
 
-func parseStartProfile(args []string) (string, error) {
+type startSelection struct {
+	Profile  string
+	ResumeID string
+}
+
+func parseStartSelection(args []string) (startSelection, error) {
+	var sel startSelection
 	switch len(args) {
 	case 0:
-		return "", nil
+		return sel, nil
 	case 1:
 		switch args[0] {
 		case "deepseek", "deepseek-thinking":
-			return args[0], nil
+			sel.Profile = args[0]
+			return sel, nil
 		default:
-			return "", fmt.Errorf("unsupported start profile %q; allowed values are: deepseek, deepseek-thinking", args[0])
+			return sel, fmt.Errorf("unsupported start profile %q; allowed values are: deepseek, deepseek-thinking", args[0])
 		}
+	case 3:
+		switch args[0] {
+		case "deepseek", "deepseek-thinking":
+			sel.Profile = args[0]
+		default:
+			return sel, fmt.Errorf("unsupported start profile %q; allowed values are: deepseek, deepseek-thinking", args[0])
+		}
+		if args[1] != "resume" {
+			return sel, fmt.Errorf("unsupported start action %q; use: weclaw start %s resume <session-id>", args[1], sel.Profile)
+		}
+		if args[2] == "" {
+			return sel, fmt.Errorf("resume session ID is required")
+		}
+		sel.ResumeID = args[2]
+		return sel, nil
 	default:
-		return "", fmt.Errorf("start accepts at most one profile argument; allowed values are: deepseek, deepseek-thinking")
+		return sel, fmt.Errorf("start accepts: [deepseek|deepseek-thinking] [resume <session-id>]")
 	}
 }
 
+func parseStartProfile(args []string) (string, error) {
+	sel, err := parseStartSelection(args)
+	return sel.Profile, err
+}
+
 func runStart(cmd *cobra.Command, args []string) error {
-	startProfile, err := parseStartProfile(args)
+	startSel, err := parseStartSelection(args)
 	if err != nil {
 		return err
 	}
+	startProfile := startSel.Profile
+	resumeID := startSel.ResumeID
 
 	maybePrintUpdateNotice(os.Stdout)
 
@@ -85,7 +116,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to resolve API address: %w", err)
 		}
-		return runDaemon(stdoutFlag, apiAddr, startProfile)
+		return runDaemon(stdoutFlag, apiAddr, startProfile, resumeID)
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -134,6 +165,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 			log.Printf("Selected start profile %q as default agent", startProfile)
 		}
 	}
+	if resumeID != "" && startProfile == "" {
+		return fmt.Errorf("resume requires an explicit profile: weclaw start deepseek-thinking resume <session-id>")
+	}
 
 	// Log all available agents
 	if len(cfg.Agents) > 0 {
@@ -175,6 +209,10 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	handler.SetAgentMetas(metas)
 	handler.SetAgentWorkDirs(workDirs)
+	if resumeID != "" {
+		handler.SetPendingResume(startProfile, resumeID)
+		log.Printf("Pending session resume configured (profile=%s, session=%s)", startProfile, resumeID)
+	}
 	handler.SetStreamConfig(messaging.StreamConfig{
 		Enabled:       cfg.StreamUpdates,
 		Interval:      time.Duration(cfg.StreamIntervalMS) * time.Millisecond,
@@ -400,7 +438,7 @@ func logFile() string {
 }
 
 // runDaemon spawns weclaw start (without --daemon) as a background process.
-func runDaemon(saveStdout bool, apiAddr string, profile string) error {
+func runDaemon(saveStdout bool, apiAddr string, profile string, resumeID string) error {
 	if err := stopManagedWeclaw(); err != nil {
 		return err
 	}
@@ -422,6 +460,9 @@ func runDaemon(saveStdout bool, apiAddr string, profile string) error {
 	daemonArgs := []string{"start"}
 	if profile != "" {
 		daemonArgs = append(daemonArgs, profile)
+		if resumeID != "" {
+			daemonArgs = append(daemonArgs, "resume", resumeID)
+		}
 	}
 	daemonArgs = append(daemonArgs, "-f")
 	cmd := exec.Command(exe, daemonArgs...)

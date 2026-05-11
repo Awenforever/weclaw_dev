@@ -70,6 +70,10 @@ type Handler struct {
 	typingEvery   time.Duration
 	userTurns     sync.Map // map[userID]*sync.Mutex — serializes agent turns per user
 	runningTurns  sync.Map // map[userID]*runningTurnState — current cancellable agent turn
+
+	pendingResumeProfile string
+	pendingResumeID      string
+	pendingResumeApplied sync.Map // map[userID|profile|sessionID]bool
 }
 
 // NewHandler creates a new message handler.
@@ -99,6 +103,7 @@ type runningTurnSnapshot struct {
 	startedAt       time.Time
 	lastUpdateAt    time.Time
 	cancelRequested bool
+	sessionID       string
 }
 
 type runningTurnState struct {
@@ -112,6 +117,7 @@ type runningTurnState struct {
 	lastProgress    string
 	cancel          context.CancelFunc
 	cancelRequested bool
+	sessionID       string
 }
 
 func (s *runningTurnState) update(status, progress string) {
@@ -130,9 +136,26 @@ func (s *runningTurnState) update(status, progress string) {
 	s.lastUpdateAt = now
 }
 
+func (s *runningTurnState) updateSessionID(sessionID string) {
+	if s == nil {
+		return
+	}
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return
+	}
+	s.mu.Lock()
+	s.sessionID = sessionID
+	s.lastUpdateAt = time.Now()
+	s.mu.Unlock()
+}
+
 func (s *runningTurnState) observeProgress(evt agent.ProgressEvent) {
 	if s == nil {
 		return
+	}
+	if evt.SessionID != "" {
+		s.updateSessionID(evt.SessionID)
 	}
 	if text, ok := compactStreamEvent(evt); ok {
 		s.update("working", text)
@@ -199,6 +222,7 @@ func (s *runningTurnState) snapshot() runningTurnSnapshot {
 		startedAt:       s.startedAt,
 		lastUpdateAt:    s.lastUpdateAt,
 		cancelRequested: s.cancelRequested,
+		sessionID:       s.sessionID,
 	}
 }
 
@@ -286,6 +310,7 @@ func (h *Handler) buildNowStatus(userID string) string {
 	if progress == "" {
 		progress = "working"
 	}
+	sessionID := valueOrUnknown(snap.sessionID)
 	updated := "unknown"
 	if !snap.lastUpdateAt.IsZero() {
 		updated = formatTurnDuration(time.Since(snap.lastUpdateAt)) + " ago"
@@ -293,6 +318,7 @@ func (h *Handler) buildNowStatus(userID string) string {
 	return commandCard(
 		"⏳ Current task",
 		"• profile: "+snap.agentName,
+		"• session: "+sessionID,
 		"• status: "+status,
 		"• running: "+formatTurnDuration(time.Since(snap.startedAt)),
 		"• last update: "+updated,
@@ -389,6 +415,14 @@ func (h *Handler) SetAgentMetas(metas []AgentMeta) {
 	h.agentMetas = metas
 }
 
+// SetPendingResume configures a startup resume ID to apply to the first matching user turn.
+func (h *Handler) SetPendingResume(profile, sessionID string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.pendingResumeProfile = strings.TrimSpace(profile)
+	h.pendingResumeID = strings.TrimSpace(sessionID)
+}
+
 // SetAgentWorkDirs sets the configured working directory for each agent.
 func (h *Handler) SetAgentWorkDirs(workDirs map[string]string) {
 	h.mu.Lock()
@@ -451,6 +485,82 @@ func (h *Handler) getDefaultAgent() agent.Agent {
 		return nil
 	}
 	return h.agents[h.defaultName]
+}
+
+func (h *Handler) applyPendingResume(ctx context.Context, name string, ag agent.Agent, userID string) {
+	if ag == nil || userID == "" {
+		return
+	}
+	h.mu.RLock()
+	profile := h.pendingResumeProfile
+	sessionID := h.pendingResumeID
+	h.mu.RUnlock()
+	if sessionID == "" || profile == "" || profile != name {
+		return
+	}
+
+	key := userID + "|" + name + "|" + sessionID
+	if _, loaded := h.pendingResumeApplied.LoadOrStore(key, true); loaded {
+		return
+	}
+
+	resumer, ok := ag.(agent.SessionResumer)
+	if !ok {
+		log.Printf("[handler] pending resume ignored because agent %q does not support resume", name)
+		return
+	}
+	if err := resumer.ResumeSession(userID, sessionID); err != nil {
+		log.Printf("[handler] pending resume failed for agent %q: %v", name, err)
+		return
+	}
+	log.Printf("[handler] pending resume applied (profile=%s, session=%s, user=%s)", name, sessionID, userID)
+	_ = ctx
+}
+
+func currentAgentSessionID(ag agent.Agent, userID string) string {
+	inspector, ok := ag.(agent.SessionInspector)
+	if !ok {
+		return ""
+	}
+	return inspector.CurrentSessionID(userID)
+}
+
+func trackAgentSessionIDDuringTurn(ctx context.Context, ag agent.Agent, userID string, state *runningTurnState) {
+	if state == nil {
+		return
+	}
+	inspector, ok := ag.(agent.SessionInspector)
+	if !ok {
+		return
+	}
+
+	update := func() bool {
+		sessionID := inspector.CurrentSessionID(userID)
+		if sessionID == "" {
+			return false
+		}
+		state.updateSessionID(sessionID)
+		return true
+	}
+
+	if update() {
+		return
+	}
+
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if update() {
+					return
+				}
+			}
+		}
+	}()
 }
 
 // isKnownAgent checks if a name corresponds to a configured agent.
@@ -1271,6 +1381,7 @@ func (h *Handler) sendToDefaultAgent(ctx context.Context, client *ilink.Client, 
 	var reply string
 	var streamedText bool
 	if ag != nil {
+		h.applyPendingResume(ctx, defaultName, ag, msg.FromUserID)
 		turnCtx, turnState, finishTurn := h.beginRunningTurn(ctx, msg.FromUserID, defaultName, text)
 		defer finishTurn()
 
@@ -1308,6 +1419,7 @@ func (h *Handler) sendToNamedAgent(ctx context.Context, client *ilink.Client, ms
 		return
 	}
 
+	h.applyPendingResume(ctx, name, ag, msg.FromUserID)
 	turnCtx, turnState, finishTurn := h.beginRunningTurn(ctx, msg.FromUserID, name, message)
 	defer finishTurn()
 
@@ -1526,6 +1638,8 @@ func (h *Handler) chatWithAgentTracking(ctx context.Context, ag agent.Agent, use
 	start := time.Now()
 	if turnState != nil {
 		turnState.update("running", "dispatching to "+userFacingAgentLabel("", info))
+		turnState.updateSessionID(currentAgentSessionID(ag, userID))
+		trackAgentSessionIDDuringTurn(ctx, ag, userID, turnState)
 	}
 
 	var reply string
@@ -1551,6 +1665,7 @@ func (h *Handler) chatWithAgentTracking(ctx context.Context, ag agent.Agent, use
 	}
 
 	if turnState != nil {
+		turnState.updateSessionID(currentAgentSessionID(ag, userID))
 		turnState.update("done", "final answer ready")
 	}
 	log.Printf("[handler] agent replied (%s, elapsed=%s): %q", info, elapsed, truncate(reply, 100))

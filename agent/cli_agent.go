@@ -102,6 +102,30 @@ func (a *CLIAgent) SetCwd(cwd string) {
 	a.cwd = cwd
 }
 
+// CurrentSessionID returns the last known CLI session ID for a WeClaw conversation.
+func (a *CLIAgent) CurrentSessionID(conversationID string) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.sessions[conversationID]
+}
+
+// ResumeSession binds a WeClaw conversation to an existing CLI session ID.
+func (a *CLIAgent) ResumeSession(conversationID, sessionID string) error {
+	conversationID = strings.TrimSpace(conversationID)
+	sessionID = strings.TrimSpace(sessionID)
+	if conversationID == "" {
+		return fmt.Errorf("conversation ID is required")
+	}
+	if sessionID == "" {
+		return fmt.Errorf("session ID is required")
+	}
+	a.mu.Lock()
+	a.sessions[conversationID] = sessionID
+	a.mu.Unlock()
+	log.Printf("[cli] resume session configured (command=%s, session=%s, conversation=%s)", a.command, sessionID, conversationID)
+	return nil
+}
+
 // Chat sends a message to the CLI agent and returns the response.
 func (a *CLIAgent) Chat(ctx context.Context, conversationID string, message string) (string, error) {
 	switch a.name {

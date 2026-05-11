@@ -376,6 +376,34 @@ ACP and CLI agents require their binaries inside the container. HTTP mode works 
 
 ## Update and uninstall
 
+### Upgrade path for older installs
+
+If you installed an older alpha, first repeat the one-line installer to move onto the current release channel:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+```
+
+After v0.1.2-alpha or newer is installed, use the built-in updater:
+
+```bash
+weclaw upgrade
+```
+
+Session continuity after an update:
+
+```bash
+# During a running task, ask WeClaw for the current session/thread ID.
+/now
+
+# After upgrading or restarting, resume that Codex session/thread.
+weclaw start deepseek resume <session-id>
+weclaw start deepseek-thinking resume <session-id>
+```
+
+The resumed ID is applied to the first matching WeChat user turn for that profile. Use `/restart` or `/new` only when you intentionally want a fresh session.
+
+
 Repeat the one-line installer at any time to install the latest GitHub Release:
 
 ```bash

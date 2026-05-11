@@ -365,6 +365,39 @@ func (a *ACPAgent) ResetSession(ctx context.Context, conversationID string) (str
 	return sessionID, nil
 }
 
+// CurrentSessionID returns the active ACP session ID or Codex thread ID for a WeClaw conversation.
+func (a *ACPAgent) CurrentSessionID(conversationID string) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.protocol == protocolCodexAppServer {
+		return a.threads[conversationID]
+	}
+	return a.sessions[conversationID]
+}
+
+// ResumeSession binds a WeClaw conversation to an existing ACP session ID or Codex thread ID.
+func (a *ACPAgent) ResumeSession(conversationID, sessionID string) error {
+	conversationID = strings.TrimSpace(conversationID)
+	sessionID = strings.TrimSpace(sessionID)
+	if conversationID == "" {
+		return fmt.Errorf("conversation ID is required")
+	}
+	if sessionID == "" {
+		return fmt.Errorf("session ID is required")
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.protocol == protocolCodexAppServer {
+		a.threads[conversationID] = sessionID
+		log.Printf("[acp] resume thread configured (thread=%s, conversation=%s)", sessionID, conversationID)
+		return nil
+	}
+	a.sessions[conversationID] = sessionID
+	log.Printf("[acp] resume session configured (session=%s, conversation=%s)", sessionID, conversationID)
+	return nil
+}
+
 // Chat sends a message and returns the full response.
 func (a *ACPAgent) Chat(ctx context.Context, conversationID string, message string) (string, error) {
 	return a.ChatStream(ctx, conversationID, message, nil)

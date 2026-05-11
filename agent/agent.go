@@ -96,10 +96,11 @@ type Agent interface {
 
 // ProgressEvent is a safe, user-visible streaming update from an agent.
 type ProgressEvent struct {
-	Type  string
-	Text  string
-	ID    string
-	Final bool
+	Type      string
+	Text      string
+	ID        string
+	Final     bool
+	SessionID string
 }
 
 const (
@@ -116,4 +117,16 @@ const (
 // before their final response is complete.
 type StreamingAgent interface {
 	ChatStream(ctx context.Context, conversationID string, message string, onEvent func(ProgressEvent) error) (string, error)
+}
+
+// SessionInspector is optionally implemented by agents that can expose the
+// current server-side session or thread ID for a WeClaw conversation.
+type SessionInspector interface {
+	CurrentSessionID(conversationID string) string
+}
+
+// SessionResumer is optionally implemented by agents that can bind a WeClaw
+// conversation to an existing server-side session or thread ID.
+type SessionResumer interface {
+	ResumeSession(conversationID, sessionID string) error
 }

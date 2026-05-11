@@ -9,11 +9,12 @@ import (
 )
 
 type runtimeControlTestAgent struct {
-	info       agent.AgentInfo
-	sessionID  string
-	chatCalls  int
-	resetCalls int
-	stopped    bool
+	info             agent.AgentInfo
+	sessionID        string
+	currentSessionID string
+	chatCalls        int
+	resetCalls       int
+	stopped          bool
 }
 
 func (a *runtimeControlTestAgent) Info() agent.AgentInfo {
@@ -31,6 +32,15 @@ func (a *runtimeControlTestAgent) ResetSession(ctx context.Context, conversation
 		return a.sessionID, nil
 	}
 	return "session-runtime-control", nil
+}
+
+func (a *runtimeControlTestAgent) CurrentSessionID(conversationID string) string {
+	return a.currentSessionID
+}
+
+func (a *runtimeControlTestAgent) ResumeSession(conversationID, sessionID string) error {
+	a.currentSessionID = sessionID
+	return nil
 }
 
 func (a *runtimeControlTestAgent) SetCwd(cwd string) {}
@@ -399,5 +409,40 @@ func TestRuntimeControlEffortOnlySupportsDeepSeekProfiles(t *testing.T) {
 	}
 	if !strings.Contains(reply, "only supported for deepseek and deepseek-thinking") {
 		t.Fatalf("reply = %q, want DeepSeek-only message", reply)
+	}
+}
+
+func TestRuntimeControlNowReportsSessionID(t *testing.T) {
+	h := NewHandler(nil, nil)
+	_, turn, cleanup := h.beginRunningTurn(context.Background(), "user-1", "deepseek-thinking", "long task")
+	defer cleanup()
+
+	turn.observeProgress(agent.ProgressEvent{
+		Type:      agent.ProgressEventStatus,
+		Text:      "session ready",
+		SessionID: "thread-now-123",
+	})
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/now", "user-1")
+	if !ok {
+		t.Fatal("/now should be intercepted")
+	}
+	if !strings.Contains(reply, "session: thread-now-123") {
+		t.Fatalf("reply = %q, want session ID", reply)
+	}
+}
+
+func TestPendingResumeAppliesToFirstMatchingUserTurn(t *testing.T) {
+	ag := &runtimeControlTestAgent{
+		info: agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-pro"},
+	}
+	h := NewHandler(nil, nil)
+	h.SetDefaultAgent("deepseek-thinking", ag)
+	h.SetPendingResume("deepseek-thinking", "thread-resume-123")
+
+	h.applyPendingResume(context.Background(), "deepseek-thinking", ag, "user-1")
+
+	if ag.currentSessionID != "thread-resume-123" {
+		t.Fatalf("currentSessionID = %q, want thread-resume-123", ag.currentSessionID)
 	}
 }
