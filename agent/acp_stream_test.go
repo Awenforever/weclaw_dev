@@ -163,3 +163,29 @@ func drainTurnEvents(ch <-chan *codexTurnEvent) []*codexTurnEvent {
 		}
 	}
 }
+
+func TestACPAgentStoresCodexTokenUsage(t *testing.T) {
+	a := NewACPAgent(ACPAgentConfig{Command: "codex", Args: []string{"app-server"}})
+	if err := a.ResumeSession("user-1", "thread-usage-1"); err != nil {
+		t.Fatalf("ResumeSession returned error: %v", err)
+	}
+
+	a.handleCodexTokenUsage(json.RawMessage(`{"threadId":"thread-usage-1","turnId":"turn-1","tokenUsage":{"total":{"totalTokens":43564,"inputTokens":43214,"cachedInputTokens":1200,"outputTokens":350,"reasoningOutputTokens":17},"last":{"totalTokens":22325,"inputTokens":22055,"cachedInputTokens":800,"outputTokens":270,"reasoningOutputTokens":7}},"modelContextWindow":258400}`))
+
+	got, ok := a.CurrentTokenUsage("user-1")
+	if !ok {
+		t.Fatal("CurrentTokenUsage ok = false, want true")
+	}
+	if got.ThreadID != "thread-usage-1" || got.TurnID != "turn-1" {
+		t.Fatalf("snapshot IDs = %#v, want thread-usage-1 / turn-1", got)
+	}
+	if got.ModelContextWindow != 258400 {
+		t.Fatalf("ModelContextWindow = %d, want 258400", got.ModelContextWindow)
+	}
+	if got.Total.TotalTokens != 43564 || got.Total.InputTokens != 43214 || got.Total.OutputTokens != 350 {
+		t.Fatalf("Total = %#v, want parsed usage", got.Total)
+	}
+	if got.Last.TotalTokens != 22325 || got.Last.InputTokens != 22055 || got.Last.OutputTokens != 270 {
+		t.Fatalf("Last = %#v, want parsed last usage", got.Last)
+	}
+}

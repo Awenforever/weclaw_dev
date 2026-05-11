@@ -103,6 +103,25 @@ type ProgressEvent struct {
 	SessionID string
 }
 
+// TokenUsageBreakdown mirrors Codex app-server token usage counters.
+type TokenUsageBreakdown struct {
+	TotalTokens           int64 `json:"totalTokens"`
+	InputTokens           int64 `json:"inputTokens"`
+	CachedInputTokens     int64 `json:"cachedInputTokens"`
+	OutputTokens          int64 `json:"outputTokens"`
+	ReasoningOutputTokens int64 `json:"reasoningOutputTokens"`
+}
+
+// TokenUsageSnapshot stores the latest usage event for a server-side thread.
+type TokenUsageSnapshot struct {
+	ThreadID           string
+	TurnID             string
+	ModelContextWindow int64
+	Total              TokenUsageBreakdown
+	Last               TokenUsageBreakdown
+	UpdatedUnix        int64
+}
+
 const (
 	ProgressEventAssistantDelta           = "assistant_delta"
 	ProgressEventAssistantMessageComplete = "assistant_message_complete"
@@ -135,4 +154,10 @@ type SessionResumer interface {
 // recover a server-side session or thread without sending a user task.
 type SessionEnsurer interface {
 	EnsureSession(ctx context.Context, conversationID string) (string, error)
+}
+
+// TokenUsageInspector is optionally implemented by agents that can expose the
+// latest server-reported token usage for a WeClaw conversation.
+type TokenUsageInspector interface {
+	CurrentTokenUsage(conversationID string) (TokenUsageSnapshot, bool)
 }

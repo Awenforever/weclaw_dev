@@ -871,7 +871,7 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 		if len(fields) != 1 {
 			return "Usage: /status", true
 		}
-		return h.buildStatusDiagnostics(ctx), true
+		return h.buildStatusDiagnostics(ctx, userID), true
 
 	case "/balance":
 		if len(fields) != 1 {
@@ -1030,7 +1030,7 @@ func unknownSlashCommandCard(command string) string {
 	return commandCard("⚠️ Unknown slash command", lines...)
 }
 
-func (h *Handler) buildStatusDiagnostics(ctx context.Context) string {
+func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) string {
 	h.mu.RLock()
 	defaultName := h.defaultName
 	ag := h.agents[defaultName]
@@ -1045,6 +1045,9 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context) string {
 			agentModel = info.Model
 		}
 	}
+
+	sessionID := ensureAgentSession(ctx, ag, userID)
+	contextLines := buildContextUsageLines(ag, userID, sessionID)
 
 	dsproxyStatus := runDsproxyCommand(ctx, "status")
 	dsproxyConfig := runDsproxyCommand(ctx, "config", "show")
@@ -1073,26 +1076,28 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context) string {
 		proxyEffort = "unknown"
 	}
 
-	return commandCard(
-		"🧩 Agent",
-		"• profile: "+defaultName,
-		"• type: "+agentType,
-		"• model: "+agentModel,
+	lines := []string{
+		"• profile: " + valueOrUnknown(defaultName),
+		"• type: " + agentType,
+		"• model: " + agentModel,
+		"",
+	}
+	lines = append(lines, contextLines...)
+	lines = append(lines,
 		"",
 		"🔌 Proxy",
-		"• status: "+proxyState,
 		"• route: "+proxyRoute,
 		"• endpoint: "+proxyEndpoint,
+		"• status: "+proxyState,
 		"• config model: "+proxyModel,
-		"• config effort: "+proxyEffort,
+		"• effort: "+proxyEffort,
 		"",
 		"📁 Paths",
-		"• weclaw config: ~/.weclaw/config.json",
-		"• weclaw log: ~/.weclaw/weclaw.log",
-		"• codex config: ~/.codex/config.toml",
-		"• dsproxy env: ~/.config/deepseek-responses-proxy/env",
-		"• dsproxy repo: ~/projects/deepseek-responses-proxy",
+		"• config: ~/.weclaw/config.json",
+		"• log: ~/.weclaw/weclaw.log",
 	)
+
+	return commandCard("🧩 Agent", lines...)
 }
 
 func resolveDsproxyBinary() string {
@@ -2336,4 +2341,62 @@ func detectImageExt(data []byte) string {
 		return ".bmp"
 	}
 	return ".jpg" // default to jpg for WeChat images
+}
+
+func buildContextUsageLines(ag agent.Agent, userID, sessionID string) []string {
+	lines := []string{
+		"📊 Context",
+		"• session: " + valueOrUnknown(sessionID),
+	}
+	if ag == nil {
+		return append(lines, "• usage: unavailable")
+	}
+	inspector, ok := ag.(agent.TokenUsageInspector)
+	if !ok {
+		return append(lines, "• usage: unavailable")
+	}
+	snapshot, ok := inspector.CurrentTokenUsage(userID)
+	if !ok {
+		return append(lines, "• usage: waiting for tokenUsage event")
+	}
+
+	total := snapshot.Total
+	window := snapshot.ModelContextWindow
+	if window > 0 {
+		lines = append(lines, "• window: "+formatTokenCount(window))
+		lines = append(lines, fmt.Sprintf("• used: %s / %s (%s)", formatTokenCount(total.TotalTokens), formatTokenCount(window), formatTokenPercent(total.TotalTokens, window)))
+	} else {
+		lines = append(lines, "• window: unknown")
+		lines = append(lines, "• used: "+formatTokenCount(total.TotalTokens))
+	}
+	lines = append(lines,
+		"• input: "+formatTokenCount(total.InputTokens),
+		"• cached input: "+formatTokenCount(total.CachedInputTokens),
+		"• output: "+formatTokenCount(total.OutputTokens),
+		"• reasoning output: "+formatTokenCount(total.ReasoningOutputTokens),
+		"• tools: unknown",
+		"• other: unknown",
+	)
+	if snapshot.Last.TotalTokens > 0 {
+		lines = append(lines, fmt.Sprintf("• last turn: %s total, %s input, %s output",
+			formatTokenCount(snapshot.Last.TotalTokens),
+			formatTokenCount(snapshot.Last.InputTokens),
+			formatTokenCount(snapshot.Last.OutputTokens),
+		))
+	}
+	if snapshot.TurnID != "" {
+		lines = append(lines, "• turn: "+snapshot.TurnID)
+	}
+	return lines
+}
+
+func formatTokenCount(n int64) string {
+	return fmt.Sprintf("%d", n)
+}
+
+func formatTokenPercent(used, window int64) string {
+	if window <= 0 {
+		return "unknown"
+	}
+	return fmt.Sprintf("%.1f%%", float64(used)*100/float64(window))
 }

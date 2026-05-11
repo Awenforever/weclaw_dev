@@ -27,14 +27,16 @@ type ACPAgent struct {
 	env           map[string]string
 	protocol      string // "legacy_acp" or "codex_app_server"
 
-	mu       sync.Mutex
-	cmd      *exec.Cmd
-	stdin    io.WriteCloser
-	scanner  *bufio.Scanner
-	started  bool
-	nextID   atomic.Int64
-	sessions map[string]string // conversationID -> sessionID (legacy ACP)
-	threads  map[string]string // conversationID -> threadID (codex app-server)
+	mu                 sync.Mutex
+	cmd                *exec.Cmd
+	stdin              io.WriteCloser
+	scanner            *bufio.Scanner
+	started            bool
+	nextID             atomic.Int64
+	sessions           map[string]string // conversationID -> sessionID (legacy ACP)
+	threads            map[string]string // conversationID -> threadID (codex app-server)
+	tokenUsageMu       sync.RWMutex
+	tokenUsageByThread map[string]TokenUsageSnapshot
 
 	// pending tracks in-flight JSON-RPC requests
 	pendingMu sync.Mutex
@@ -202,19 +204,20 @@ func NewACPAgent(cfg ACPAgentConfig) *ACPAgent {
 	}
 	protocol := detectACPProtocol(cfg.Command, cfg.Args)
 	return &ACPAgent{
-		command:       cfg.Command,
-		args:          cfg.Args,
-		model:         cfg.Model,
-		modelProvider: cfg.ModelProvider,
-		systemPrompt:  cfg.SystemPrompt,
-		cwd:           cfg.Cwd,
-		env:           cfg.Env,
-		protocol:      protocol,
-		sessions:      make(map[string]string),
-		threads:       make(map[string]string),
-		pending:       make(map[int64]chan *rpcResponse),
-		notifyCh:      make(map[string]chan *sessionUpdate),
-		turnCh:        make(map[string]chan *codexTurnEvent),
+		command:            cfg.Command,
+		args:               cfg.Args,
+		model:              cfg.Model,
+		modelProvider:      cfg.ModelProvider,
+		systemPrompt:       cfg.SystemPrompt,
+		cwd:                cfg.Cwd,
+		env:                cfg.Env,
+		protocol:           protocol,
+		sessions:           make(map[string]string),
+		threads:            make(map[string]string),
+		tokenUsageByThread: make(map[string]TokenUsageSnapshot),
+		pending:            make(map[int64]chan *rpcResponse),
+		notifyCh:           make(map[string]chan *sessionUpdate),
+		turnCh:             make(map[string]chan *codexTurnEvent),
 	}
 }
 
@@ -373,6 +376,21 @@ func (a *ACPAgent) CurrentSessionID(conversationID string) string {
 		return a.threads[conversationID]
 	}
 	return a.sessions[conversationID]
+}
+
+// CurrentTokenUsage returns the latest Codex token usage snapshot for a WeClaw conversation.
+func (a *ACPAgent) CurrentTokenUsage(conversationID string) (TokenUsageSnapshot, bool) {
+	a.mu.Lock()
+	threadID := a.threads[conversationID]
+	a.mu.Unlock()
+	if threadID == "" {
+		return TokenUsageSnapshot{}, false
+	}
+
+	a.tokenUsageMu.RLock()
+	defer a.tokenUsageMu.RUnlock()
+	snapshot, ok := a.tokenUsageByThread[threadID]
+	return snapshot, ok
 }
 
 // ResumeSession binds a WeClaw conversation to an existing ACP session ID or Codex thread ID.
@@ -820,11 +838,13 @@ func (a *ACPAgent) readLoop() {
 			a.handleCodexTurnEvent(msg.Method, msg.Params)
 		case "thread/status/changed":
 			a.handleCodexThreadStatusChanged(msg.Params)
+		case "thread/tokenUsage/updated":
+			a.handleCodexTokenUsage(msg.Params)
 		case "mcpServer/startupStatus/updated":
 			a.handleCodexMCPStartupStatus(msg.Params)
 		case "codex/event/agent_message", "codex/event/task_complete",
 			"codex/event/item_completed", "codex/event/token_count",
-			"thread/tokenUsage/updated", "account/rateLimits/updated",
+			"account/rateLimits/updated",
 			"skills/changed", "thread/started", "item/reasoning/textDelta":
 			// Known events we don't need to act on
 		case "turn/approval/request":
@@ -1062,6 +1082,36 @@ func (a *ACPAgent) handleCodexThreadStatusChanged(params json.RawMessage) {
 		return
 	}
 	// Thread lifecycle states are internal app-server noise.
+}
+
+func (a *ACPAgent) handleCodexTokenUsage(params json.RawMessage) {
+	var p struct {
+		ThreadID   string `json:"threadId"`
+		TurnID     string `json:"turnId"`
+		TokenUsage struct {
+			Total TokenUsageBreakdown `json:"total"`
+			Last  TokenUsageBreakdown `json:"last"`
+		} `json:"tokenUsage"`
+		ModelContextWindow int64 `json:"modelContextWindow"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		log.Printf("[acp] failed to parse thread/tokenUsage/updated: %v", err)
+		return
+	}
+	if p.ThreadID == "" {
+		return
+	}
+
+	a.tokenUsageMu.Lock()
+	a.tokenUsageByThread[p.ThreadID] = TokenUsageSnapshot{
+		ThreadID:           p.ThreadID,
+		TurnID:             p.TurnID,
+		ModelContextWindow: p.ModelContextWindow,
+		Total:              p.TokenUsage.Total,
+		Last:               p.TokenUsage.Last,
+		UpdatedUnix:        time.Now().Unix(),
+	}
+	a.tokenUsageMu.Unlock()
 }
 
 func (a *ACPAgent) handleCodexMCPStartupStatus(params json.RawMessage) {

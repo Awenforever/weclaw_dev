@@ -14,6 +14,8 @@ type runtimeControlTestAgent struct {
 	currentSessionID string
 	ensureSessionID  string
 	ensureCalls      int
+	tokenUsage       agent.TokenUsageSnapshot
+	tokenUsageOK     bool
 	chatCalls        int
 	resetCalls       int
 	stopped          bool
@@ -51,6 +53,10 @@ func (a *runtimeControlTestAgent) EnsureSession(ctx context.Context, conversatio
 		a.currentSessionID = a.ensureSessionID
 	}
 	return a.currentSessionID, nil
+}
+
+func (a *runtimeControlTestAgent) CurrentTokenUsage(conversationID string) (agent.TokenUsageSnapshot, bool) {
+	return a.tokenUsage, a.tokenUsageOK
 }
 
 func (a *runtimeControlTestAgent) SetCwd(cwd string) {}
@@ -497,5 +503,54 @@ func TestRuntimeControlNowIdleEnsuresSessionID(t *testing.T) {
 	}
 	if !strings.Contains(reply, "session: thread-ensure-123") {
 		t.Fatalf("reply = %q, want ensured session ID", reply)
+	}
+}
+
+func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
+	ag := &runtimeControlTestAgent{
+		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-pro"},
+		currentSessionID: "thread-usage-1",
+		tokenUsageOK:     true,
+		tokenUsage: agent.TokenUsageSnapshot{
+			ThreadID:           "thread-usage-1",
+			TurnID:             "turn-usage-1",
+			ModelContextWindow: 258400,
+			Total: agent.TokenUsageBreakdown{
+				TotalTokens:           43564,
+				InputTokens:           43214,
+				CachedInputTokens:     1200,
+				OutputTokens:          350,
+				ReasoningOutputTokens: 17,
+			},
+			Last: agent.TokenUsageBreakdown{
+				TotalTokens:  22325,
+				InputTokens:  22055,
+				OutputTokens: 270,
+			},
+		},
+	}
+	h := NewHandler(nil, nil)
+	h.SetDefaultAgent("deepseek-thinking", ag)
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/status", "user-1")
+	if !ok {
+		t.Fatal("/status should be intercepted")
+	}
+	for _, want := range []string{
+		"📊 Context",
+		"session: thread-usage-1",
+		"window: 258400",
+		"used: 43564 / 258400 (16.9%)",
+		"input: 43214",
+		"cached input: 1200",
+		"output: 350",
+		"reasoning output: 17",
+		"tools: unknown",
+		"other: unknown",
+		"last turn: 22325 total, 22055 input, 270 output",
+	} {
+		if !strings.Contains(reply, want) {
+			t.Fatalf("status reply = %q, want %q", reply, want)
+		}
 	}
 }
