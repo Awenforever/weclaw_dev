@@ -173,14 +173,20 @@ ensure_tmp_root() {
 install_binary_file() {
   src="$1"
   target="${INSTALL_DIR}/${BINARY}"
+  staged="${INSTALL_DIR}/.${BINARY}-install-$$.new"
 
   chmod +x "$src"
+
   if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
-    mv "$src" "$target"
+    cp "$src" "$staged"
+    chmod +x "$staged"
+    mv -f "$staged" "$target"
   else
     echo "Installing to ${INSTALL_DIR} (requires sudo)..."
     sudo mkdir -p "$INSTALL_DIR"
-    sudo mv "$src" "$target"
+    sudo cp "$src" "$staged"
+    sudo chmod +x "$staged"
+    sudo mv -f "$staged" "$target"
   fi
 }
 

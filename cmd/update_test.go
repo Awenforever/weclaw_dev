@@ -35,6 +35,8 @@ func TestShouldOfferUpdate(t *testing.T) {
 		{name: "same release", current: "v0.1.1-alpha", latest: "v0.1.1-alpha", want: false},
 		{name: "new release", current: "v0.1.1-alpha", latest: "v0.1.2-alpha", want: true},
 		{name: "dev build", current: "dev", latest: "v0.1.2-alpha", want: false},
+		{name: "local test build", current: "v0.1p4-local-test", latest: "v0.1.2-alpha", want: false},
+		{name: "internal tag build", current: "v0.1p4-session-resume-status-docs", latest: "v0.1.2-alpha", want: false},
 		{name: "empty latest", current: "v0.1.1-alpha", latest: "", want: false},
 	}
 
@@ -110,5 +112,30 @@ func TestSameExecutablePathRejectsDifferentPaths(t *testing.T) {
 	}
 	if sameExecutablePath(other, target) {
 		t.Fatal("sameExecutablePath should reject a different executable")
+	}
+}
+
+func TestStageReplacementBinaryCreatesFileInTargetDir(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src-weclaw")
+	dst := filepath.Join(dir, "weclaw")
+	if err := os.WriteFile(src, []byte("new-binary"), 0o755); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	staged, err := stageReplacementBinary(src, dst)
+	if err != nil {
+		t.Fatalf("stageReplacementBinary returned error: %v", err)
+	}
+	defer os.Remove(staged)
+
+	if filepath.Dir(staged) != dir {
+		t.Fatalf("staged dir = %q, want %q", filepath.Dir(staged), dir)
+	}
+	data, err := os.ReadFile(staged)
+	if err != nil {
+		t.Fatalf("read staged: %v", err)
+	}
+	if string(data) != "new-binary" {
+		t.Fatalf("staged data = %q, want new-binary", data)
 	}
 }

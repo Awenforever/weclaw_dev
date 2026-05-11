@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"syscall"
@@ -269,20 +270,80 @@ func releaseAssetName(goos, goarch string) string {
 }
 
 func replaceBinary(src, dst string) error {
-	if err := os.Rename(src, dst); err == nil {
+	staged, err := stageReplacementBinary(src, dst)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(staged)
+
+	if err := os.Rename(staged, dst); err == nil {
 		return nil
 	}
 
 	if runtime.GOOS != "windows" {
 		fmt.Printf("Installing to %s (requires sudo)...\n", dst)
-		cmd := exec.Command("sudo", "cp", src, dst)
+		cmd := exec.Command("sudo", "mv", "-f", staged, dst)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+		return nil
 	}
 
-	return fmt.Errorf("cannot write to %s", dst)
+	return fmt.Errorf("cannot replace %s", dst)
+}
+
+func stageReplacementBinary(src, dst string) (string, error) {
+	targetDir := filepath.Dir(dst)
+	staged, err := os.CreateTemp(targetDir, ".weclaw-update-*.new")
+	if err != nil {
+		if runtime.GOOS != "windows" {
+			tmpName := filepath.Join(targetDir, fmt.Sprintf(".weclaw-update-%d.new", os.Getpid()))
+			cmd := exec.Command("sudo", "cp", src, tmpName)
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				return "", err
+			}
+			chmodCmd := exec.Command("sudo", "chmod", "755", tmpName)
+			chmodCmd.Stdin = os.Stdin
+			chmodCmd.Stdout = os.Stdout
+			chmodCmd.Stderr = os.Stderr
+			if err := chmodCmd.Run(); err != nil {
+				_ = exec.Command("sudo", "rm", "-f", tmpName).Run()
+				return "", err
+			}
+			return tmpName, nil
+		}
+		return "", err
+	}
+	stagedName := staged.Name()
+
+	in, err := os.Open(src)
+	if err != nil {
+		staged.Close()
+		os.Remove(stagedName)
+		return "", err
+	}
+	defer in.Close()
+
+	if _, err := io.Copy(staged, in); err != nil {
+		staged.Close()
+		os.Remove(stagedName)
+		return "", err
+	}
+	if err := staged.Close(); err != nil {
+		os.Remove(stagedName)
+		return "", err
+	}
+	if err := os.Chmod(stagedName, 0o755); err != nil {
+		os.Remove(stagedName)
+		return "", err
+	}
+	return stagedName, nil
 }
 
 func removeBinary(path string) error {
@@ -421,7 +482,19 @@ func maybePrintUpdateNotice(w io.Writer) {
 func shouldOfferUpdate(current, latest string) bool {
 	current = strings.TrimSpace(current)
 	latest = strings.TrimSpace(latest)
-	return current != "" && latest != "" && current != latest && current != "dev"
+	if current == "" || latest == "" || current == latest || current == "dev" {
+		return false
+	}
+	if !isReleaseVersion(current) || !isReleaseVersion(latest) {
+		return false
+	}
+	return current != latest
+}
+
+var releaseVersionPattern = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?$`)
+
+func isReleaseVersion(version string) bool {
+	return releaseVersionPattern.MatchString(strings.TrimSpace(version))
 }
 
 func updateCheckDue(state updateCheckState, now time.Time) bool {

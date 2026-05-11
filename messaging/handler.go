@@ -291,38 +291,40 @@ func (h *Handler) cancelRunningTurn(userID string) string {
 }
 
 func (h *Handler) buildNowStatus(userID string) string {
-	snap, ok := h.runningTurnSnapshot(userID)
-	if !ok {
-		h.mu.RLock()
-		profile := h.defaultName
-		h.mu.RUnlock()
-		if profile == "" {
-			profile = "none"
+	if v, ok := h.runningTurns.Load(userID); ok {
+		turn, _ := v.(*runningTurnState)
+		snap := turn.snapshot()
+		status := snap.status
+		if snap.cancelRequested {
+			status = "cancelling"
 		}
-		return commandCard("✅ Idle", "• running: no", "• profile: "+profile)
+		progress := snap.lastProgress
+		if progress == "" {
+			progress = "working"
+		}
+		sessionID := valueOrUnknown(snap.sessionID)
+		updated := "unknown"
+		if !snap.lastUpdateAt.IsZero() {
+			updated = formatTurnDuration(time.Since(snap.lastUpdateAt)) + " ago"
+		}
+		return commandCard(
+			"⏳ Current task",
+			"• profile: "+snap.agentName,
+			"• session: "+sessionID,
+			"• status: "+status,
+			"• running: "+formatTurnDuration(time.Since(snap.startedAt)),
+			"• last update: "+updated,
+			"• now: "+progress,
+		)
 	}
 
-	status := snap.status
-	if status == "" {
-		status = "running"
-	}
-	progress := snap.lastProgress
-	if progress == "" {
-		progress = "working"
-	}
-	sessionID := valueOrUnknown(snap.sessionID)
-	updated := "unknown"
-	if !snap.lastUpdateAt.IsZero() {
-		updated = formatTurnDuration(time.Since(snap.lastUpdateAt)) + " ago"
-	}
+	name, ag := h.getDefaultAgentWithName()
+	sessionID := currentAgentSessionID(ag, userID)
 	return commandCard(
-		"⏳ Current task",
-		"• profile: "+snap.agentName,
-		"• session: "+sessionID,
-		"• status: "+status,
-		"• running: "+formatTurnDuration(time.Since(snap.startedAt)),
-		"• last update: "+updated,
-		"• now: "+progress,
+		"✅ Idle",
+		"• running: no",
+		"• profile: "+valueOrUnknown(name),
+		"• session: "+valueOrUnknown(sessionID),
 	)
 }
 
@@ -485,6 +487,15 @@ func (h *Handler) getDefaultAgent() agent.Agent {
 		return nil
 	}
 	return h.agents[h.defaultName]
+}
+
+func (h *Handler) getDefaultAgentWithName() (string, agent.Agent) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if h.defaultName == "" {
+		return "", nil
+	}
+	return h.defaultName, h.agents[h.defaultName]
 }
 
 func (h *Handler) applyPendingResume(ctx context.Context, name string, ag agent.Agent, userID string) {

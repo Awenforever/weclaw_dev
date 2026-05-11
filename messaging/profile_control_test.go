@@ -446,3 +446,23 @@ func TestPendingResumeAppliesToFirstMatchingUserTurn(t *testing.T) {
 		t.Fatalf("currentSessionID = %q, want thread-resume-123", ag.currentSessionID)
 	}
 }
+
+func TestRuntimeControlNowIdleReportsOpenSessionID(t *testing.T) {
+	ag := &runtimeControlTestAgent{
+		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-pro"},
+		currentSessionID: "thread-idle-123",
+	}
+	h := NewHandler(nil, nil)
+	h.SetDefaultAgent("deepseek-thinking", ag)
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/now", "user-1")
+	if !ok {
+		t.Fatal("/now should be intercepted")
+	}
+	if !strings.Contains(reply, "running: no") {
+		t.Fatalf("reply = %q, want idle status", reply)
+	}
+	if !strings.Contains(reply, "session: thread-idle-123") {
+		t.Fatalf("reply = %q, want idle session ID", reply)
+	}
+}
