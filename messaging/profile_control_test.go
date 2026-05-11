@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 
@@ -507,6 +508,14 @@ func TestRuntimeControlNowIdleEnsuresSessionID(t *testing.T) {
 }
 
 func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(home+"/.codex", 0o755); err != nil {
+		t.Fatalf("create codex dir: %v", err)
+	}
+	if err := os.WriteFile(home+"/.codex/config.toml", []byte("[profiles.deepseek-thinking]\nmodel_context_window = 1000000\n"), 0o644); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
 	ag := &runtimeControlTestAgent{
 		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-pro"},
 		currentSessionID: "thread-usage-1",
@@ -539,15 +548,14 @@ func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
 	for _, want := range []string{
 		"📊 Context",
 		"session: thread-usage-1",
-		"window: 258400",
-		"used: 43564 / 258400 (16.9%)",
-		"input: 43214",
-		"cached input: 1200",
+		"context: 43.6k / 1M (4.4%)",
+		"input: 43.2k",
+		"cached input: 1.2k",
 		"output: 350",
 		"reasoning output: 17",
-		"tools: unknown",
-		"other: unknown",
-		"last turn: 22325 total, 22055 input, 270 output",
+		"tools: --",
+		"other: --",
+		"last turn: 22.3k total, 22.1k input, 270 output",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
@@ -556,6 +564,14 @@ func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
 }
 
 func TestRuntimeControlStatusShowsFallbackContextWindowWhileUsageIsWaiting(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(home+"/.codex", 0o755); err != nil {
+		t.Fatalf("create codex dir: %v", err)
+	}
+	if err := os.WriteFile(home+"/.codex/config.toml", []byte("[profiles.deepseek-thinking]\nmodel_context_window = 1000000\n"), 0o644); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
 	ag := &runtimeControlTestAgent{
 		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-flash"},
 		currentSessionID: "thread-waiting-1",
@@ -571,10 +587,10 @@ func TestRuntimeControlStatusShowsFallbackContextWindowWhileUsageIsWaiting(t *te
 	for _, want := range []string{
 		"📊 Context",
 		"session: thread-waiting-1",
-		"window: 258400",
-		"used: waiting for tokenUsage event",
-		"input: waiting",
-		"output: waiting",
+		"context: -- / 1M (--%)",
+		"input: --",
+		"output: --",
+		"tools: --",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
@@ -590,5 +606,29 @@ func TestDsproxyStatusArgsForThinkingProfile(t *testing.T) {
 	got = dsproxyStatusArgsForProfile("deepseek")
 	if len(got) != 1 || got[0] != "status" {
 		t.Fatalf("dsproxyStatusArgsForProfile(deepseek) = %#v, want status", got)
+	}
+}
+
+func TestFormatContextUsageLine(t *testing.T) {
+	if got := formatContextUsageLine(0, 258400, false); got != "• context: -- / 258.4k (--%)" {
+		t.Fatalf("formatContextUsageLine waiting = %q", got)
+	}
+	if got := formatContextUsageLine(43564, 258400, true); got != "• context: 43.6k / 258.4k (16.9%)" {
+		t.Fatalf("formatContextUsageLine used = %q", got)
+	}
+}
+
+func TestParseCodexProfileInt(t *testing.T) {
+	configText := `[profiles.deepseek]
+model_context_window = 1000000
+
+[profiles.deepseek-thinking]
+model_context_window = 750000
+`
+	if got := parseCodexProfileInt(configText, "deepseek", "model_context_window"); got != 1000000 {
+		t.Fatalf("deepseek model_context_window = %d, want 1000000", got)
+	}
+	if got := parseCodexProfileInt(configText, "deepseek-thinking", "model_context_window"); got != 750000 {
+		t.Fatalf("deepseek-thinking model_context_window = %d, want 750000", got)
 	}
 }

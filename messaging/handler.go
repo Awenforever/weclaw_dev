@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -2350,63 +2351,31 @@ func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWi
 		"• session: " + valueOrUnknown(sessionID),
 	}
 	if ag == nil {
-		return append(lines,
-			formatContextWindowLine(fallbackWindow),
-			"• used: unavailable",
-			"• input: unavailable",
-			"• cached input: unavailable",
-			"• output: unavailable",
-			"• reasoning output: unavailable",
-			"• tools: unknown",
-			"• other: unknown",
-		)
+		return append(lines, unknownContextUsageLines(fallbackWindow)...)
 	}
 	inspector, ok := ag.(agent.TokenUsageInspector)
 	if !ok {
-		return append(lines,
-			formatContextWindowLine(fallbackWindow),
-			"• used: unavailable",
-			"• input: unavailable",
-			"• cached input: unavailable",
-			"• output: unavailable",
-			"• reasoning output: unavailable",
-			"• tools: unknown",
-			"• other: unknown",
-		)
+		return append(lines, unknownContextUsageLines(fallbackWindow)...)
 	}
 	snapshot, ok := inspector.CurrentTokenUsage(userID)
 	if !ok {
-		return append(lines,
-			formatContextWindowLine(fallbackWindow),
-			"• used: waiting for tokenUsage event",
-			"• input: waiting",
-			"• cached input: waiting",
-			"• output: waiting",
-			"• reasoning output: waiting",
-			"• tools: unknown",
-			"• other: unknown",
-		)
+		return append(lines, unknownContextUsageLines(fallbackWindow)...)
 	}
 
 	total := snapshot.Total
-	window := snapshot.ModelContextWindow
+	window := fallbackWindow
 	if window <= 0 {
-		window = fallbackWindow
+		window = snapshot.ModelContextWindow
 	}
-	if window > 0 {
-		lines = append(lines, "• window: "+formatTokenCount(window))
-		lines = append(lines, fmt.Sprintf("• used: %s / %s (%s)", formatTokenCount(total.TotalTokens), formatTokenCount(window), formatTokenPercent(total.TotalTokens, window)))
-	} else {
-		lines = append(lines, "• window: unknown")
-		lines = append(lines, "• used: "+formatTokenCount(total.TotalTokens))
-	}
+
 	lines = append(lines,
+		formatContextUsageLine(total.TotalTokens, window, true),
 		"• input: "+formatTokenCount(total.InputTokens),
 		"• cached input: "+formatTokenCount(total.CachedInputTokens),
 		"• output: "+formatTokenCount(total.OutputTokens),
 		"• reasoning output: "+formatTokenCount(total.ReasoningOutputTokens),
-		"• tools: unknown",
-		"• other: unknown",
+		"• tools: --",
+		"• other: --",
 	)
 	if snapshot.Last.TotalTokens > 0 {
 		lines = append(lines, fmt.Sprintf("• last turn: %s total, %s input, %s output",
@@ -2422,6 +2391,15 @@ func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWi
 }
 
 func formatTokenCount(n int64) string {
+	if n < 0 {
+		return "--"
+	}
+	if n >= 1000000 {
+		return trimFixedDecimal(float64(n)/1000000.0) + "M"
+	}
+	if n >= 1000 {
+		return trimFixedDecimal(float64(n)/1000.0) + "k"
+	}
 	return fmt.Sprintf("%d", n)
 }
 
@@ -2440,18 +2418,88 @@ func dsproxyStatusArgsForProfile(profile string) []string {
 }
 
 func fallbackContextWindow(profile, agentModel, proxyModel string) int64 {
-	for _, value := range []string{proxyModel, agentModel, profile} {
-		switch strings.ToLower(strings.TrimSpace(value)) {
-		case "deepseek-v4-flash", "deepseek-v4-pro":
-			return 258400
-		}
+	if window := codexProfileContextWindow(profile); window > 0 {
+		return window
 	}
 	return 0
 }
 
 func formatContextWindowLine(window int64) string {
-	if window <= 0 {
-		return "• window: unknown"
+	return formatContextUsageLine(0, window, false)
+}
+
+func unknownContextUsageLines(window int64) []string {
+	return []string{
+		formatContextUsageLine(0, window, false),
+		"• input: --",
+		"• cached input: --",
+		"• output: --",
+		"• reasoning output: --",
+		"• tools: --",
+		"• other: --",
 	}
-	return "• window: " + formatTokenCount(window)
+}
+
+func formatContextUsageLine(used, window int64, hasUsage bool) string {
+	windowText := "--"
+	if window > 0 {
+		windowText = formatTokenCount(window)
+	}
+	if !hasUsage {
+		return "• context: -- / " + windowText + " (--%)"
+	}
+	if window <= 0 {
+		return "• context: " + formatTokenCount(used) + " / -- (--%)"
+	}
+	return fmt.Sprintf("• context: %s / %s (%s)", formatTokenCount(used), formatTokenCount(window), formatTokenPercent(used, window))
+}
+
+func trimFixedDecimal(value float64) string {
+	s := fmt.Sprintf("%.1f", value)
+	return strings.TrimSuffix(s, ".0")
+}
+
+func codexProfileContextWindow(profile string) int64 {
+	profile = strings.TrimSpace(profile)
+	if profile == "" {
+		return 0
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return 0
+	}
+	data, err := os.ReadFile(home + "/.codex/config.toml")
+	if err != nil {
+		return 0
+	}
+	return parseCodexProfileInt(string(data), profile, "model_context_window")
+}
+
+func parseCodexProfileInt(configText, profile, key string) int64 {
+	section := "[profiles." + strings.TrimSpace(profile) + "]"
+	inSection := false
+	for _, raw := range strings.Split(configText, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			inSection = line == section
+			continue
+		}
+		if !inSection {
+			continue
+		}
+		name, value, ok := strings.Cut(line, "=")
+		if !ok || strings.TrimSpace(name) != key {
+			continue
+		}
+		value = strings.TrimSpace(strings.SplitN(value, "#", 2)[0])
+		value = strings.Trim(value, `"'`)
+		parsed, err := strconv.ParseInt(value, 10, 64)
+		if err == nil && parsed > 0 {
+			return parsed
+		}
+	}
+	return 0
 }
