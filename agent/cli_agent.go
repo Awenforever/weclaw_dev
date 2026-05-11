@@ -126,6 +126,11 @@ func (a *CLIAgent) ResumeSession(conversationID, sessionID string) error {
 	return nil
 }
 
+// EnsureSession returns the known CLI session ID. CLI sessions are created by real message turns.
+func (a *CLIAgent) EnsureSession(ctx context.Context, conversationID string) (string, error) {
+	return a.CurrentSessionID(conversationID), nil
+}
+
 // Chat sends a message to the CLI agent and returns the response.
 func (a *CLIAgent) Chat(ctx context.Context, conversationID string, message string) (string, error) {
 	switch a.name {

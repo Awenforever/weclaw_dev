@@ -130,3 +130,9 @@ type SessionInspector interface {
 type SessionResumer interface {
 	ResumeSession(conversationID, sessionID string) error
 }
+
+// SessionEnsurer is optionally implemented by agents that can create or
+// recover a server-side session or thread without sending a user task.
+type SessionEnsurer interface {
+	EnsureSession(ctx context.Context, conversationID string) (string, error)
+}

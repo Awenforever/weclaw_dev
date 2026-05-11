@@ -12,6 +12,8 @@ type runtimeControlTestAgent struct {
 	info             agent.AgentInfo
 	sessionID        string
 	currentSessionID string
+	ensureSessionID  string
+	ensureCalls      int
 	chatCalls        int
 	resetCalls       int
 	stopped          bool
@@ -41,6 +43,14 @@ func (a *runtimeControlTestAgent) CurrentSessionID(conversationID string) string
 func (a *runtimeControlTestAgent) ResumeSession(conversationID, sessionID string) error {
 	a.currentSessionID = sessionID
 	return nil
+}
+
+func (a *runtimeControlTestAgent) EnsureSession(ctx context.Context, conversationID string) (string, error) {
+	a.ensureCalls++
+	if a.currentSessionID == "" {
+		a.currentSessionID = a.ensureSessionID
+	}
+	return a.currentSessionID, nil
 }
 
 func (a *runtimeControlTestAgent) SetCwd(cwd string) {}
@@ -464,5 +474,28 @@ func TestRuntimeControlNowIdleReportsOpenSessionID(t *testing.T) {
 	}
 	if !strings.Contains(reply, "session: thread-idle-123") {
 		t.Fatalf("reply = %q, want idle session ID", reply)
+	}
+}
+
+func TestRuntimeControlNowIdleEnsuresSessionID(t *testing.T) {
+	ag := &runtimeControlTestAgent{
+		info:            agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-pro"},
+		ensureSessionID: "thread-ensure-123",
+	}
+	h := NewHandler(nil, nil)
+	h.SetDefaultAgent("deepseek-thinking", ag)
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/now", "user-1")
+	if !ok {
+		t.Fatal("/now should be intercepted")
+	}
+	if ag.ensureCalls != 1 {
+		t.Fatalf("ensureCalls = %d, want 1", ag.ensureCalls)
+	}
+	if !strings.Contains(reply, "running: no") {
+		t.Fatalf("reply = %q, want idle status", reply)
+	}
+	if !strings.Contains(reply, "session: thread-ensure-123") {
+		t.Fatalf("reply = %q, want ensured session ID", reply)
 	}
 }

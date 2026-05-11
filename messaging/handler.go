@@ -290,7 +290,7 @@ func (h *Handler) cancelRunningTurn(userID string) string {
 	)
 }
 
-func (h *Handler) buildNowStatus(userID string) string {
+func (h *Handler) buildNowStatus(ctx context.Context, userID string) string {
 	if v, ok := h.runningTurns.Load(userID); ok {
 		turn, _ := v.(*runningTurnState)
 		snap := turn.snapshot()
@@ -319,7 +319,7 @@ func (h *Handler) buildNowStatus(userID string) string {
 	}
 
 	name, ag := h.getDefaultAgentWithName()
-	sessionID := currentAgentSessionID(ag, userID)
+	sessionID := ensureAgentSession(ctx, ag, userID)
 	return commandCard(
 		"✅ Idle",
 		"• running: no",
@@ -534,6 +534,33 @@ func currentAgentSessionID(ag agent.Agent, userID string) string {
 		return ""
 	}
 	return inspector.CurrentSessionID(userID)
+}
+
+func ensureAgentSession(ctx context.Context, ag agent.Agent, userID string) string {
+	if ag == nil || strings.TrimSpace(userID) == "" {
+		return ""
+	}
+	if sessionID := currentAgentSessionID(ag, userID); sessionID != "" {
+		return sessionID
+	}
+	ensurer, ok := ag.(agent.SessionEnsurer)
+	if !ok {
+		return ""
+	}
+
+	ensureCtx := ctx
+	if ensureCtx == nil {
+		ensureCtx = context.Background()
+	}
+	ensureCtx, cancel := context.WithTimeout(ensureCtx, 10*time.Second)
+	defer cancel()
+
+	sessionID, err := ensurer.EnsureSession(ensureCtx, userID)
+	if err != nil {
+		log.Printf("[handler] ensure session failed: %v", err)
+		return currentAgentSessionID(ag, userID)
+	}
+	return sessionID
 }
 
 func trackAgentSessionIDDuringTurn(ctx context.Context, ag agent.Agent, userID string, state *runningTurnState) {
@@ -858,7 +885,7 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 		if len(fields) != 1 {
 			return "Usage: /now", true
 		}
-		return h.buildNowStatus(userID), true
+		return h.buildNowStatus(ctx, userID), true
 
 	case "/cancel":
 		if len(fields) != 1 {

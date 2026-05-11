@@ -398,6 +398,20 @@ func (a *ACPAgent) ResumeSession(conversationID, sessionID string) error {
 	return nil
 }
 
+// EnsureSession creates or recovers a server-side ACP session or Codex thread for a WeClaw conversation.
+func (a *ACPAgent) EnsureSession(ctx context.Context, conversationID string) (string, error) {
+	conversationID = strings.TrimSpace(conversationID)
+	if conversationID == "" {
+		return "", fmt.Errorf("conversation ID is required")
+	}
+	if a.protocol == protocolCodexAppServer {
+		threadID, _, err := a.getOrCreateThread(ctx, conversationID)
+		return threadID, err
+	}
+	sessionID, _, err := a.getOrCreateSession(ctx, conversationID)
+	return sessionID, err
+}
+
 // Chat sends a message and returns the full response.
 func (a *ACPAgent) Chat(ctx context.Context, conversationID string, message string) (string, error) {
 	return a.ChatStream(ctx, conversationID, message, nil)
