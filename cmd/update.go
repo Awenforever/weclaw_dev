@@ -51,10 +51,16 @@ var updateCmd = &cobra.Command{
 	RunE:  runUpdate,
 }
 
+var upgradeAlpha bool
+
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
-	Short: "Upgrade weclaw to the latest GitHub release",
+	Short: "Upgrade weclaw to the latest stable GitHub release",
 	RunE:  runUpdate,
+}
+
+func init() {
+	upgradeCmd.Flags().BoolVar(&upgradeAlpha, "alpha", false, "upgrade to the latest v*.*.*-alpha pre-release instead of the stable latest release")
 }
 
 var uninstallCmd = &cobra.Command{
@@ -79,9 +85,9 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Second)
 	defer cancel()
 
-	latest, err := getLatestVersion(ctx)
+	latest, err := getUpgradeTargetVersion(ctx, upgradeAlpha)
 	if err != nil {
-		return fmt.Errorf("failed to check latest version: %w", err)
+		return fmt.Errorf("failed to check target version: %w", err)
 	}
 
 	if latest == Version {
@@ -89,7 +95,11 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("Current: %s -> Latest: %s\n", Version, latest)
+	if upgradeAlpha {
+		fmt.Printf("Current: %s -> Latest alpha: %s\n", Version, latest)
+	} else {
+		fmt.Printf("Current: %s -> Latest stable: %s\n", Version, latest)
+	}
 
 	filename := releaseAssetName(runtime.GOOS, runtime.GOARCH)
 	url := fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", githubRepo, latest, filename)
@@ -217,6 +227,53 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 	fmt.Println("weclaw binary removed.")
 	fmt.Printf("User data is preserved at %s\n", weclawDir())
 	return nil
+}
+
+func getUpgradeTargetVersion(ctx context.Context, alpha bool) (string, error) {
+	if alpha {
+		return getLatestAlphaVersion(ctx)
+	}
+	return getLatestVersion(ctx)
+}
+
+func getLatestAlphaVersion(ctx context.Context) (string, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases?per_page=50", githubRepo)
+	resp, err := doUpdateGET(ctx, "weclaw-alpha-update-checker", url)
+	if err != nil {
+		return "", fmt.Errorf("GitHub alpha release request failed after %d attempts: %w", updateHTTPMaxAttempts, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("GitHub alpha release request failed: %s", resp.Status)
+	}
+
+	var releases []struct {
+		TagName    string `json:"tag_name"`
+		Draft      bool   `json:"draft"`
+		Prerelease bool   `json:"prerelease"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+		return "", err
+	}
+
+	for _, release := range releases {
+		tag := strings.TrimSpace(release.TagName)
+		if release.Draft {
+			continue
+		}
+		if !release.Prerelease {
+			continue
+		}
+		if !isAlphaReleaseVersion(tag) {
+			continue
+		}
+		return tag, nil
+	}
+	return "", fmt.Errorf("no v*.*.*-alpha pre-release found")
+}
+
+func isAlphaReleaseVersion(version string) bool {
+	return regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+-alpha$`).MatchString(strings.TrimSpace(version))
 }
 
 func getLatestVersion(ctx context.Context) (string, error) {

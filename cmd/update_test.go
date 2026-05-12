@@ -179,3 +179,28 @@ func TestUpgradeRestartResumeSelectionUsesRuntimeState(t *testing.T) {
 		t.Fatalf("upgradeRestartResumeSelection() = %q/%q, want deepseek-thinking/thread-upgrade-resume", profile, sessionID)
 	}
 }
+
+func TestIsAlphaReleaseVersion(t *testing.T) {
+	tests := []struct {
+		version string
+		want    bool
+	}{
+		{version: "v0.1.4-alpha", want: true},
+		{version: "v1.2.3-alpha", want: true},
+		{version: "v0.1.4", want: false},
+		{version: "v0.1.4-beta", want: false},
+		{version: "v0.1p5a9-upgrade-resume-status-clarity", want: false},
+		{version: "0.1.4-alpha", want: false},
+	}
+	for _, tc := range tests {
+		if got := isAlphaReleaseVersion(tc.version); got != tc.want {
+			t.Fatalf("isAlphaReleaseVersion(%q) = %v, want %v", tc.version, got, tc.want)
+		}
+	}
+}
+
+func TestUpgradeCommandExposesAlphaFlag(t *testing.T) {
+	if upgradeCmd.Flags().Lookup("alpha") == nil {
+		t.Fatal("upgrade --alpha flag is missing")
+	}
+}

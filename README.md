@@ -416,6 +416,9 @@ After v0.1.2-alpha or newer is installed, use the built-in updater:
 
 ```bash
 weclaw upgrade
+
+# Alpha/pre-release channel, opt-in only:
+weclaw upgrade --alpha
 ```
 
 Session continuity after an update:
