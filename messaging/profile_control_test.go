@@ -464,6 +464,69 @@ func TestPendingResumeAppliesToFirstMatchingUserTurn(t *testing.T) {
 	}
 }
 
+func TestRuntimeControlNowIdleAppliesPendingResumeBeforeEnsure(t *testing.T) {
+	ag := &runtimeControlTestAgent{
+		info:            agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-pro"},
+		ensureSessionID: "thread-created-unexpected",
+	}
+	h := NewHandler(nil, nil)
+	h.SetDefaultAgent("deepseek-thinking", ag)
+	h.SetPendingResume("deepseek-thinking", "thread-resume-now")
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/now", "user-1")
+	if !ok {
+		t.Fatal("/now should be intercepted")
+	}
+	if ag.currentSessionID != "thread-resume-now" {
+		t.Fatalf("currentSessionID = %q, want thread-resume-now", ag.currentSessionID)
+	}
+	if ag.ensureCalls != 0 {
+		t.Fatalf("ensureCalls = %d, want 0 because pending resume should be applied before ensure", ag.ensureCalls)
+	}
+	if !strings.Contains(reply, "session: thread-resume-now") {
+		t.Fatalf("reply = %q, want resumed session ID", reply)
+	}
+	if strings.Contains(reply, "thread-created-unexpected") {
+		t.Fatalf("reply = %q, should not show newly ensured session", reply)
+	}
+}
+
+func TestRuntimeControlStatusAppliesPendingResumeBeforeEnsure(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(home+"/.codex", 0o755); err != nil {
+		t.Fatalf("create codex dir: %v", err)
+	}
+	if err := os.WriteFile(home+"/.codex/config.toml", []byte("[profiles.deepseek-thinking]\nmodel_context_window = 1000000\n"), 0o644); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	ag := &runtimeControlTestAgent{
+		info:            agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-pro"},
+		ensureSessionID: "thread-created-unexpected",
+	}
+	h := NewHandler(nil, nil)
+	h.SetDefaultAgent("deepseek-thinking", ag)
+	h.SetPendingResume("deepseek-thinking", "thread-resume-status")
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/status", "user-1")
+	if !ok {
+		t.Fatal("/status should be intercepted")
+	}
+	if ag.currentSessionID != "thread-resume-status" {
+		t.Fatalf("currentSessionID = %q, want thread-resume-status", ag.currentSessionID)
+	}
+	if ag.ensureCalls != 0 {
+		t.Fatalf("ensureCalls = %d, want 0 because pending resume should be applied before ensure", ag.ensureCalls)
+	}
+	if !strings.Contains(reply, "session: thread-resume-status") {
+		t.Fatalf("reply = %q, want resumed session ID", reply)
+	}
+	if strings.Contains(reply, "thread-created-unexpected") {
+		t.Fatalf("reply = %q, should not show newly ensured session", reply)
+	}
+}
+
 func TestRuntimeControlNowIdleReportsOpenSessionID(t *testing.T) {
 	ag := &runtimeControlTestAgent{
 		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-pro"},

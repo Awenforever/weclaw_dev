@@ -320,6 +320,7 @@ func (h *Handler) buildNowStatus(ctx context.Context, userID string) string {
 	}
 
 	name, ag := h.getDefaultAgentWithName()
+	h.applyPendingResume(ctx, name, ag, userID)
 	sessionID := ensureAgentSession(ctx, ag, userID)
 	return commandCard(
 		"✅ Idle",
@@ -1074,6 +1075,7 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 		proxyEffort = "unknown"
 	}
 
+	h.applyPendingResume(ctx, defaultName, ag, userID)
 	sessionID := ensureAgentSession(ctx, ag, userID)
 	contextWindow := fallbackContextWindow(defaultName, agentModel, proxyModel)
 	contextLines := buildContextUsageLines(ag, userID, sessionID, contextWindow)
