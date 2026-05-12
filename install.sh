@@ -9,6 +9,7 @@ REF="${REF:-main}"
 GO_BOOTSTRAP_VERSION="${GO_BOOTSTRAP_VERSION:-1.25.0}"
 ACTION="install"
 TMP_ROOT=""
+INSTALL_SKIPPED_ALREADY_CURRENT=0
 
 usage() {
   cat <<'USAGE'
@@ -200,6 +201,16 @@ fetch_release_version() {
 }
 
 
+installed_binary_version() {
+  target="${INSTALL_DIR}/${BINARY}"
+  if [ ! -x "$target" ]; then
+    return 1
+  fi
+
+  "$target" version 2>/dev/null | sed -n 's/.*\(v[0-9][0-9A-Za-z._-]*\).*/\1/p' | head -n 1
+}
+
+
 curl_fetch() {
   FETCH_URL="$1"
   FETCH_DEST="$2"
@@ -235,6 +246,14 @@ install_release() {
   fi
 
   echo "Latest version: ${VERSION}"
+
+  INSTALL_SKIPPED_ALREADY_CURRENT=0
+  INSTALLED_VERSION=$(installed_binary_version || true)
+  if [ -n "$INSTALLED_VERSION" ] && [ "$INSTALLED_VERSION" = "$VERSION" ]; then
+    INSTALL_SKIPPED_ALREADY_CURRENT=1
+    echo "weclaw ${VERSION} is already installed at ${INSTALL_DIR}/${BINARY}; skipping download."
+    return 0
+  fi
 
   FILENAME="${BINARY}_${OS}_${ARCH}"
   URL="https://github.com/${REPO}/releases/download/${VERSION}/${FILENAME}"
@@ -424,7 +443,9 @@ main() {
   fi
 
   echo ""
-  if [ -n "$VERSION" ]; then
+  if [ "$INSTALL_SKIPPED_ALREADY_CURRENT" = "1" ]; then
+    echo "weclaw ${VERSION} already installed at ${INSTALL_DIR}/${BINARY}"
+  elif [ -n "$VERSION" ]; then
     echo "weclaw ${VERSION} installed to ${INSTALL_DIR}/${BINARY}"
   else
     echo "weclaw installed to ${INSTALL_DIR}/${BINARY}"

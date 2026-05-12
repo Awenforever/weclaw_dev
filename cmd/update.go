@@ -23,6 +23,8 @@ const githubRepo = "Awenforever/weclaw_dev"
 var uninstallPurgeFlag bool
 
 const updateCheckInterval = 24 * time.Hour
+const updateHTTPMaxAttempts = 3
+const updateHTTPRetryDelay = 750 * time.Millisecond
 
 func init() {
 	rootCmd.AddCommand(updateCmd)
@@ -189,15 +191,10 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 }
 
 func getLatestVersion(ctx context.Context) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", githubRepo), nil)
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", githubRepo)
+	resp, err := doUpdateGET(ctx, "weclaw-update-checker", url)
 	if err != nil {
-		return "", err
-	}
-	req.Header.Set("User-Agent", "weclaw-update-checker")
-
-	resp, err := updateHTTPClient().Do(req)
-	if err != nil {
-		return "", err
+		return "", fmt.Errorf("GitHub latest release request failed after %d attempts: %w", updateHTTPMaxAttempts, err)
 	}
 	defer resp.Body.Close()
 
@@ -217,15 +214,9 @@ func getLatestVersion(ctx context.Context) (string, error) {
 }
 
 func downloadFile(ctx context.Context, url string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	resp, err := doUpdateGET(ctx, "weclaw-upgrader", url)
 	if err != nil {
-		return "", err
-	}
-	req.Header.Set("User-Agent", "weclaw-upgrader")
-
-	resp, err := updateHTTPClient().Do(req)
-	if err != nil {
-		return "", err
+		return "", fmt.Errorf("asset request failed after %d attempts: %w", updateHTTPMaxAttempts, err)
 	}
 	defer resp.Body.Close()
 
@@ -255,6 +246,47 @@ func downloadFile(ctx context.Context, url string) (string, error) {
 	}
 
 	return tmp.Name(), nil
+}
+
+func doUpdateGET(ctx context.Context, userAgent, url string) (*http.Response, error) {
+	var lastErr error
+	for attempt := 1; attempt <= updateHTTPMaxAttempts; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("User-Agent", userAgent)
+
+		resp, err := updateHTTPClient().Do(req)
+		if err != nil {
+			lastErr = err
+		} else if isRetriableHTTPStatus(resp.StatusCode) {
+			io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+		} else {
+			return resp, nil
+		}
+
+		if attempt < updateHTTPMaxAttempts {
+			timer := time.NewTimer(updateHTTPRetryDelay * time.Duration(attempt))
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return nil, ctx.Err()
+			case <-timer.C:
+			}
+		}
+	}
+
+	if lastErr == nil {
+		lastErr = fmt.Errorf("request failed")
+	}
+	return nil, lastErr
+}
+
+func isRetriableHTTPStatus(status int) bool {
+	return status == http.StatusTooManyRequests || status >= 500
 }
 
 func updateHTTPClient() *http.Client {

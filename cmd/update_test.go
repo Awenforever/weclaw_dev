@@ -49,6 +49,28 @@ func TestShouldOfferUpdate(t *testing.T) {
 	}
 }
 
+func TestIsRetriableHTTPStatus(t *testing.T) {
+	tests := []struct {
+		name   string
+		status int
+		want   bool
+	}{
+		{name: "ok", status: 200, want: false},
+		{name: "not found", status: 404, want: false},
+		{name: "rate limited", status: 429, want: true},
+		{name: "server error", status: 500, want: true},
+		{name: "bad gateway", status: 502, want: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isRetriableHTTPStatus(tc.status); got != tc.want {
+				t.Fatalf("isRetriableHTTPStatus(%d) = %v, want %v", tc.status, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestUpdateCheckDue(t *testing.T) {
 	now := time.Date(2026, 5, 11, 21, 30, 0, 0, time.UTC)
 
