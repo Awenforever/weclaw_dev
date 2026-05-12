@@ -470,3 +470,7 @@ Rules preserved:
 - Internal development tag uses `v0.1p...`.
 - Release notes body must not repeat the GitHub Release title.
 - Editing Release notes must not move Release tags or replace assets unless explicitly requested.
+
+### Codex bubblewrap warning handling
+
+WeClaw must not forward raw Codex stderr with ANSI escape sequences to WeChat users. Bubblewrap sandbox diagnostics should be normalized into a short user-facing message that tells users to install `bubblewrap` and restart WeClaw. Keep raw details in logs only after ANSI stripping.

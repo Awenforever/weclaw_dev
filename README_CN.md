@@ -534,3 +534,14 @@ weclaw upgrade
 # 如需显式进入alpha/pre-release通道：
 weclaw upgrade --alpha
 ```
+
+## Codex sandbox依赖提示
+
+如果WeClaw提示Codex缺少`bubblewrap`，先安装系统包，然后重启WeClaw：
+
+```bash
+sudo apt update
+sudo apt install -y bubblewrap
+weclaw stop
+weclaw start deepseek-thinking
+```

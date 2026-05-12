@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -700,7 +701,8 @@ func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string
 			return "", ctx.Err()
 		case evt := <-turnCh:
 			if evt.Kind == "error" {
-				err := fmt.Errorf("%s", evt.Text)
+				userText := cleanAgentErrorText(evt.Text)
+				err := fmt.Errorf("%s", userText)
 				if !isNew && !recoveredMissingThread && isCodexThreadNotFoundError(err) {
 					staleThreadID := threadID
 					recoveredMissingThread = true
@@ -724,8 +726,8 @@ func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string
 					go startTurn(threadID)
 					continue
 				}
-				emitProgress(onEvent, ProgressEvent{Type: ProgressEventError, Text: evt.Text})
-				return "", fmt.Errorf("turn error: %s", evt.Text)
+				emitProgress(onEvent, ProgressEvent{Type: ProgressEventError, Text: userText})
+				return "", fmt.Errorf("turn error: %s", userText)
 			}
 			if evt.Progress != nil {
 				emitProgress(onEvent, *evt.Progress)
@@ -825,10 +827,10 @@ func (a *ACPAgent) call(ctx context.Context, method string, params interface{}) 
 		return nil, ctx.Err()
 	case resp := <-ch:
 		if resp.Error != nil {
-			msg := resp.Error.Message
-			// Enrich with stderr context if available
+			msg := cleanAgentErrorText(resp.Error.Message)
+			// Enrich with stderr context if available.
 			if a.stderr != nil {
-				if detail := a.stderr.LastError(); detail != "" {
+				if detail := cleanAgentErrorText(a.stderr.LastError()); detail != "" {
 					msg = detail
 				}
 			}
@@ -1394,6 +1396,51 @@ func isACPBoundaryTerminal(r rune) bool {
 	}
 }
 
+var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
+
+func stripANSI(s string) string {
+	return ansiEscapePattern.ReplaceAllString(s, "")
+}
+
+func cleanAgentErrorText(s string) string {
+	s = stripANSI(s)
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if msg, ok := codexBubblewrapAdvice(s); ok {
+		return msg
+	}
+	return s
+}
+
+func codexBubblewrapAdvice(s string) (string, bool) {
+	lower := strings.ToLower(s)
+	if strings.Contains(lower, "could not find bubblewrap") ||
+		(strings.Contains(lower, "bubblewrap") && strings.Contains(lower, "bundled bubblewrap")) {
+		return "Codex sandbox dependency warning: bubblewrap is not installed. Install it with `sudo apt install -y bubblewrap`, then restart WeClaw. If this is Ubuntu 24.04 and Codex still fails, enable the bwrap AppArmor profile described in the Codex sandbox prerequisites.", true
+	}
+	return "", false
+}
+
+func shouldCaptureStderrLine(line, previous string) bool {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return false
+	}
+	if strings.HasPrefix(line, "Traceback") || strings.HasPrefix(line, "...") {
+		return false
+	}
+	if strings.HasPrefix(line, "at ") || strings.HasPrefix(line, "from ") {
+		return false
+	}
+	if strings.Contains(previous, "Codex sandbox dependency warning") {
+		return false
+	}
+	return true
+}
+
 // acpStderrWriter forwards the ACP subprocess stderr to the application log
 // and captures the last meaningful error line.
 type acpStderrWriter struct {
@@ -1405,13 +1452,14 @@ type acpStderrWriter struct {
 func (w *acpStderrWriter) Write(p []byte) (int, error) {
 	lines := strings.Split(strings.TrimRight(string(p), "\n"), "\n")
 	w.mu.Lock()
-	for _, line := range lines {
-		if line != "" {
-			log.Printf("%s %s", w.prefix, line)
-			// Capture lines that look like actual error messages (not traceback frames)
-			if !strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "Traceback") && !strings.HasPrefix(line, "...") {
-				w.last = line
-			}
+	for _, rawLine := range lines {
+		line := cleanAgentErrorText(rawLine)
+		if line == "" {
+			continue
+		}
+		log.Printf("%s %s", w.prefix, line)
+		if shouldCaptureStderrLine(line, w.last) {
+			w.last = line
 		}
 	}
 	w.mu.Unlock()

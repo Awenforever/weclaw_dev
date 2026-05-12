@@ -546,3 +546,14 @@ weclaw upgrade
 # To explicitly follow the alpha/pre-release channel:
 weclaw upgrade --alpha
 ```
+
+## Codex sandbox dependency warning
+
+If WeClaw reports a Codex sandbox dependency warning about `bubblewrap`, install the OS package and restart WeClaw:
+
+```bash
+sudo apt update
+sudo apt install -y bubblewrap
+weclaw stop
+weclaw start deepseek-thinking
+```
