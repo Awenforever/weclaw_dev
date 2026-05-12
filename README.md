@@ -67,7 +67,7 @@ This fork focuses on practical agent operation from WeChat:
 ## Quick start
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
 weclaw start
 ```
 
@@ -90,6 +90,34 @@ weclaw start -f
 ---
 
 ## Installation notes
+<!-- weclaw-install-fallbacks -->
+
+### Install endpoints and fallback
+
+Prefer the jsDelivr endpoint:
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
+```
+
+If jsDelivr is unavailable, use the GitHub raw endpoint:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+```
+
+Uninstall uses the same endpoint pattern:
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh -s -- --uninstall
+```
+
+Fallback:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh -s -- --uninstall
+```
+
 
 This fork installs from:
 
@@ -381,7 +409,7 @@ ACP and CLI agents require their binaries inside the container. HTTP mode works 
 If you installed an older alpha, first repeat the one-line installer to move onto the current release channel:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
 ```
 
 After v0.1.2-alpha or newer is installed, use the built-in updater:
@@ -407,7 +435,7 @@ The resumed ID is applied to the first matching WeChat user turn for that profil
 Repeat the one-line installer at any time to install the latest GitHub Release:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
 ```
 
 Use the built-in updater after WeClaw is installed:
@@ -423,7 +451,7 @@ weclaw version
 Uninstall only the binary and keep `~/.weclaw` user data:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh -s -- --uninstall
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh -s -- --uninstall
 weclaw uninstall
 ```
 

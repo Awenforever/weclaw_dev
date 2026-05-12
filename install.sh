@@ -27,8 +27,12 @@ Options:
   --help                Show this help
 
 Examples:
-  curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
-  curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh -s -- --uninstall
+  curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
+  # Fallback:
+  curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+  curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
+  # Fallback:
+  curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh -s -- --uninstall
 USAGE
 }
 

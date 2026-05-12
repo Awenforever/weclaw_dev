@@ -67,7 +67,7 @@ WeClaw Dev用于把微信消息接入本地或远程AI Agent。
 ## 快速开始
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
 weclaw start
 ```
 
@@ -90,6 +90,34 @@ weclaw start -f
 ---
 
 ## 安装说明
+<!-- weclaw-install-fallbacks -->
+
+### 安装入口与备用入口
+
+推荐优先使用jsDelivr入口：
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
+```
+
+如果jsDelivr不可用，可改用GitHub raw入口：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+```
+
+卸载也可以使用同样的入口：
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh -s -- --uninstall
+```
+
+备用入口：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh -s -- --uninstall
+```
+
 
 本分支安装源为：
 
@@ -381,7 +409,7 @@ ACP和CLI Agent需要容器内存在对应二进制文件。HTTP模式只需要�
 如果已经安装过较旧alpha版本，先重复运行一行安装命令，把本机切到当前release通道：
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
 ```
 
 安装v0.1.2-alpha或更新版本后，后续可以使用内置更新命令：
@@ -407,7 +435,7 @@ weclaw start deepseek-thinking resume <session-id>
 可以随时重复运行一行安装命令来安装最新GitHub Release：
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
 ```
 
 安装后推荐使用内置更新命令：
@@ -423,7 +451,7 @@ weclaw version
 仅卸载二进制文件并保留`~/.weclaw`用户数据：
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh -s -- --uninstall
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh -s -- --uninstall
 weclaw uninstall
 ```
 
