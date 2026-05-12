@@ -392,7 +392,9 @@ uninstall_binary() {
 
   echo "User data is preserved at ~/.weclaw"
   echo "To reinstall:"
-  echo "  curl -sSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh"
+  echo "  curl -fsSL https://cdn.jsdelivr.net/gh/${REPO}@main/install.sh | sh"
+  echo "  # Fallback:"
+  echo "  curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh"
 }
 
 main() {
@@ -434,10 +436,14 @@ main() {
   echo ""
   echo "Update later:"
   echo "  weclaw upgrade"
-  echo "  curl -sSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh"
+  echo "  curl -fsSL https://cdn.jsdelivr.net/gh/${REPO}@main/install.sh | sh"
+  echo "  # Fallback:"
+  echo "  curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh"
   echo ""
   echo "Uninstall:"
-  echo "  curl -sSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh -s -- --uninstall"
+  echo "  curl -fsSL https://cdn.jsdelivr.net/gh/${REPO}@main/install.sh | sh -s -- --uninstall"
+  echo "  # Fallback:"
+  echo "  curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh -s -- --uninstall"
 }
 
 main "$@"
