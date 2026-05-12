@@ -475,6 +475,8 @@ weclaw uninstall --purge
 
 ## Development
 
+Detailed maintainer notes are kept in [`docs/DEVELOPMENT_MANUAL.md`](docs/DEVELOPMENT_MANUAL.md).
+
 ```bash
 make dev
 go build -o weclaw .
