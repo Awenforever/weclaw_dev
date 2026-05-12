@@ -4,6 +4,7 @@ import (
 	"github.com/fastclaw-ai/weclaw/runtime_state"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -202,5 +203,47 @@ func TestIsAlphaReleaseVersion(t *testing.T) {
 func TestUpgradeCommandExposesAlphaFlag(t *testing.T) {
 	if upgradeCmd.Flags().Lookup("alpha") == nil {
 		t.Fatal("upgrade --alpha flag is missing")
+	}
+}
+
+func TestVersionOutputIncludesPublicAndInternalMetadata(t *testing.T) {
+	oldVersion := Version
+	oldPublicCommit := PublicCommit
+	oldInternalVersion := InternalVersion
+	oldInternalCommit := InternalCommit
+	t.Cleanup(func() {
+		Version = oldVersion
+		PublicCommit = oldPublicCommit
+		InternalVersion = oldInternalVersion
+		InternalCommit = oldInternalCommit
+	})
+
+	Version = "v0.1.4-alpha"
+	PublicCommit = "3460e0741f29f2e13f1451f995a6f8a000a89caa"
+	InternalVersion = "v0.1p5a11-version-metadata-dual-output"
+	InternalCommit = "3460e0741f29f2e13f1451f995a6f8a000a89caa"
+
+	got := versionOutput("linux", "amd64")
+	for _, want := range []string{
+		"weclaw public version: v0.1.4-alpha | 3460e07 (linux/amd64)",
+		"weclaw internal version: v0.1p5a11-version-metadata-dual-output | 3460e07 (linux/amd64)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("versionOutput() = %q, want %q", got, want)
+		}
+	}
+}
+
+func TestReleaseMetadataLDFlagsDocumentRequiredFields(t *testing.T) {
+	got := strings.Join(releaseMetadataLDFlags(), "\n")
+	for _, want := range []string{
+		"cmd.Version=<public-release-tag>",
+		"cmd.PublicCommit=<public-release-commit>",
+		"cmd.InternalVersion=<internal-p-tag>",
+		"cmd.InternalCommit=<internal-p-commit>",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("releaseMetadataLDFlags() = %q, want %q", got, want)
+		}
 	}
 }

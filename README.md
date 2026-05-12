@@ -449,6 +449,13 @@ weclaw update
 weclaw version
 ```
 
+`weclaw version` and `weclaw --version` always print both public and internal metadata:
+
+```text
+weclaw public version: v0.1.4-alpha | <commit> (<os>/<arch>)
+weclaw internal version: v0.1p5a11-version-metadata-dual-output | <commit> (<os>/<arch>)
+```
+
 `weclaw start` checks GitHub Releases periodically and prints a one-time reminder when a newer release is available.
 
 Uninstall only the binary and keep `~/.weclaw` user data:

@@ -39,9 +39,9 @@ func init() {
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the current version",
+	Short: "Print the current version metadata",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("weclaw %s (%s/%s)\n", Version, runtime.GOOS, runtime.GOARCH)
+		fmt.Println(versionOutput(runtime.GOOS, runtime.GOARCH))
 	},
 }
 

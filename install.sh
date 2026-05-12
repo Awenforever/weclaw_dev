@@ -382,11 +382,14 @@ install_from_source() {
     return 1
   fi
 
-  BUILD_VERSION="${VERSION:-source}"
+  BUILD_PUBLIC_VERSION="${VERSION:-source}"
+  BUILD_PUBLIC_COMMIT="${BUILD_PUBLIC_COMMIT:-unknown}"
+  BUILD_INTERNAL_VERSION="${BUILD_INTERNAL_VERSION:-source}"
+  BUILD_INTERNAL_COMMIT="${BUILD_INTERNAL_COMMIT:-unknown}"
   if ! (
     cd "$SRC"
     CGO_ENABLED=0 "$GO_BIN" build -trimpath \
-      -ldflags="-s -w -X github.com/fastclaw-ai/weclaw/cmd.Version=${BUILD_VERSION}" \
+      -ldflags="-s -w -X github.com/fastclaw-ai/weclaw/cmd.Version=${BUILD_PUBLIC_VERSION} -X github.com/fastclaw-ai/weclaw/cmd.PublicCommit=${BUILD_PUBLIC_COMMIT} -X github.com/fastclaw-ai/weclaw/cmd.InternalVersion=${BUILD_INTERNAL_VERSION} -X github.com/fastclaw-ai/weclaw/cmd.InternalCommit=${BUILD_INTERNAL_COMMIT}" \
       -o "${TMP_ROOT}/${BINARY}" .
   ); then
     echo "Error: source build failed." >&2
