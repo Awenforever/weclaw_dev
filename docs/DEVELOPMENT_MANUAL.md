@@ -388,6 +388,13 @@ For upgrade/session changes:
 12. Run VM user-path install or upgrade validation.
 13. Record the final state in handoff notes.
 
+## Release notes content rules
+
+- Do not start the Release notes body with a duplicate page title such as `WeClaw Dev v0.1.3-alpha`.
+- GitHub already renders the Release title from the Release name field, so the body should usually start with `Highlights:` or a short descriptive paragraph.
+- Keep user-facing Release notes focused on externally visible changes. Put branch/tag/process details in this manual or handoff notes instead.
+- Editing Release notes must not move the Release tag or replace assets unless explicitly requested.
+
 ## 9. VM verification rules
 
 Use VM for user-path verification when any of these change:
