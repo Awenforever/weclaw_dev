@@ -199,6 +199,7 @@ fetch_release_version() {
   curl -fsSL -H "User-Agent: weclaw-installer" "https://api.github.com/repos/${REPO}/releases/latest" | sed -n 's/.*"tag_name" *: *"\([^"]*\)".*/\1/p'
 }
 
+
 install_release() {
   echo "Fetching latest release..."
   if [ -z "$VERSION" ]; then
@@ -217,11 +218,18 @@ install_release() {
   TMP="${TMP_ROOT}/${FILENAME}"
 
   echo "Downloading ${URL}..."
-  if ! curl -fsSL -o "$TMP" "$URL"; then
+  if ! curl_fetch "$URL" "$TMP" "Release asset"; then
+    ASSET_STATUS="$?"
     rm -f "$TMP"
+    if [ "$ASSET_STATUS" = "22" ]; then
+      echo "No release asset found at ${URL}; building from source..."
+    else
+      echo "Release asset download failed due to network or transport error; trying source fallback..."
+    fi
     return 1
   fi
 
+  chmod +x "$TMP"
   install_binary_file "$TMP"
 }
 
@@ -240,7 +248,7 @@ download_go_toolchain() {
 
   echo "Go not found; bootstrapping Go ${GO_BOOTSTRAP_VERSION} from ${URL}..."
   mkdir -p "$DEST"
-  curl -fsSL -o "$ARCHIVE" "$URL"
+  curl_fetch "$URL" "$ARCHIVE" "Go toolchain"
   tar -C "$DEST" -xzf "$ARCHIVE"
 
   if [ ! -x "$DEST/go/bin/go" ]; then
@@ -251,30 +259,72 @@ download_go_toolchain() {
   printf '%s\n' "$DEST/go/bin/go"
 }
 
-install_from_source() {
-  GIT_BIN=$(resolve_tool git || true)
-  GO_BIN=$(resolve_tool go || true)
 
-  if [ -z "$GIT_BIN" ]; then
-    echo "Error: git is required to build from source."
+install_from_source() {
+  ensure_tmp_root
+  SRC="${TMP_ROOT}/src"
+  SRC_ROOT="${TMP_ROOT}/source-root"
+  SRC_ARCHIVE="${TMP_ROOT}/source.tar.gz"
+
+  rm -rf "$SRC" "$SRC_ROOT" "$SRC_ARCHIVE"
+  mkdir -p "$SRC_ROOT"
+
+  echo "Building from source fallback..."
+
+  if [ -n "$VERSION" ]; then
+    SRC_URL="https://codeload.github.com/${REPO}/tar.gz/refs/tags/${VERSION}"
+    echo "Trying source tarball: ${SRC_URL}"
+    curl_fetch "$SRC_URL" "$SRC_ARCHIVE" "Source tarball" || true
+  fi
+
+  if [ ! -s "$SRC_ARCHIVE" ]; then
+    SRC_URL="https://codeload.github.com/${REPO}/tar.gz/refs/heads/${REF}"
+    echo "Trying source ref tarball: ${SRC_URL}"
+    curl_fetch "$SRC_URL" "$SRC_ARCHIVE" "Source ref tarball" || true
+  fi
+
+  if [ -s "$SRC_ARCHIVE" ]; then
+    tar -xzf "$SRC_ARCHIVE" -C "$SRC_ROOT"
+    SRC_EXTRACTED=$(find "$SRC_ROOT" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+    if [ -z "$SRC_EXTRACTED" ]; then
+      echo "Error: source tarball extraction produced no source directory." >&2
+      return 1
+    fi
+    mv "$SRC_EXTRACTED" "$SRC"
+  else
+    GIT_BIN=$(resolve_tool git || true)
+    if [ -z "$GIT_BIN" ]; then
+      echo "Error: source tarball fallback failed and git is not available." >&2
+      return 1
+    fi
+
+    echo "Source tarball fallback failed; trying git clone over HTTP/1.1 as last resort..."
+    if [ -n "$VERSION" ]; then
+      "$GIT_BIN" -c http.version=HTTP/1.1 clone --depth 1 --branch "$VERSION" "https://github.com/${REPO}.git" "$SRC" \
+        || "$GIT_BIN" -c http.version=HTTP/1.1 clone --depth 1 --branch "$REF" "https://github.com/${REPO}.git" "$SRC"
+    else
+      "$GIT_BIN" -c http.version=HTTP/1.1 clone --depth 1 --branch "$REF" "https://github.com/${REPO}.git" "$SRC"
+    fi
+  fi
+
+  if [ ! -d "$SRC" ]; then
+    echo "Error: source fallback failed before build." >&2
     return 1
   fi
 
-  ensure_tmp_root
-  SRC="${TMP_ROOT}/src"
-
-  echo "No release asset found; building from source..."
-  if [ -z "$GO_BIN" ]; then
-    GO_BIN=$(download_go_toolchain)
-  fi
-
-  "$GIT_BIN" clone --depth 1 "https://github.com/${REPO}.git" "$SRC"
-  if [ -n "$REF" ] && [ "$REF" != "main" ]; then
-    (cd "$SRC" && "$GIT_BIN" checkout "$REF")
+  GO_BIN=$(download_go_toolchain)
+  if [ -z "$GO_BIN" ] || [ ! -x "$GO_BIN" ]; then
+    echo "Error: failed to prepare Go toolchain." >&2
+    return 1
   fi
 
   BUILD_VERSION="${VERSION:-source}"
-  (cd "$SRC" && "$GO_BIN" build -trimpath -ldflags="-s -w -X github.com/fastclaw-ai/weclaw/cmd.Version=${BUILD_VERSION}" -o "${TMP_ROOT}/${BINARY}" .)
+  (
+    cd "$SRC"
+    CGO_ENABLED=0 "$GO_BIN" build -trimpath \
+      -ldflags="-s -w -X github.com/fastclaw-ai/weclaw/cmd.Version=${BUILD_VERSION}" \
+      -o "${TMP_ROOT}/${BINARY}" .
+  )
   install_binary_file "${TMP_ROOT}/${BINARY}"
 }
 
