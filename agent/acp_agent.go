@@ -416,6 +416,33 @@ func (a *ACPAgent) ResumeSession(conversationID, sessionID string) error {
 	return nil
 }
 
+func isCodexThreadNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "thread not found")
+}
+
+func (a *ACPAgent) forgetCodexThread(conversationID, threadID string) {
+	conversationID = strings.TrimSpace(conversationID)
+	threadID = strings.TrimSpace(threadID)
+	if conversationID == "" || threadID == "" {
+		return
+	}
+
+	a.mu.Lock()
+	if a.threads[conversationID] == threadID {
+		delete(a.threads, conversationID)
+	}
+	delete(a.tokenUsageByThread, threadID)
+	a.mu.Unlock()
+
+	a.notifyMu.Lock()
+	delete(a.turnCh, threadID)
+	a.notifyMu.Unlock()
+}
+
 // EnsureSession creates or recovers a server-side ACP session or Codex thread for a WeClaw conversation.
 func (a *ACPAgent) EnsureSession(ctx context.Context, conversationID string) (string, error) {
 	conversationID = strings.TrimSpace(conversationID)
@@ -633,7 +660,7 @@ func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string
 		log.Printf("[acp] reusing thread (pid=%d, thread=%s, conversation=%s)", pid, threadID, conversationID)
 	}
 
-	// Register turn event channel
+	// Register turn event channel.
 	turnCh := make(chan *codexTurnEvent, 256)
 	a.notifyMu.Lock()
 	a.turnCh[threadID] = turnCh
@@ -645,10 +672,9 @@ func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string
 		a.notifyMu.Unlock()
 	}()
 
-	// Start turn (call returns quickly with turn info, actual content comes via events)
-	go func() {
+	startTurn := func(tid string) {
 		_, err := a.rpc(ctx, "turn/start", codexTurnStartParams{
-			ThreadID:       threadID,
+			ThreadID:       tid,
 			ApprovalPolicy: "never",
 			Input:          []codexUserInput{{Type: "text", Text: message}},
 			SandboxPolicy:  map[string]interface{}{"type": "dangerFullAccess"},
@@ -657,20 +683,47 @@ func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string
 			Cwd:            a.cwd,
 		})
 		if err != nil {
-			// If call itself fails, signal via turn channel
 			turnCh <- &codexTurnEvent{Kind: "error", Text: err.Error()}
 		}
-	}()
+	}
 
-	// Collect text from events until turn/completed
+	// Start turn. The call returns quickly with turn info; actual content comes via events.
+	go startTurn(threadID)
+
+	// Collect text from events until turn/completed.
 	var deltaParts []string
 	var completedParts []string
+	recoveredMissingThread := false
 	for {
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
 		case evt := <-turnCh:
 			if evt.Kind == "error" {
+				err := fmt.Errorf("%s", evt.Text)
+				if !isNew && !recoveredMissingThread && isCodexThreadNotFoundError(err) {
+					staleThreadID := threadID
+					recoveredMissingThread = true
+					log.Printf("[acp] resumed thread not found; creating replacement thread (thread=%s, conversation=%s)", staleThreadID, conversationID)
+
+					a.forgetCodexThread(conversationID, staleThreadID)
+
+					newThreadID, _, createErr := a.getOrCreateThread(ctx, conversationID)
+					if createErr != nil {
+						emitProgress(onEvent, ProgressEvent{Type: ProgressEventError, Text: createErr.Error()})
+						return "", fmt.Errorf("thread recovery after stale resume failed: %w", createErr)
+					}
+
+					threadID = newThreadID
+					isNew = true
+					a.notifyMu.Lock()
+					a.turnCh[threadID] = turnCh
+					a.notifyMu.Unlock()
+
+					log.Printf("[acp] replacement thread created after stale resume (thread=%s, conversation=%s)", threadID, conversationID)
+					go startTurn(threadID)
+					continue
+				}
 				emitProgress(onEvent, ProgressEvent{Type: ProgressEventError, Text: evt.Text})
 				return "", fmt.Errorf("turn error: %s", evt.Text)
 			}

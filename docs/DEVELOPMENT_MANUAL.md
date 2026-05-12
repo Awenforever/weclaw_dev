@@ -449,3 +449,8 @@ Required evidence:
 - jsDelivr cache delay after `main` changes.
 - Network instability for GitHub raw, Release assets, codeload and Go proxy.
 - Confusing cumulative token usage with context-window occupancy.
+
+
+### Resume missing-thread fallback
+
+`weclaw start <profile> resume <session-id>` is best-effort for Codex ACP threads. If Codex app-server rejects a resumed thread with `thread not found`, WeClaw must clear the stale conversation-to-thread binding, create a replacement thread, and retry the current user turn once. This prevents a stale resume ID from trapping all future turns on an unrecoverable thread.
