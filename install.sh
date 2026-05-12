@@ -224,6 +224,7 @@ curl_fetch() {
   return "$FETCH_STATUS"
 }
 
+
 install_release() {
   echo "Fetching latest release..."
   if [ -z "$VERSION" ]; then
@@ -242,8 +243,9 @@ install_release() {
   TMP="${TMP_ROOT}/${FILENAME}"
 
   echo "Downloading ${URL}..."
-  if ! curl_fetch "$URL" "$TMP" "Release asset"; then
-    ASSET_STATUS="$?"
+  curl_fetch "$URL" "$TMP" "Release asset"
+  ASSET_STATUS="$?"
+  if [ "$ASSET_STATUS" != "0" ]; then
     rm -f "$TMP"
     if [ "$ASSET_STATUS" = "22" ]; then
       echo "No release asset found at ${URL}; building from source..."
@@ -257,32 +259,46 @@ install_release() {
   install_binary_file "$TMP"
 }
 
+
 download_go_toolchain() {
   if ! command -v tar >/dev/null 2>&1; then
-    echo "Error: tar is required to bootstrap Go."
+    echo "Error: tar is required to bootstrap Go." >&2
     return 1
   fi
 
   ensure_tmp_root
   GO_OS="$OS"
   GO_ARCH="$ARCH"
-  URL="https://go.dev/dl/go${GO_BOOTSTRAP_VERSION}.${GO_OS}-${GO_ARCH}.tar.gz"
+  PRIMARY_URL="https://go.dev/dl/go${GO_BOOTSTRAP_VERSION}.${GO_OS}-${GO_ARCH}.tar.gz"
+  FALLBACK_URL="https://dl.google.com/go/go${GO_BOOTSTRAP_VERSION}.${GO_OS}-${GO_ARCH}.tar.gz"
   ARCHIVE="${TMP_ROOT}/go-bootstrap.tar.gz"
   DEST="${TMP_ROOT}/go-bootstrap"
 
-  echo "Go not found; bootstrapping Go ${GO_BOOTSTRAP_VERSION} from ${URL}..."
+  echo "Go not found or system Go is unsuitable; bootstrapping Go ${GO_BOOTSTRAP_VERSION}." >&2
+  rm -rf "$DEST" "$ARCHIVE"
   mkdir -p "$DEST"
-  curl_fetch "$URL" "$ARCHIVE" "Go toolchain"
-  tar -C "$DEST" -xzf "$ARCHIVE"
+
+  echo "Downloading Go toolchain from ${PRIMARY_URL}..." >&2
+  if ! curl_fetch "$PRIMARY_URL" "$ARCHIVE" "Go toolchain"; then
+    echo "Primary Go toolchain download failed; trying fallback: ${FALLBACK_URL}" >&2
+    if ! curl_fetch "$FALLBACK_URL" "$ARCHIVE" "Go toolchain fallback"; then
+      echo "Error: failed to download Go toolchain from go.dev or dl.google.com." >&2
+      return 1
+    fi
+  fi
+
+  if ! tar -C "$DEST" -xzf "$ARCHIVE"; then
+    echo "Error: failed to extract bootstrapped Go toolchain." >&2
+    return 1
+  fi
 
   if [ ! -x "$DEST/go/bin/go" ]; then
-    echo "Error: bootstrapped Go toolchain is invalid."
+    echo "Error: bootstrapped Go toolchain is invalid." >&2
     return 1
   fi
 
   printf '%s\n' "$DEST/go/bin/go"
 }
-
 
 install_from_source() {
   ensure_tmp_root
