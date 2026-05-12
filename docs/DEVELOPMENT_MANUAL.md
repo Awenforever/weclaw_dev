@@ -474,3 +474,21 @@ Rules preserved:
 ### Codex bubblewrap warning handling
 
 WeClaw must not forward raw Codex stderr with ANSI escape sequences to WeChat users. Bubblewrap sandbox diagnostics should be normalized into a short user-facing message that tells users to install `bubblewrap` and restart WeClaw. Keep raw details in logs only after ANSI stripping.
+
+### v0.1.6-alpha release handoff sync
+
+Release `v0.1.6-alpha` is complete at `bbb2f28`.
+
+Rules recorded for future work:
+- Do not move publicRelease tags after publishing.
+- Keep publicRelease tags in the `v0.1.x-alpha` form.
+- Keep internal development tags in the `v0.1p...` form for WeClawDev.
+- Release notes body must not start with `WeClaw Dev v...`.
+- Release notes should start from `Highlights:`.
+- For documentation-only handoff updates after a Release, use a new internal tag and do not move the publicRelease tag.
+
+Current post-release handoff sync:
+- This section documents the release state after `v0.1.6-alpha`.
+- `main` may move to this handoff documentation commit.
+- `v0.1.6-alpha` remains fixed at `bbb2f28`.
+- VM user-path validation should be run after the handoff sync if not already completed.
