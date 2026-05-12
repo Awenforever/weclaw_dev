@@ -200,6 +200,30 @@ fetch_release_version() {
 }
 
 
+curl_fetch() {
+  FETCH_URL="$1"
+  FETCH_DEST="$2"
+  FETCH_LABEL="$3"
+
+  rm -f "$FETCH_DEST"
+  curl -fL \
+    --retry 8 \
+    --retry-delay 2 \
+    --connect-timeout 20 \
+    --max-time 300 \
+    "$FETCH_URL" \
+    -o "$FETCH_DEST"
+  FETCH_STATUS="$?"
+
+  if [ "$FETCH_STATUS" = "0" ] && [ -s "$FETCH_DEST" ]; then
+    return 0
+  fi
+
+  echo "${FETCH_LABEL} download failed with curl status ${FETCH_STATUS}: ${FETCH_URL}" >&2
+  rm -f "$FETCH_DEST"
+  return "$FETCH_STATUS"
+}
+
 install_release() {
   echo "Fetching latest release..."
   if [ -z "$VERSION" ]; then
