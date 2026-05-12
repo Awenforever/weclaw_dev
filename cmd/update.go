@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/fastclaw-ai/weclaw/config"
+	"github.com/fastclaw-ai/weclaw/runtime_state"
 	"github.com/spf13/cobra"
 )
 
@@ -120,6 +122,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	targets := managedProcessPIDsForExecutable(live, exePath)
+	restartProfile, restartResumeID := upgradeRestartResumeSelection(targets)
 	if len(targets) > 0 {
 		fmt.Println("Stopping old process...")
 		if err := stopManagedPIDs(targets); err != nil {
@@ -132,8 +135,14 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to resolve API address: %w", err)
 		}
 
-		fmt.Println("Starting new version...")
-		if err := runDaemon(false, apiAddr, "", ""); err != nil {
+		if restartProfile != "" && restartResumeID != "" {
+			fmt.Printf("Starting new version with resume: profile=%s session=%s\n", restartProfile, restartResumeID)
+		} else if restartProfile != "" {
+			fmt.Printf("Starting new version with profile: %s\n", restartProfile)
+		} else {
+			fmt.Println("Starting new version...")
+		}
+		if err := runDaemon(false, apiAddr, restartProfile, restartResumeID); err != nil {
 			fmt.Printf("Update complete, but restart failed: %v\n", err)
 			fmt.Println("Please run 'weclaw start' manually.")
 		}
@@ -142,6 +151,26 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func upgradeRestartResumeSelection(targetPIDs []int) (string, string) {
+	profile, sessionID, ok := runtime_state.MostRecentSessionForDefaultProfile()
+	if ok {
+		return profile, sessionID
+	}
+
+	cfg, err := config.Load()
+	if err == nil && cfg != nil {
+		profile = cfg.DefaultAgent
+	}
+	if profile == "" {
+		return "", ""
+	}
+
+	if hint, ok := runtime_state.MostRecentLogThreadForPIDs(profile, targetPIDs); ok {
+		return profile, hint.SessionID
+	}
+	return profile, ""
 }
 
 func runUninstall(cmd *cobra.Command, args []string) error {

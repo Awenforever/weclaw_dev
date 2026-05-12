@@ -609,9 +609,13 @@ func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
 		t.Fatal("/status should be intercepted")
 	}
 	for _, want := range []string{
-		"📊 Context",
+		"📊 Context window",
 		"session: thread-usage-1",
-		"context: 43.6k / 1M (4.4%)",
+		"limit: 1M",
+		"used: unknown",
+		"left: unknown",
+		"📈 Token usage",
+		"total: 43.6k",
 		"input: 43.2k",
 		"cached input: 1.2k",
 		"output: 350",
@@ -648,9 +652,13 @@ func TestRuntimeControlStatusShowsFallbackContextWindowWhileUsageIsWaiting(t *te
 		t.Fatal("/status should be intercepted")
 	}
 	for _, want := range []string{
-		"📊 Context",
+		"📊 Context window",
 		"session: thread-waiting-1",
-		"context: -- / 1M (--%)",
+		"limit: 1M",
+		"used: unknown",
+		"left: unknown",
+		"📈 Token usage",
+		"total: --",
 		"input: --",
 		"output: --",
 		"tools: --",
@@ -672,12 +680,16 @@ func TestDsproxyStatusArgsForThinkingProfile(t *testing.T) {
 	}
 }
 
-func TestFormatContextUsageLine(t *testing.T) {
-	if got := formatContextUsageLine(0, 258400, false); got != "• context: -- / 258.4k (--%)" {
-		t.Fatalf("formatContextUsageLine waiting = %q", got)
-	}
-	if got := formatContextUsageLine(43564, 258400, true); got != "• context: 43.6k / 258.4k (16.9%)" {
-		t.Fatalf("formatContextUsageLine used = %q", got)
+func TestFormatContextWindowLines(t *testing.T) {
+	got := strings.Join(formatContextWindowLines(258400), "\n")
+	for _, want := range []string{
+		"limit: 258.4k",
+		"used: unknown",
+		"left: unknown",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("formatContextWindowLines = %q, want %q", got, want)
+		}
 	}
 }
 

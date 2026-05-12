@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/fastclaw-ai/weclaw/runtime_state"
 	"os"
 	"path/filepath"
 	"testing"
@@ -159,5 +160,22 @@ func TestStageReplacementBinaryCreatesFileInTargetDir(t *testing.T) {
 	}
 	if string(data) != "new-binary" {
 		t.Fatalf("staged data = %q, want new-binary", data)
+	}
+}
+
+func TestUpgradeRestartResumeSelectionUsesRuntimeState(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if err := runtime_state.SetDefaultProfile("deepseek-thinking"); err != nil {
+		t.Fatalf("SetDefaultProfile returned error: %v", err)
+	}
+	if err := runtime_state.UpsertSession("deepseek-thinking", "user-1", "thread-upgrade-resume"); err != nil {
+		t.Fatalf("UpsertSession returned error: %v", err)
+	}
+
+	profile, sessionID := upgradeRestartResumeSelection(nil)
+	if profile != "deepseek-thinking" || sessionID != "thread-upgrade-resume" {
+		t.Fatalf("upgradeRestartResumeSelection() = %q/%q, want deepseek-thinking/thread-upgrade-resume", profile, sessionID)
 	}
 }

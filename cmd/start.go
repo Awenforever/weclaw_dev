@@ -17,6 +17,7 @@ import (
 	"github.com/fastclaw-ai/weclaw/config"
 	"github.com/fastclaw-ai/weclaw/ilink"
 	"github.com/fastclaw-ai/weclaw/messaging"
+	"github.com/fastclaw-ai/weclaw/runtime_state"
 	"github.com/mdp/qrterminal/v3"
 	"github.com/spf13/cobra"
 )
@@ -176,6 +177,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 			names = append(names, name)
 		}
 		log.Printf("Available agents: %v (default: %s)", names, cfg.DefaultAgent)
+	}
+	if cfg.DefaultAgent != "" {
+		if err := runtime_state.SetDefaultProfile(cfg.DefaultAgent); err != nil {
+			log.Printf("Warning: failed to persist runtime default profile: %v", err)
+		}
 	}
 
 	// Create handler with an agent factory for on-demand agent creation

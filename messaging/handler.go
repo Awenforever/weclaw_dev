@@ -16,6 +16,7 @@ import (
 	"github.com/fastclaw-ai/weclaw/agent"
 	"github.com/fastclaw-ai/weclaw/config"
 	"github.com/fastclaw-ai/weclaw/ilink"
+	"github.com/fastclaw-ai/weclaw/runtime_state"
 	"github.com/google/uuid"
 )
 
@@ -304,6 +305,7 @@ func (h *Handler) buildNowStatus(ctx context.Context, userID string) string {
 			progress = "working"
 		}
 		sessionID := valueOrUnknown(snap.sessionID)
+		h.recordRuntimeSession(snap.agentName, userID, snap.sessionID)
 		updated := "unknown"
 		if !snap.lastUpdateAt.IsZero() {
 			updated = formatTurnDuration(time.Since(snap.lastUpdateAt)) + " ago"
@@ -322,6 +324,7 @@ func (h *Handler) buildNowStatus(ctx context.Context, userID string) string {
 	name, ag := h.getDefaultAgentWithName()
 	h.applyPendingResume(ctx, name, ag, userID)
 	sessionID := ensureAgentSession(ctx, ag, userID)
+	h.recordRuntimeSession(name, userID, sessionID)
 	return commandCard(
 		"✅ Idle",
 		"• running: no",
@@ -527,7 +530,17 @@ func (h *Handler) applyPendingResume(ctx context.Context, name string, ag agent.
 		return
 	}
 	log.Printf("[handler] pending resume applied (profile=%s, session=%s, user=%s)", name, sessionID, userID)
+	h.recordRuntimeSession(name, userID, sessionID)
 	_ = ctx
+}
+
+func (h *Handler) recordRuntimeSession(profile, userID, sessionID string) {
+	if strings.HasSuffix(os.Args[0], ".test") {
+		return
+	}
+	if err := runtime_state.UpsertSession(profile, userID, sessionID); err != nil {
+		log.Printf("[handler] failed to persist runtime session hint: %v", err)
+	}
 }
 
 func currentAgentSessionID(ag agent.Agent, userID string) string {
@@ -565,7 +578,7 @@ func ensureAgentSession(ctx context.Context, ag agent.Agent, userID string) stri
 	return sessionID
 }
 
-func trackAgentSessionIDDuringTurn(ctx context.Context, ag agent.Agent, userID string, state *runningTurnState) {
+func (h *Handler) trackAgentSessionIDDuringTurn(ctx context.Context, ag agent.Agent, userID string, state *runningTurnState) {
 	if state == nil {
 		return
 	}
@@ -580,6 +593,8 @@ func trackAgentSessionIDDuringTurn(ctx context.Context, ag agent.Agent, userID s
 			return false
 		}
 		state.updateSessionID(sessionID)
+		snap := state.snapshot()
+		h.recordRuntimeSession(snap.agentName, userID, sessionID)
 		return true
 	}
 
@@ -1077,6 +1092,7 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 
 	h.applyPendingResume(ctx, defaultName, ag, userID)
 	sessionID := ensureAgentSession(ctx, ag, userID)
+	h.recordRuntimeSession(defaultName, userID, sessionID)
 	contextWindow := fallbackContextWindow(defaultName, agentModel, proxyModel)
 	contextLines := buildContextUsageLines(ag, userID, sessionID, contextWindow)
 
@@ -1686,7 +1702,7 @@ func (h *Handler) chatWithAgentTracking(ctx context.Context, ag agent.Agent, use
 	if turnState != nil {
 		turnState.update("running", "dispatching to "+userFacingAgentLabel("", info))
 		turnState.updateSessionID(currentAgentSessionID(ag, userID))
-		trackAgentSessionIDDuringTurn(ctx, ag, userID, turnState)
+		h.trackAgentSessionIDDuringTurn(ctx, ag, userID, turnState)
 	}
 
 	var reply string
@@ -2349,29 +2365,35 @@ func detectImageExt(data []byte) string {
 
 func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWindow int64) []string {
 	lines := []string{
-		"📊 Context",
+		"📊 Context window",
 		"• session: " + valueOrUnknown(sessionID),
 	}
-	if ag == nil {
-		return append(lines, unknownContextUsageLines(fallbackWindow)...)
+
+	var snapshot agent.TokenUsageSnapshot
+	hasSnapshot := false
+	if ag != nil {
+		if inspector, ok := ag.(agent.TokenUsageInspector); ok {
+			if current, ok := inspector.CurrentTokenUsage(userID); ok {
+				snapshot = current
+				hasSnapshot = true
+			}
+		}
 	}
-	inspector, ok := ag.(agent.TokenUsageInspector)
-	if !ok {
-		return append(lines, unknownContextUsageLines(fallbackWindow)...)
+
+	window := fallbackWindow
+	if window <= 0 && hasSnapshot && snapshot.ModelContextWindow > 0 {
+		window = snapshot.ModelContextWindow
 	}
-	snapshot, ok := inspector.CurrentTokenUsage(userID)
-	if !ok {
-		return append(lines, unknownContextUsageLines(fallbackWindow)...)
+	lines = append(lines, formatContextWindowLines(window)...)
+	lines = append(lines, "", "📈 Token usage")
+
+	if !hasSnapshot {
+		return append(lines, unknownTokenUsageLines()...)
 	}
 
 	total := snapshot.Total
-	window := fallbackWindow
-	if window <= 0 {
-		window = snapshot.ModelContextWindow
-	}
-
 	lines = append(lines,
-		formatContextUsageLine(total.TotalTokens, window, true),
+		"• total: "+formatTokenCount(total.TotalTokens),
 		"• input: "+formatTokenCount(total.InputTokens),
 		"• cached input: "+formatTokenCount(total.CachedInputTokens),
 		"• output: "+formatTokenCount(total.OutputTokens),
@@ -2390,6 +2412,33 @@ func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWi
 		lines = append(lines, "• turn: "+snapshot.TurnID)
 	}
 	return lines
+}
+
+func formatContextWindowLines(window int64) []string {
+	return []string{
+		"• limit: " + formatContextLimit(window),
+		"• used: unknown",
+		"• left: unknown",
+	}
+}
+
+func formatContextLimit(window int64) string {
+	if window <= 0 {
+		return "--"
+	}
+	return formatTokenCount(window)
+}
+
+func unknownTokenUsageLines() []string {
+	return []string{
+		"• total: --",
+		"• input: --",
+		"• cached input: --",
+		"• output: --",
+		"• reasoning output: --",
+		"• tools: --",
+		"• other: --",
+	}
 }
 
 func formatTokenCount(n int64) string {
@@ -2427,33 +2476,19 @@ func fallbackContextWindow(profile, agentModel, proxyModel string) int64 {
 }
 
 func formatContextWindowLine(window int64) string {
-	return formatContextUsageLine(0, window, false)
+	return "• limit: " + formatContextLimit(window)
 }
 
 func unknownContextUsageLines(window int64) []string {
-	return []string{
-		formatContextUsageLine(0, window, false),
-		"• input: --",
-		"• cached input: --",
-		"• output: --",
-		"• reasoning output: --",
-		"• tools: --",
-		"• other: --",
-	}
+	lines := formatContextWindowLines(window)
+	lines = append(lines, "", "📈 Token usage")
+	return append(lines, unknownTokenUsageLines()...)
 }
 
 func formatContextUsageLine(used, window int64, hasUsage bool) string {
-	windowText := "--"
-	if window > 0 {
-		windowText = formatTokenCount(window)
-	}
-	if !hasUsage {
-		return "• context: -- / " + windowText + " (--%)"
-	}
-	if window <= 0 {
-		return "• context: " + formatTokenCount(used) + " / -- (--%)"
-	}
-	return fmt.Sprintf("• context: %s / %s (%s)", formatTokenCount(used), formatTokenCount(window), formatTokenPercent(used, window))
+	_ = used
+	_ = hasUsage
+	return formatContextWindowLine(window)
 }
 
 func trimFixedDecimal(value float64) string {
