@@ -416,6 +416,8 @@ curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | 
 
 ```bash
 weclaw upgrade
+
+自v0.1.4-alpha起，可使用`weclaw upgrade --alpha`显式升级到pre-release/alpha通道；普通`weclaw upgrade`仍默认使用stable latest。
 ```
 
 更新后的会话连续性：

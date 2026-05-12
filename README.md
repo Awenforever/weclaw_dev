@@ -419,6 +419,8 @@ weclaw upgrade
 
 # Alpha/pre-release channel, opt-in only:
 weclaw upgrade --alpha
+
+Since v0.1.4-alpha, `weclaw upgrade --alpha` opts into the latest pre-release/alpha channel; plain `weclaw upgrade` remains on the stable latest channel.
 ```
 
 Session continuity after an update:
