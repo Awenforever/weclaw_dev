@@ -181,7 +181,12 @@ install_binary_file() {
   target="${INSTALL_DIR}/${BINARY}"
   staged="${INSTALL_DIR}/.${BINARY}-install-$$.new"
 
-  chmod +x "$src"
+  if [ ! -f "$src" ]; then
+    echo "Error: binary source not found: ${src}" >&2
+    return 1
+  fi
+
+  chmod +x "$src" || return 1
 
   if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
     cp "$src" "$staged"
@@ -378,12 +383,21 @@ install_from_source() {
   fi
 
   BUILD_VERSION="${VERSION:-source}"
-  (
+  if ! (
     cd "$SRC"
     CGO_ENABLED=0 "$GO_BIN" build -trimpath \
       -ldflags="-s -w -X github.com/fastclaw-ai/weclaw/cmd.Version=${BUILD_VERSION}" \
       -o "${TMP_ROOT}/${BINARY}" .
-  )
+  ); then
+    echo "Error: source build failed." >&2
+    return 1
+  fi
+
+  if [ ! -x "${TMP_ROOT}/${BINARY}" ]; then
+    echo "Error: source build did not produce ${TMP_ROOT}/${BINARY}." >&2
+    return 1
+  fi
+
   install_binary_file "${TMP_ROOT}/${BINARY}"
 }
 
