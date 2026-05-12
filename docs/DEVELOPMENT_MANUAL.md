@@ -454,3 +454,19 @@ Required evidence:
 ### Resume missing-thread fallback
 
 `weclaw start <profile> resume <session-id>` is best-effort for Codex ACP threads. If Codex app-server rejects a resumed thread with `thread not found`, WeClaw must clear the stale conversation-to-thread binding, create a replacement thread, and retry the current user turn once. This prevents a stale resume ID from trapping all future turns on an unrecoverable thread.
+
+### v0.1.5-alpha release handoff
+
+Current public release target: `v0.1.5-alpha`.
+
+Release scope:
+- User-facing session resume after restart or upgrade.
+- Stale Codex ACP thread fallback when a resumed session is no longer recoverable.
+- User documentation updated with only feature behavior and commands.
+- Handoff documentation updated for the next development context.
+
+Rules preserved:
+- Public Release tag uses `v*.*.*-alpha`.
+- Internal development tag uses `v0.1p...`.
+- Release notes body must not repeat the GitHub Release title.
+- Editing Release notes must not move Release tags or replace assets unless explicitly requested.

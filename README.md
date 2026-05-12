@@ -518,3 +518,31 @@ Dev fork: https://github.com/Awenforever/weclaw_dev
 ## License
 
 [MIT](LICENSE)
+
+---
+
+## Session resume after restart or upgrade
+
+WeClaw Dev can continue a Codex-backed conversation after a restart or upgrade when a session ID is available.
+
+Common flow:
+
+```bash
+# Check the current session from WeChat.
+/status
+/now
+
+# Restart WeClaw and ask it to resume that session.
+weclaw start deepseek-thinking resume <session-id>
+```
+
+If the saved session cannot be reused, WeClaw now starts a fresh session automatically and continues handling the current message instead of leaving the chat stuck on a stale session.
+
+For upgrades:
+
+```bash
+weclaw upgrade
+
+# To explicitly follow the alpha/pre-release channel:
+weclaw upgrade --alpha
+```

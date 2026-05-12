@@ -506,3 +506,31 @@ dev分支增加的是日常从微信使用Agent时更需要的实用行为。
 ## 许可证
 
 [MIT](LICENSE)
+
+---
+
+## 重启或升级后的会话恢复
+
+WeClaw Dev可以在重启或升级后继续使用已有的Codex会话。只要你能从微信端看到当前session ID，就可以在重启时指定它。
+
+常用流程：
+
+```bash
+# 先在微信端查看当前session。
+/status
+/now
+
+# 重启WeClaw，并尝试恢复该session。
+weclaw start deepseek-thinking resume <session-id>
+```
+
+如果旧session已经不能继续使用，WeClaw现在会自动开启新session并继续处理当前消息，不会让对话一直卡在失效session上。
+
+升级时：
+
+```bash
+weclaw upgrade
+
+# 如需显式进入alpha/pre-release通道：
+weclaw upgrade --alpha
+```
