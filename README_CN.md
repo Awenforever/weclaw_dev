@@ -429,6 +429,8 @@ weclaw upgrade
 # 升级或重启后，用该ID恢复Codex会话。
 weclaw start deepseek resume <session-id>
 weclaw start deepseek-thinking resume <session-id>
+# 或省略session ID，默认使用最近一次ACP/Codex会话ID：
+weclaw start deepseek-thinking resume
 ```
 
 该resume ID会应用到对应profile收到的第一个微信用户回合。只有明确需要新会话时，才使用`/restart`或`/new`。
@@ -522,6 +524,8 @@ WeClaw Dev可以在重启或升级后继续使用已有的Codex会话。只要�
 
 # 重启WeClaw，并尝试恢复该session。
 weclaw start deepseek-thinking resume <session-id>
+# 或省略session ID，默认使用最近一次ACP/Codex会话ID：
+weclaw start deepseek-thinking resume
 ```
 
 如果旧session已经不能继续使用，WeClaw现在会自动开启新session并继续处理当前消息，不会让对话一直卡在失效session上。

@@ -432,6 +432,8 @@ Session continuity after an update:
 # After upgrading or restarting, resume that Codex session/thread.
 weclaw start deepseek resume <session-id>
 weclaw start deepseek-thinking resume <session-id>
+# Or omit the session ID to resume the most recent ACP/Codex session for this profile:
+weclaw start deepseek-thinking resume
 ```
 
 The resumed ID is applied to the first matching WeChat user turn for that profile. Use `/restart` or `/new` only when you intentionally want a fresh session.
@@ -534,6 +536,8 @@ Common flow:
 
 # Restart WeClaw and ask it to resume that session.
 weclaw start deepseek-thinking resume <session-id>
+# Or omit the session ID to resume the most recent ACP/Codex session for this profile:
+weclaw start deepseek-thinking resume
 ```
 
 If the saved session cannot be reused, WeClaw now starts a fresh session automatically and continues handling the current message instead of leaving the chat stuck on a stale session.

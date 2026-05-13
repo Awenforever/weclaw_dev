@@ -8,7 +8,9 @@ Main branch after release should point to the same commit as `v0.1.5-alpha` and 
 
 Release purpose:
 - WeClaw can resume a Codex-backed session after restart or upgrade with:
-  `weclaw start deepseek-thinking resume <session-id>`
+  `weclaw start deepseek-thinking resume <session-id>
+# Or omit the session ID to resume the most recent ACP/Codex session for this profile:
+weclaw start deepseek-thinking resume`
 - If the old Codex thread cannot be recovered, WeClaw creates a replacement session and continues the user message instead of returning `thread not found`.
 - `weclaw upgrade` remains the normal stable/latest upgrade path.
 - `weclaw upgrade --alpha` is the explicit alpha/pre-release channel.
@@ -50,7 +52,9 @@ User-visible changes in `v0.1.6-alpha`:
 - WeChat-facing Codex sandbox dependency errors are cleaner.
 - ANSI terminal escape sequences are removed from Codex error messages before showing them to users.
 - Codex `bubblewrap` sandbox diagnostics are converted into a short install-and-restart suggestion.
-- The session resume behavior from `v0.1.5-alpha` remains available with `weclaw start deepseek-thinking resume <session-id>`.
+- The session resume behavior from `v0.1.5-alpha` remains available with `weclaw start deepseek-thinking resume <session-id>
+# Or omit the session ID to resume the most recent ACP/Codex session for this profile:
+weclaw start deepseek-thinking resume`.
 - `weclaw upgrade` and `weclaw upgrade --alpha` remain supported.
 
 Important boundary:

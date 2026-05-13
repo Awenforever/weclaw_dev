@@ -106,6 +106,25 @@ func MostRecentSessionForDefaultProfile() (profile string, sessionID string, ok 
 	}
 
 	profile = strings.TrimSpace(state.DefaultProfile)
+	best, ok := mostRecentSessionMatching(state, profile)
+	if !ok {
+		return "", "", false
+	}
+	if profile == "" {
+		profile = best.Profile
+	}
+	return profile, best.SessionID, true
+}
+
+func MostRecentSessionForProfile(profile string) (SessionHint, bool) {
+	state, err := Load()
+	if err != nil {
+		return SessionHint{}, false
+	}
+	return mostRecentSessionMatching(state, strings.TrimSpace(profile))
+}
+
+func mostRecentSessionMatching(state State, profile string) (SessionHint, bool) {
 	var best SessionHint
 	for _, hint := range state.Sessions {
 		if strings.TrimSpace(hint.SessionID) == "" || strings.TrimSpace(hint.Profile) == "" {
@@ -119,12 +138,9 @@ func MostRecentSessionForDefaultProfile() (profile string, sessionID string, ok 
 		}
 	}
 	if best.SessionID == "" {
-		return "", "", false
+		return SessionHint{}, false
 	}
-	if profile == "" {
-		profile = best.Profile
-	}
-	return profile, best.SessionID, true
+	return best, true
 }
 
 func MostRecentLogThreadForPIDs(profile string, pids []int) (SessionHint, bool) {

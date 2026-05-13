@@ -152,7 +152,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		} else {
 			fmt.Println("Starting new version...")
 		}
-		if err := runDaemon(false, apiAddr, restartProfile, restartResumeID); err != nil {
+		if err := runDaemon(true, apiAddr, restartProfile, restartResumeID); err != nil {
 			fmt.Printf("Update complete, but restart failed: %v\n", err)
 			fmt.Println("Please run 'weclaw start' manually.")
 		}

@@ -51,3 +51,23 @@ func TestMostRecentLogThreadForPIDs(t *testing.T) {
 		t.Fatalf("hint = %#v, want deepseek-thinking/user-2/thread-target", hint)
 	}
 }
+
+func TestMostRecentSessionForProfile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if err := UpsertSession("deepseek", "user-1", "thread-deepseek"); err != nil {
+		t.Fatalf("UpsertSession deepseek returned error: %v", err)
+	}
+	if err := UpsertSession("deepseek-thinking", "user-2", "thread-thinking"); err != nil {
+		t.Fatalf("UpsertSession thinking returned error: %v", err)
+	}
+
+	hint, ok := MostRecentSessionForProfile("deepseek-thinking")
+	if !ok {
+		t.Fatal("MostRecentSessionForProfile ok = false")
+	}
+	if hint.Profile != "deepseek-thinking" || hint.UserID != "user-2" || hint.SessionID != "thread-thinking" {
+		t.Fatalf("hint = %#v, want deepseek-thinking/user-2/thread-thinking", hint)
+	}
+}

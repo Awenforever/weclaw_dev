@@ -1,13 +1,17 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -28,29 +32,33 @@ var (
 	stdoutFlag     bool
 )
 
+const defaultBackgroundLogMaxBytes int64 = 20 * 1024 * 1024
+
 func init() {
 	startCmd.Flags().BoolVarP(&foregroundFlag, "foreground", "f", false, "Run in foreground (default is background)")
 	startCmd.Flags().StringVar(&apiAddrFlag, "api-addr", "", "API server listen address (default 127.0.0.1:18011)")
-	startCmd.Flags().BoolVar(&stdoutFlag, "stdout", false, "Save background stdout and stderr to ~/.weclaw/weclaw.log")
+	startCmd.Flags().BoolVar(&stdoutFlag, "stdout", true, "Save background stdout and stderr to ~/.weclaw/weclaw.log (enabled by default)")
 	rootCmd.AddCommand(startCmd)
 }
 
 var startCmd = &cobra.Command{
-	Use:   "start [deepseek|deepseek-thinking] [resume <session-id>]",
+	Use:   "start [deepseek|deepseek-thinking] [resume [session-id]]",
 	Short: "Start the WeChat message bridge (auto-login if needed)",
 	Example: "  weclaw start\n" +
 		"  weclaw start deepseek\n" +
 		"  weclaw start deepseek-thinking\n" +
 		"  weclaw start deepseek resume <session-id>\n" +
 		"  weclaw start deepseek-thinking resume <session-id>\n" +
+		"  weclaw start deepseek-thinking resume\n" +
 		"  weclaw start --stdout\n" +
 		"  weclaw start -f",
 	RunE: runStart,
 }
 
 type startSelection struct {
-	Profile  string
-	ResumeID string
+	Profile      string
+	ResumeID     string
+	ResumeLatest bool
 }
 
 func parseStartSelection(args []string) (startSelection, error) {
@@ -66,6 +74,18 @@ func parseStartSelection(args []string) (startSelection, error) {
 		default:
 			return sel, fmt.Errorf("unsupported start profile %q; allowed values are: deepseek, deepseek-thinking", args[0])
 		}
+	case 2:
+		switch args[0] {
+		case "deepseek", "deepseek-thinking":
+			sel.Profile = args[0]
+		default:
+			return sel, fmt.Errorf("unsupported start profile %q; allowed values are: deepseek, deepseek-thinking", args[0])
+		}
+		if args[1] != "resume" {
+			return sel, fmt.Errorf("unsupported start action %q; use: weclaw start %s resume [session-id]", args[1], sel.Profile)
+		}
+		sel.ResumeLatest = true
+		return sel, nil
 	case 3:
 		switch args[0] {
 		case "deepseek", "deepseek-thinking":
@@ -74,7 +94,7 @@ func parseStartSelection(args []string) (startSelection, error) {
 			return sel, fmt.Errorf("unsupported start profile %q; allowed values are: deepseek, deepseek-thinking", args[0])
 		}
 		if args[1] != "resume" {
-			return sel, fmt.Errorf("unsupported start action %q; use: weclaw start %s resume <session-id>", args[1], sel.Profile)
+			return sel, fmt.Errorf("unsupported start action %q; use: weclaw start %s resume [session-id]", args[1], sel.Profile)
 		}
 		if args[2] == "" {
 			return sel, fmt.Errorf("resume session ID is required")
@@ -82,7 +102,7 @@ func parseStartSelection(args []string) (startSelection, error) {
 		sel.ResumeID = args[2]
 		return sel, nil
 	default:
-		return sel, fmt.Errorf("start accepts: [deepseek|deepseek-thinking] [resume <session-id>]")
+		return sel, fmt.Errorf("start accepts: [deepseek|deepseek-thinking] [resume [session-id]]")
 	}
 }
 
@@ -91,13 +111,35 @@ func parseStartProfile(args []string) (string, error) {
 	return sel.Profile, err
 }
 
+func resolveStartResumeID(profile, explicitID string, resumeLatest bool) (string, error) {
+	if !resumeLatest {
+		return explicitID, nil
+	}
+	profile = strings.TrimSpace(profile)
+	if profile == "" {
+		return "", fmt.Errorf("resume latest requires an explicit profile: weclaw start deepseek-thinking resume")
+	}
+	hint, ok := runtime_state.MostRecentSessionForProfile(profile)
+	if !ok {
+		return "", fmt.Errorf("no recent ACP session found for profile %q; specify a session ID explicitly", profile)
+	}
+	return hint.SessionID, nil
+}
+
 func runStart(cmd *cobra.Command, args []string) error {
 	startSel, err := parseStartSelection(args)
 	if err != nil {
 		return err
 	}
 	startProfile := startSel.Profile
-	resumeID := startSel.ResumeID
+	resumeID, err := resolveStartResumeID(startProfile, startSel.ResumeID, startSel.ResumeLatest)
+	if err != nil {
+		return err
+	}
+
+	if os.Getenv("WECLAW_BACKGROUND_LOG") == "1" {
+		startBackgroundLogMaintenance(logFile())
+	}
 
 	maybePrintUpdateNotice(os.Stdout)
 
@@ -443,6 +485,116 @@ func logFile() string {
 	return filepath.Join(weclawDir(), "weclaw.log")
 }
 
+func backgroundLogMaxBytes() int64 {
+	raw := strings.TrimSpace(os.Getenv("WECLAW_LOG_MAX_BYTES"))
+	if raw == "" {
+		return defaultBackgroundLogMaxBytes
+	}
+	value, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || value <= 0 {
+		return defaultBackgroundLogMaxBytes
+	}
+	return value
+}
+
+func backgroundLogMaintenanceInterval() time.Duration {
+	raw := strings.TrimSpace(os.Getenv("WECLAW_LOG_TRIM_INTERVAL_MS"))
+	if raw == "" {
+		return time.Minute
+	}
+	value, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || value <= 0 {
+		return time.Minute
+	}
+	return time.Duration(value) * time.Millisecond
+}
+
+func startBackgroundLogMaintenance(path string) {
+	maxBytes := backgroundLogMaxBytes()
+	if maxBytes <= 0 || strings.TrimSpace(path) == "" {
+		return
+	}
+	if err := trimBackgroundLog(path, maxBytes); err != nil {
+		log.Printf("[log] failed to trim background log: %v", err)
+	}
+	interval := backgroundLogMaintenanceInterval()
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := trimBackgroundLog(path, maxBytes); err != nil {
+				log.Printf("[log] failed to trim background log: %v", err)
+			}
+		}
+	}()
+}
+
+func trimBackgroundLog(path string, maxBytes int64) error {
+	if maxBytes <= 0 {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if info.Size() <= maxBytes {
+		return nil
+	}
+
+	keepBytes := maxBytes - maxBytes/10
+	if keepBytes < 1 {
+		keepBytes = maxBytes
+	}
+	if keepBytes > info.Size() {
+		keepBytes = info.Size()
+	}
+	start := info.Size() - keepBytes
+	if _, err := f.Seek(start, 0); err != nil {
+		return err
+	}
+	tail, err := io.ReadAll(f)
+	if err != nil {
+		return err
+	}
+	if start > 0 {
+		if idx := bytes.IndexByte(tail, '\n'); idx >= 0 {
+			if idx+1 < len(tail) {
+				tail = tail[idx+1:]
+			} else {
+				tail = nil
+			}
+		}
+	}
+
+	now := time.Now()
+	header := []byte(fmt.Sprintf("%s [weclaw] log truncated at %s; retained newest entries\n", now.Format("2006/01/02 15:04:05"), now.Format(time.RFC3339)))
+	newContent := append(header, tail...)
+	if int64(len(newContent)) > maxBytes && len(tail) > 0 {
+		over := int64(len(newContent)) - maxBytes
+		if over > 0 && over < int64(len(tail)) {
+			tail = tail[over:]
+			if idx := bytes.IndexByte(tail, '\n'); idx >= 0 {
+				tail = tail[idx+1:]
+			}
+			newContent = append(header, tail...)
+		}
+	}
+
+	if _, err := f.Seek(0, 0); err != nil {
+		return err
+	}
+	if _, err := f.Write(newContent); err != nil {
+		return err
+	}
+	return f.Truncate(int64(len(newContent)))
+}
+
 // runDaemon spawns weclaw start (without --daemon) as a background process.
 func runDaemon(saveStdout bool, apiAddr string, profile string, resumeID string) error {
 	if err := stopManagedWeclaw(); err != nil {
@@ -455,6 +607,12 @@ func runDaemon(saveStdout bool, apiAddr string, profile string, resumeID string)
 	// Ensure log directory exists
 	if err := os.MkdirAll(weclawDir(), 0o700); err != nil {
 		return fmt.Errorf("create weclaw dir: %w", err)
+	}
+
+	if saveStdout {
+		if err := trimBackgroundLog(logFile(), backgroundLogMaxBytes()); err != nil {
+			return fmt.Errorf("trim log file: %w", err)
+		}
 	}
 
 	// Re-exec ourselves without --daemon
@@ -472,6 +630,9 @@ func runDaemon(saveStdout bool, apiAddr string, profile string, resumeID string)
 	}
 	daemonArgs = append(daemonArgs, "-f")
 	cmd := exec.Command(exe, daemonArgs...)
+	if saveStdout {
+		cmd.Env = append(os.Environ(), "WECLAW_BACKGROUND_LOG=1")
+	}
 	var outputFile *os.File
 	if saveStdout {
 		lf, err := os.OpenFile(logFile(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
@@ -517,8 +678,9 @@ func runDaemon(saveStdout bool, apiAddr string, profile string, resumeID string)
 	fmt.Printf("weclaw started in background (pid=%d)\n", pid)
 	if saveStdout {
 		fmt.Printf("Log: %s\n", logFile())
+		fmt.Printf("Log limit: ~%d MB, newest entries retained\n", backgroundLogMaxBytes()/(1024*1024))
 	} else {
-		fmt.Println("Background stdout/stderr are discarded by default. Use --stdout to save them to ~/.weclaw/weclaw.log.")
+		fmt.Println("Background stdout/stderr are discarded. Use --stdout to save them to ~/.weclaw/weclaw.log.")
 	}
 	fmt.Printf("Stop: weclaw stop\n")
 	return nil
