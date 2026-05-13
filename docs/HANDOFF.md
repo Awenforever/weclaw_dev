@@ -61,3 +61,16 @@ Required evidence:
 - `~/.weclaw/weclaw.log` is created by default
 - `weclaw start deepseek-thinking resume` without session ID behaves according to runtime state
 - WeChat message path works after foreground login
+
+
+## p5a21 correction before final v0.1.7-alpha validation
+
+The earlier `v0.1.7-alpha` pre-release was created successfully but did not pass resume behavior validation.
+
+p5a21 correction:
+- Codex ACP resume must call app-server `thread/resume` before `turn/start`.
+- WeClaw must not silently replace a missing resumed thread with a new thread.
+- `weclaw start ...` must be idempotent when WeClaw is already running.
+- `weclaw start ... resume ...` while WeClaw is already running must report that resume was not applied.
+
+The public `v0.1.7-alpha` pre-release may be deleted and rebuilt at the p5a21 commit for validation. Keep it marked as pre-release until VM validation passes. After validation passes, mark the same Release as Latest instead of publishing another tag.

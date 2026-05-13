@@ -126,10 +126,56 @@ func resolveStartResumeID(profile, explicitID string, resumeLatest bool) (string
 	return hint.SessionID, nil
 }
 
+func reportAlreadyRunningStart(sel startSelection) (bool, error) {
+	if os.Getenv("WECLAW_DAEMON_CHILD") == "1" {
+		return false, nil
+	}
+
+	pid, hasPIDFile, live, err := inspectRuntimeState()
+	if err != nil {
+		return false, err
+	}
+	if len(live) == 0 {
+		return false, nil
+	}
+
+	fmt.Println("weclaw is already running")
+	if len(live) == 1 {
+		fmt.Printf("PID: %d\n", live[0].PID)
+	} else {
+		pids := make([]string, 0, len(live))
+		for _, proc := range live {
+			pids = append(pids, fmt.Sprintf("%d", proc.PID))
+		}
+		fmt.Printf("PIDs: %s\n", strings.Join(pids, ", "))
+	}
+	if hasPIDFile {
+		fmt.Printf("PID file: %d\n", pid)
+	} else {
+		fmt.Println("PID file: missing")
+	}
+	fmt.Printf("Log: %s\n", logFile())
+	fmt.Println("Status: weclaw status")
+	if sel.Profile != "" {
+		fmt.Printf("Requested profile: %s\n", sel.Profile)
+	}
+	if sel.ResumeID != "" || sel.ResumeLatest {
+		fmt.Println("Resume was not applied because start resume only applies while starting a new WeClaw process.")
+		fmt.Println("Stop first with: weclaw stop")
+		fmt.Println("Then run the start resume command again.")
+	}
+	return true, nil
+}
+
 func runStart(cmd *cobra.Command, args []string) error {
 	startSel, err := parseStartSelection(args)
 	if err != nil {
 		return err
+	}
+	if alreadyRunning, err := reportAlreadyRunningStart(startSel); err != nil {
+		return err
+	} else if alreadyRunning {
+		return nil
 	}
 	startProfile := startSel.Profile
 	resumeID, err := resolveStartResumeID(startProfile, startSel.ResumeID, startSel.ResumeLatest)
@@ -597,9 +643,6 @@ func trimBackgroundLog(path string, maxBytes int64) error {
 
 // runDaemon spawns weclaw start (without --daemon) as a background process.
 func runDaemon(saveStdout bool, apiAddr string, profile string, resumeID string) error {
-	if err := stopManagedWeclaw(); err != nil {
-		return err
-	}
 	if err := waitForAPIAddrFree(apiAddr, 2*time.Second); err != nil {
 		return err
 	}
@@ -630,8 +673,9 @@ func runDaemon(saveStdout bool, apiAddr string, profile string, resumeID string)
 	}
 	daemonArgs = append(daemonArgs, "-f")
 	cmd := exec.Command(exe, daemonArgs...)
+	cmd.Env = append(os.Environ(), "WECLAW_DAEMON_CHILD=1")
 	if saveStdout {
-		cmd.Env = append(os.Environ(), "WECLAW_BACKGROUND_LOG=1")
+		cmd.Env = append(cmd.Env, "WECLAW_BACKGROUND_LOG=1")
 	}
 	var outputFile *os.File
 	if saveStdout {

@@ -36,6 +36,7 @@ type ACPAgent struct {
 	nextID             atomic.Int64
 	sessions           map[string]string // conversationID -> sessionID (legacy ACP)
 	threads            map[string]string // conversationID -> threadID (codex app-server)
+	resumedThreads     map[string]bool
 	tokenUsageMu       sync.RWMutex
 	tokenUsageByThread map[string]TokenUsageSnapshot
 
@@ -215,6 +216,7 @@ func NewACPAgent(cfg ACPAgentConfig) *ACPAgent {
 		protocol:           protocol,
 		sessions:           make(map[string]string),
 		threads:            make(map[string]string),
+		resumedThreads:     make(map[string]bool),
 		tokenUsageByThread: make(map[string]TokenUsageSnapshot),
 		pending:            make(map[int64]chan *rpcResponse),
 		notifyCh:           make(map[string]chan *sessionUpdate),
@@ -408,7 +410,11 @@ func (a *ACPAgent) ResumeSession(conversationID, sessionID string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.protocol == protocolCodexAppServer {
+		if a.resumedThreads == nil {
+			a.resumedThreads = make(map[string]bool)
+		}
 		a.threads[conversationID] = sessionID
+		a.resumedThreads[conversationID] = true
 		log.Printf("[acp] resume thread configured (thread=%s, conversation=%s)", sessionID, conversationID)
 		return nil
 	}
@@ -601,9 +607,15 @@ func (a *ACPAgent) getOrCreateSession(ctx context.Context, conversationID string
 func (a *ACPAgent) getOrCreateThread(ctx context.Context, conversationID string) (string, bool, error) {
 	a.mu.Lock()
 	tid, exists := a.threads[conversationID]
+	shouldResume := exists && a.resumedThreads != nil && a.resumedThreads[conversationID]
 	a.mu.Unlock()
 
 	if exists {
+		if shouldResume {
+			if err := a.resumeCodexThread(ctx, conversationID, tid); err != nil {
+				return "", false, err
+			}
+		}
 		return tid, false, nil
 	}
 
@@ -637,9 +649,65 @@ func (a *ACPAgent) getOrCreateThread(ctx context.Context, conversationID string)
 
 	a.mu.Lock()
 	a.threads[conversationID] = threadResult.Thread.ID
+	if a.resumedThreads != nil {
+		delete(a.resumedThreads, conversationID)
+	}
 	a.mu.Unlock()
 
 	return threadResult.Thread.ID, true, nil
+}
+
+func (a *ACPAgent) resumeCodexThread(ctx context.Context, conversationID, threadID string) error {
+	conversationID = strings.TrimSpace(conversationID)
+	threadID = strings.TrimSpace(threadID)
+	if conversationID == "" {
+		return fmt.Errorf("conversation ID is required")
+	}
+	if threadID == "" {
+		return fmt.Errorf("thread ID is required")
+	}
+
+	params := map[string]interface{}{
+		"threadId":       threadID,
+		"excludeTurns":   true,
+		"approvalPolicy": "never",
+		"cwd":            a.cwd,
+		"sandbox":        "danger-full-access",
+	}
+	if a.model != "" {
+		params["model"] = a.model
+	}
+	if a.modelProvider != "" {
+		params["modelProvider"] = a.modelProvider
+	}
+
+	result, err := a.rpc(ctx, "thread/resume", params)
+	if err != nil {
+		return fmt.Errorf("resume codex thread %s: %w", threadID, err)
+	}
+
+	var resumeResult struct {
+		Thread struct {
+			ID string `json:"id"`
+		} `json:"thread"`
+	}
+	if len(result) > 0 {
+		if err := json.Unmarshal(result, &resumeResult); err != nil {
+			return fmt.Errorf("parse thread/resume result: %w", err)
+		}
+		if resumeResult.Thread.ID != "" && resumeResult.Thread.ID != threadID {
+			return fmt.Errorf("thread/resume returned thread %q, want %q", resumeResult.Thread.ID, threadID)
+		}
+	}
+
+	a.mu.Lock()
+	if a.resumedThreads != nil {
+		delete(a.resumedThreads, conversationID)
+	}
+	a.mu.Unlock()
+
+	log.Printf("[acp] resumed codex thread (thread=%s, conversation=%s)", threadID, conversationID)
+	return nil
 }
 
 func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string, message string, onEvent func(ProgressEvent) error) (string, error) {
@@ -694,7 +762,6 @@ func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string
 	// Collect text from events until turn/completed.
 	var deltaParts []string
 	var completedParts []string
-	recoveredMissingThread := false
 	for {
 		select {
 		case <-ctx.Done():
@@ -703,28 +770,9 @@ func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string
 			if evt.Kind == "error" {
 				userText := cleanAgentErrorText(evt.Text)
 				err := fmt.Errorf("%s", userText)
-				if !isNew && !recoveredMissingThread && isCodexThreadNotFoundError(err) {
-					staleThreadID := threadID
-					recoveredMissingThread = true
-					log.Printf("[acp] resumed thread not found; creating replacement thread (thread=%s, conversation=%s)", staleThreadID, conversationID)
-
-					a.forgetCodexThread(conversationID, staleThreadID)
-
-					newThreadID, _, createErr := a.getOrCreateThread(ctx, conversationID)
-					if createErr != nil {
-						emitProgress(onEvent, ProgressEvent{Type: ProgressEventError, Text: createErr.Error()})
-						return "", fmt.Errorf("thread recovery after stale resume failed: %w", createErr)
-					}
-
-					threadID = newThreadID
-					isNew = true
-					a.notifyMu.Lock()
-					a.turnCh[threadID] = turnCh
-					a.notifyMu.Unlock()
-
-					log.Printf("[acp] replacement thread created after stale resume (thread=%s, conversation=%s)", threadID, conversationID)
-					go startTurn(threadID)
-					continue
+				if !isNew && isCodexThreadNotFoundError(err) {
+					log.Printf("[acp] codex thread not found; refusing silent replacement (thread=%s, conversation=%s)", threadID, conversationID)
+					userText = "Codex session could not be resumed because the thread is not available to the current app-server. Start a new session with /new or /restart, or provide a valid resumable Codex thread ID."
 				}
 				emitProgress(onEvent, ProgressEvent{Type: ProgressEventError, Text: userText})
 				return "", fmt.Errorf("turn error: %s", userText)

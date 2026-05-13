@@ -90,7 +90,9 @@ Important areas:
 
 Rules:
 
-- Starting with `weclaw start <profile> resume <session-id>` must not create a fresh thread before applying the pending resume.
+- `weclaw start ...` must be idempotent when a managed WeClaw process is already running: report status and do not stop or replace the running process.
+- `weclaw start <profile> resume ...` only applies when starting a new WeClaw process; it must not attempt to inject resume into an already-running process.
+- Starting with `weclaw start <profile> resume <session-id>` must call Codex app-server `thread/resume` before `turn/start`; binding a thread ID in memory is not enough.
 - Daemon restarts from upgrade must carry profile/session when available.
 
 ### `cmd/status.go`
@@ -455,7 +457,7 @@ Required evidence:
 
 ### Resume missing-thread fallback
 
-`weclaw start <profile> resume <session-id>` is best-effort for Codex ACP threads. If Codex app-server rejects a resumed thread with `thread not found`, WeClaw must clear the stale conversation-to-thread binding, create a replacement thread, and retry the current user turn once. This prevents a stale resume ID from trapping all future turns on an unrecoverable thread.
+`weclaw start <profile> resume <session-id>` for Codex ACP must use app-server `thread/resume` before appending turns. If app-server rejects the resumed thread, WeClaw must return a clear error and must not silently create a replacement thread, because silent replacement changes the user-visible session ID after the first natural-language message.
 
 ### v0.1.5-alpha release handoff
 
@@ -514,3 +516,21 @@ VM validation for WeChat login:
 - The QR code is shown in the VM terminal, and the maintainer scans it interactively.
 - After login succeeds, stop/restart in background only after the credential is persisted.
 - Do not claim WeChat end-to-end behavior unless VM logs prove the message path.
+
+
+### p5a21 Codex resume and start idempotence
+
+Root cause fixed in p5a21:
+- The previous implementation treated a Codex `threadId` as if it could be reused by directly calling `turn/start` in a new app-server process.
+- Codex app-server requires `thread/resume` to load a stored thread before new turns can be appended.
+- Silent fallback to a replacement thread caused `/now` to show the requested session before the first turn and a different session after the first natural-language reply.
+
+Required behavior:
+- `weclaw start ...` must not stop or replace an already-running managed WeClaw process.
+- `weclaw start ... resume ...` while WeClaw is already running must report that resume was not applied.
+- Valid Codex resume path is `thread/resume` followed by `turn/start`.
+- Missing or invalid resumed thread must surface a clear error. It must not silently create a replacement thread.
+
+Release policy for this fix:
+- Rebuild `v0.1.7-alpha` as a pre-release for VM validation.
+- Do not mark it Latest until VM validation passes.
