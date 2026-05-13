@@ -74,7 +74,7 @@ Runtime restart rules:
 
 - When upgrading a running managed process, preserve session when possible.
 - `upgradeRestartResumeSelection` should prefer `runtime_state` and only fall back to log-derived hints.
-- Restart path should call `runDaemon(false, apiAddr, profile, resumeID)` when resume metadata exists.
+- Restart path should call `runDaemon(true, apiAddr, profile, resumeID)` so background stdout/stderr are captured by default after upgrade-driven restart.
 
 ### `cmd/start.go`
 
@@ -230,6 +230,7 @@ Rules:
 
 - Public Release builds must inject all four version fields.
 - Do not rely on internal tags for GitHub public Releases.
+- GitHub Release workflow must not auto-run on `push tags: v*`; public Releases are created manually or through explicit `workflow_dispatch` with full metadata inputs.
 - If workflow behavior differs from manual Release procedure, update this manual.
 
 ### `README.md` and `README_CN.md`
@@ -375,18 +376,19 @@ For upgrade/session changes:
 4. Confirm public Release tag target, for example `v0.1.4-alpha`.
 5. Confirm internal tag target, for example `v0.1p5a11-version-metadata-dual-output`.
 6. Build all platform assets with full metadata.
-7. Create annotated public tag.
-8. Create GitHub Release.
-9. Mark alpha Releases as pre-release unless intentionally promoting to stable.
-10. Upload five platform assets:
+7. Ensure `.github/workflows/release.yml` is manual-only or otherwise cannot create incomplete Release assets on tag push.
+8. Create annotated public tag.
+9. Create GitHub Release.
+10. Mark alpha Releases as pre-release unless intentionally promoting to stable.
+11. Upload five platform assets:
    - `weclaw_linux_amd64`
    - `weclaw_linux_arm64`
    - `weclaw_darwin_amd64`
    - `weclaw_darwin_arm64`
    - `weclaw_windows_amd64.exe`
-11. Verify Release metadata and asset states.
-12. Run VM user-path install or upgrade validation.
-13. Record the final state in handoff notes.
+12. Verify Release metadata and asset states.
+13. Run VM user-path install or upgrade validation.
+14. Record the final state in handoff notes.
 
 ## Release notes content rules
 
@@ -492,3 +494,23 @@ Current post-release handoff sync:
 - `main` may move to this handoff documentation commit.
 - `v0.1.6-alpha` remains fixed at `bbb2f28`.
 - VM user-path validation should be run after the handoff sync if not already completed.
+
+
+### p5a19 and v0.1.7-alpha pre-release handoff
+
+`v0.1p5a19-resume-default-stdout-latest-acp-session` is merged at `5dd76d2`.
+
+User-visible p5a19 behavior:
+- `weclaw start deepseek-thinking resume` may omit the session ID.
+- When the session ID is omitted, WeClaw resolves the most recent ACP/Codex session for the selected profile from runtime state.
+- Background stdout/stderr are saved to `~/.weclaw/weclaw.log` by default.
+- The log file is automatically trimmed around the configured size limit, defaulting to about 20 MB, while preserving newer complete lines in old-to-new order.
+- Upgrade-driven restart now keeps background logs enabled.
+
+`v0.1.7-alpha` is the pre-release vehicle for p5a19 VM validation. It should be marked as GitHub pre-release so testers can fetch it with `weclaw upgrade --alpha`, while ordinary `weclaw upgrade` remains on the stable latest Release.
+
+VM validation for WeChat login:
+- Use foreground mode for the login step: `weclaw start -f` or `weclaw start deepseek-thinking -f`.
+- The QR code is shown in the VM terminal, and the maintainer scans it interactively.
+- After login succeeds, stop/restart in background only after the credential is persisted.
+- Do not claim WeChat end-to-end behavior unless VM logs prove the message path.

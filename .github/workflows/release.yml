@@ -1,9 +1,24 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      public_tag:
+        description: Public Release tag, for example v0.1.7-alpha
+        required: true
+      public_commit:
+        description: Public Release commit SHA
+        required: true
+      internal_tag:
+        description: Internal development tag, for example v0.1p5a20-release-v0.1.7-alpha
+        required: true
+      internal_commit:
+        description: Internal development commit SHA
+        required: true
+      prerelease:
+        description: Mark GitHub Release as pre-release
+        required: true
+        default: "true"
 
 permissions:
   contents: write
@@ -14,25 +29,25 @@ jobs:
     strategy:
       matrix:
         include:
-          - goos: darwin
-            goarch: amd64
-          - goos: darwin
-            goarch: arm64
           - goos: linux
             goarch: amd64
           - goos: linux
             goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
           - goos: windows
             goarch: amd64
-          - goos: windows
-            goarch: arm64
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.public_commit }}
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
 
       - name: Build
         env:
@@ -42,8 +57,7 @@ jobs:
         run: |
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
-          go build -trimpath -ldflags="-s -w -X github.com/fastclaw-ai/weclaw/cmd.Version=${{ github.ref_name }}" \
-            -o weclaw_${{ matrix.goos }}_${{ matrix.goarch }}${EXT} .
+          go build -trimpath -ldflags="-s -w -X github.com/fastclaw-ai/weclaw/cmd.Version=${{ inputs.public_tag }} -X github.com/fastclaw-ai/weclaw/cmd.PublicCommit=${{ inputs.public_commit }} -X github.com/fastclaw-ai/weclaw/cmd.InternalVersion=${{ inputs.internal_tag }} -X github.com/fastclaw-ai/weclaw/cmd.InternalCommit=${{ inputs.internal_commit }}"             -o weclaw_${{ matrix.goos }}_${{ matrix.goarch }}${EXT} .
 
       - uses: actions/upload-artifact@v4
         with:
@@ -59,14 +73,12 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Generate checksums
-        working-directory: dist
-        run: sha256sum weclaw_* > checksums.txt
-
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          tag_name: ${{ inputs.public_tag }}
+          name: WeClaw Dev ${{ inputs.public_tag }}
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: false
           files: |
             dist/weclaw_*
-            dist/checksums.txt
