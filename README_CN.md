@@ -145,8 +145,12 @@ curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | 
 
 ```bash
 weclaw upgrade
+```
 
 自v0.1.4-alpha起，可使用`weclaw upgrade --alpha`显式升级到pre-release/alpha通道；普通`weclaw upgrade`仍默认使用stable latest。
+
+```bash
+weclaw upgrade --alpha
 ```
 
 更新后的会话连续性：
@@ -179,6 +183,8 @@ weclaw version
 ```
 
 `weclaw start`会定期检查GitHub Release。如果发现新版本，会提示用户运行`weclaw upgrade`。
+
+> 自`v0.1.7-alpha`起，`weclaw upgrade`会在可恢复的情况下保留运行态。它会先下载并安装新版本，再停止旧的受管WeClaw进程，并使用原profile和ACP session自动启动新版本。
 
 仅卸载二进制文件并保留`~/.weclaw`用户数据：
 
@@ -571,9 +577,3 @@ weclaw start deepseek-thinking
 ## 许可证
 
 [MIT](LICENSE)
-
----
-
-## 升级
-
-> 自`v0.1.7-alpha`起，`weclaw upgrade`会在可恢复的情况下保留运行态。它会先下载并安装新版本，再停止旧的受管WeClaw进程，并使用原profile和ACP session自动启动新版本。

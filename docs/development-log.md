@@ -15,6 +15,17 @@ Each entry should use:
 - Notes or lessons
 - Follow-up
 
+## 2026-05-14 · v0.1p5a27-readme-cn-upgrade-polish
+
+- Date: 2026-05-14
+- Version or tag: `v0.1p5a27-readme-cn-upgrade-polish`
+- Commit: pending at patch time
+- Scope: Chinese README cleanup
+- Change: removed the trailing duplicate `## 升级` section from `README_CN.md`, merged the v0.1.7-alpha runtime-migration note into `## 更新与卸载`, and corrected the `weclaw upgrade` code block so prose is no longer inside a bash fence.
+- Validation: documentation structure checks, `git diff --check`, `bash -n install.sh`, and full `go test ./...`.
+- Notes or lessons: bilingual README structure must stay aligned. Upgrade behavior notes should live in the update section, not after the license.
+- Follow-up: keep future milestone behavior changes in the README behavior-change table.
+
 ## 2026-05-14 · v0.1p5a26-docs-restructure
 
 - Date: 2026-05-14
