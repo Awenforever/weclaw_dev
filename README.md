@@ -188,7 +188,7 @@ weclaw version
 
 ```text
 weclaw public version: v0.1.4-alpha | <commit> (<os>/<arch>)
-weclaw internal version: v0.1p5a11-version-metadata-dual-output | <commit> (<os>/<arch>)
+weclaw internal version: p0.1.5a33-internal-version-format-policy | <commit> (<os>/<arch>)
 ```
 
 `weclaw start` checks GitHub Releases periodically and prints a one-time reminder when a newer release is available.

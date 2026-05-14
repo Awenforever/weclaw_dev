@@ -37,8 +37,8 @@ func TestShouldOfferUpdate(t *testing.T) {
 		{name: "same release", current: "v0.1.1-alpha", latest: "v0.1.1-alpha", want: false},
 		{name: "new release", current: "v0.1.1-alpha", latest: "v0.1.2-alpha", want: true},
 		{name: "dev build", current: "dev", latest: "v0.1.2-alpha", want: false},
-		{name: "local test build", current: "v0.1p4-local-test", latest: "v0.1.2-alpha", want: false},
-		{name: "internal tag build", current: "v0.1p4-session-resume-status-docs", latest: "v0.1.2-alpha", want: false},
+		{name: "local test build", current: "p0.1.4-local-test", latest: "v0.1.2-alpha", want: false},
+		{name: "internal tag build", current: "p0.1.4-session-resume-status-docs", latest: "v0.1.2-alpha", want: false},
 		{name: "empty latest", current: "v0.1.1-alpha", latest: "", want: false},
 	}
 
@@ -190,7 +190,7 @@ func TestIsAlphaReleaseVersion(t *testing.T) {
 		{version: "v1.2.3-alpha", want: true},
 		{version: "v0.1.4", want: false},
 		{version: "v0.1.4-beta", want: false},
-		{version: "v0.1p5a9-upgrade-resume-status-clarity", want: false},
+		{version: "p0.1.5a9-upgrade-resume-status-clarity", want: false},
 		{version: "0.1.4-alpha", want: false},
 	}
 	for _, tc := range tests {
@@ -220,13 +220,13 @@ func TestVersionOutputIncludesPublicAndInternalMetadata(t *testing.T) {
 
 	Version = "v0.1.4-alpha"
 	PublicCommit = "3460e0741f29f2e13f1451f995a6f8a000a89caa"
-	InternalVersion = "v0.1p5a11-version-metadata-dual-output"
+	InternalVersion = "p0.1.5a11-version-metadata-dual-output"
 	InternalCommit = "3460e0741f29f2e13f1451f995a6f8a000a89caa"
 
 	got := versionOutput("linux", "amd64")
 	for _, want := range []string{
 		"weclaw public version: v0.1.4-alpha | 3460e07 (linux/amd64)",
-		"weclaw internal version: v0.1p5a11-version-metadata-dual-output | 3460e07 (linux/amd64)",
+		"weclaw internal version: p0.1.5a11-version-metadata-dual-output | 3460e07 (linux/amd64)",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("versionOutput() = %q, want %q", got, want)

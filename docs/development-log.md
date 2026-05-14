@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - p0.1.5a34-internal-tag-format-guard
+
+- Replaced future-facing old internal tag examples in `README.md` and `cmd/update_test.go` with normalized `p*.*.*` examples.
+- Added a focused guard test to reject legacy `v0.1p...` internal tag examples in current documentation and release workflow inputs while preserving historical/deprecated references in the development log and handoff context.
+- Preserved all historical tags and GitHub Releases. No old tag was deleted or moved.
+
+
 ## 2026-05-14 - p0.1.5a33-internal-version-format-policy
 
 - Established the normalized internal development tag format: `p<major>.<minor>.<patch>[aN[aM...]][-topic]`.
