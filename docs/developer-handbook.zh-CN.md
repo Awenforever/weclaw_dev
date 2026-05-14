@@ -9,10 +9,10 @@
 - 主分支：`main`
 - 当前公开Release：`v0.1.7-alpha`
 - 当前公开Release commit：`31fa432`
-- 当前内部开发标签：`p0.1.5a33-internal-version-format-policy`
-- 当前`main`和`origin/main`：合并后与`p0.1.5a33-internal-version-format-policy`指向同一提交
-- 当前Release资产/代码线：`v0.1p5a28-stop-semantics`，commit为`31fa432`
-- p5a29同步文档和Release note，p5a30删除过时文档入口，p5a31修复最终文档入口引用，p5a32同步手册到当前main线，p0.1.5a33确立规范化内部版本/tag格式。这些文档类提交都不应与Release资产提交混淆。
+- 当前内部开发标签：`p0.1.5a35-internal-tag-mirror-migration`
+- 当前`main`和`origin/main`：合并后与`p0.1.5a35-internal-tag-mirror-migration`指向同一提交
+- 当前Release资产/代码线：规范镜像tag `p0.1.5a28-stop-semantics`和历史tag `v0.1p5a28-stop-semantics`均指向`31fa432`
+- p5a29同步文档和Release note，p5a30删除过时文档入口，p5a31修复最终文档入口引用，p5a32同步手册到当前main线，p0.1.5a33确立规范化内部版本/tag格式，p0.1.5a34增加防回流测试，p0.1.5a35为42个可自动映射的历史`v0.1p...`内部tag创建规范镜像tag。这些文档类或tag镜像提交都不应与Release资产提交混淆。
 - 旧公开Release `v0.1.6-alpha`保持在`bbb2f28`，不得移动。
 - `v0.1.7-alpha`已经发布为Latest，不再是pre-release。
 - Release资产应覆盖五个平台：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64、Windows amd64。
@@ -118,7 +118,7 @@
 - ACP raw stdout诊断有价值，但默认应关闭。
 - stop命令必须显式：说明停止了什么，清理stale pid状态，并确认后续`start`不会立刻看到同一个managed进程。
 
-- p0.1.5a33之后，新的内部开发tag只能使用规范化`p*.*.*`格式。
+- p0.1.5a35之后，内部开发使用规范化`p*.*.*`tag。历史`v0.1p...`tag仅作为追溯镜像保留，除非明确批准清理。
 
 ## 9. 后续方向
 

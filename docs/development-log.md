@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - p0.1.5a35-internal-tag-mirror-migration
+
+- Created normalized mirror tags for the 42 auto-mappable legacy `v0.1p...` internal tags.
+- Verified that each new `p0.1.*` mirror tag points to the same commit as its legacy `v0.1p...` source tag.
+- Updated the developer handbooks so the current Release asset/code line can be referenced by normalized `p0.1.5a28-stop-semantics` while preserving the historical `v0.1p5a28-stop-semantics` reference.
+- Preserved all old `v0.1p...` tags, all `alpha-work-v0.1p...` tags, all public Release tags, and all GitHub Releases. No old tag was deleted or moved.
+
+
 ## 2026-05-14 - p0.1.5a34-internal-tag-format-guard
 
 - Replaced future-facing old internal tag examples in `README.md` and `cmd/update_test.go` with normalized `p*.*.*` examples.
