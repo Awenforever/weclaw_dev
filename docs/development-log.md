@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - p0.1.5a37-ci-prerelease-policy
+
+- Disabled CI auto pre-release publishing. The CI workflow now keeps test/build/artifact behavior but no longer creates `beta-latest`, `alpha-p...`, or `alpha-work-p...` GitHub pre-releases.
+- Deleted the remaining CI-generated `alpha-p0...`, `alpha-work-p0...`, and `beta-latest` GitHub pre-releases and matching remote tags.
+- Preserved all public Release tags, all public GitHub Releases, all legacy `v0.1p...` historical internal tags, and all normalized `p0.1.*` internal tags.
+- Left `v0.1d/e/f...` special legacy tags untouched for separate policy review.
+
+
 ## 2026-05-14 - p0.1.5a36-alpha-prerelease-cleanup
 
 - Deleted the 13 legacy `alpha-work-v0.1p...` GitHub pre-releases and their matching remote tags after verifying each one had a normalized `p0.1.*` mirror tag at the same commit.
