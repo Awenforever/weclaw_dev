@@ -554,7 +554,7 @@ Dev fork: https://github.com/Awenforever/weclaw_dev
 
 ## Development
 
-Detailed maintainer notes are kept in [`docs/DEVELOPMENT_MANUAL.md`](docs/DEVELOPMENT_MANUAL.md).
+Detailed maintainer notes are kept in [`docs/developer-handbook.md`](docs/developer-handbook.md).
 
 ```bash
 make dev

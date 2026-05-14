@@ -9,10 +9,10 @@
 - 主分支：`main`
 - 当前公开Release：`v0.1.7-alpha`
 - 当前公开Release commit：`31fa432`
-- 当前内部开发tag：`v0.1p5a29-release-note-devlog-sync`
-- 当前`main`和`origin/main`：`299d719`
+- 当前内部开发tag：`v0.1p5a30-doc-entry-cleanup`
+- 当前`main`和`origin/main`：`059c4a8`
 - 当前Release资产/代码线：`v0.1p5a28-stop-semantics`，commit为`31fa432`
-- p5a29是文档和Release note同步提交，不应与Release资产commit混淆。
+- p5a29是文档和Release note同步提交，p5a30删除废弃文档入口，二者都不应与Release资产commit混淆。
 - 旧公开Release `v0.1.6-alpha`保持在`bbb2f28`，不得移动。
 - `v0.1.7-alpha`已经发布为Latest，不再是pre-release。
 - Release资产应覆盖五个平台：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64、Windows amd64。
@@ -84,6 +84,7 @@
 - 中文handoff作为维护者阅读版本。
 - 长时间线放入`docs/development-log.md`。
 - 不为过期入口、幽灵引用或旧测试保留无意义指针文档。删除废弃入口，并让测试或文档引用适配真实主文档体系。
+- 主文档限定为`README.md`、`README_CN.md`、`docs/developer-handbook.md`、`docs/developer-handbook.zh-CN.md`和`docs/development-log.md`。
 - 每当里程碑永久改变用户工作流或已有CLI行为时，在README表格新增一行，交代版本、影响对象、此前行为和当前行为。
 - 每次Release前确认开发机和当前`main` commit保持同步。
 

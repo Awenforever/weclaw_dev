@@ -9,10 +9,10 @@ This is the canonical English handoff for starting a new AI development conversa
 - Main branch: `main`
 - Current public Release: `v0.1.7-alpha`
 - Current public Release commit: `31fa432`
-- Current internal development tag: `v0.1p5a29-release-note-devlog-sync`
-- Current `main` and `origin/main`: `299d719`
+- Current internal development tag: `v0.1p5a30-doc-entry-cleanup`
+- Current `main` and `origin/main`: `059c4a8`
 - Current Release asset/code line: `v0.1p5a28-stop-semantics` at `31fa432`
-- p5a29 is a documentation and Release-note synchronization commit; it must not be confused with the Release asset commit.
+- p5a29 is a documentation and Release-note synchronization commit; p5a30 removes obsolete documentation entry points. Neither should be confused with the Release asset commit.
 - Previous public Release `v0.1.6-alpha` remains at `bbb2f28` and must not be moved.
 - `v0.1.7-alpha` has been published as Latest and is no longer marked as pre-release.
 - Release assets expected for five platforms: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
@@ -84,6 +84,7 @@ This is the canonical English handoff for starting a new AI development conversa
 - Keep the Chinese handbook as the human maintainer mirror.
 - Keep long chronological history in `docs/development-log.md`.
 - Do not keep obsolete pointer documents just to satisfy stale tests or ghost references. Delete dead entry points and update tests or documentation references to the canonical files.
+- Canonical documents are limited to `README.md`, `README_CN.md`, `docs/developer-handbook.md`, `docs/developer-handbook.zh-CN.md`, and `docs/development-log.md`.
 - Whenever a milestone permanently changes user workflow or existing CLI behavior, add a README table row with version, affected object, previous behavior, and current behavior.
 - Before any Release, confirm the development machine and current `main` commit are synchronized.
 

@@ -15,6 +15,17 @@ Each entry should use:
 - Notes or lessons
 - Follow-up
 
+## 2026-05-14 · v0.1p5a31-doc-entry-final-fix
+
+- Date: 2026-05-14
+- Version or tag: `v0.1p5a31-doc-entry-final-fix`
+- Commit: pending at patch time
+- Scope: final documentation entry cleanup
+- Change: removed the stale README link to the deleted `docs/DEVELOPMENT_MANUAL.md` file and updated the English/Chinese developer handbooks so their current state reflects p5a30 after merge.
+- Validation: local link checks for all canonical markdown documents, stale removed-document checks, `git diff --check`, `bash -n install.sh`, and full `go test ./...`.
+- Notes or lessons: deleting obsolete entry points must include a reference sweep across user-facing documents. A removed file must not remain as a README link.
+- Follow-up: final read-only audit should pass with `run_ok=1` and no tracked or linked references to removed document entry points outside the development log history.
+
 ## 2026-05-14 · v0.1p5a30-doc-entry-cleanup
 
 - Date: 2026-05-14
