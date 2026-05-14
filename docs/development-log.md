@@ -15,6 +15,17 @@ Each entry should use:
 - Notes or lessons
 - Follow-up
 
+## 2026-05-14 · v0.1p5a28-stop-semantics
+
+- Date: 2026-05-14
+- Version or tag: `v0.1p5a28-stop-semantics`
+- Commit: pending at patch time
+- Scope: stop command semantics
+- Change: made `weclaw stop` output explicit and verifiable, targeted every detected managed WeClaw process, included live WeClaw pid-file targets that do not match the managed foreground pattern, cleared stale PID state, and rechecked that no managed WeClaw process remains.
+- Validation: focused command tests, `git diff --check`, `bash -n install.sh`, and full `go test ./...`.
+- Notes or lessons: stop semantics must be user-visible and confirmable. A generic `weclaw stopped` message is insufficient when `start` may later detect residual managed processes.
+- Follow-up: VM runtime validation should confirm that repeated `weclaw stop && weclaw start deepseek-thinking` behaves predictably.
+
 ## 2026-05-14 · v0.1p5a27-readme-cn-upgrade-polish
 
 - Date: 2026-05-14

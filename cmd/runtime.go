@@ -55,31 +55,98 @@ func inspectRuntimeState() (pid int, hasPIDFile bool, live []managedProcess, err
 	return pid, hasPIDFile, live, nil
 }
 
+type stopManagedResult struct {
+	TargetPIDs      []int
+	RemainingPIDs   []int
+	HadPIDFile      bool
+	PIDFilePID      int
+	PIDFileTargeted bool
+	PIDFileRemoved  bool
+}
+
 func stopManagedWeclaw() error {
-	_, _, live, err := inspectRuntimeState()
+	_, err := stopManagedWeclawWithResult()
+	return err
+}
+
+func stopManagedWeclawWithResult() (stopManagedResult, error) {
+	pid, hasPIDFile, live, err := inspectRuntimeState()
 	if err != nil {
-		return err
+		return stopManagedResult{}, err
 	}
 
-	targets := make([]int, 0, len(live))
-	for _, proc := range live {
-		targets = append(targets, proc.PID)
+	result := stopManagedResult{
+		HadPIDFile: hasPIDFile,
+		PIDFilePID: pid,
 	}
+
+	targets := managedProcessPIDs(live)
+	if hasPIDFile && pid > 0 && !slices.Contains(targets, pid) {
+		args, err := readProcessArgs(pid)
+		if err == nil && isWeclawProcess(args) {
+			targets = append(targets, pid)
+			result.PIDFileTargeted = true
+		}
+	}
+	slices.Sort(targets)
+	targets = slices.Compact(targets)
+	result.TargetPIDs = append([]int(nil), targets...)
+
 	if len(targets) == 0 {
-		_ = os.Remove(pidFile())
-		return nil
+		result.PIDFileRemoved = removePIDFile()
+		return result, nil
 	}
 
 	signalProcesses(targets, syscall.SIGTERM)
 	if survivors := waitForProcessesExit(targets, 5*time.Second); len(survivors) > 0 {
 		signalProcesses(survivors, syscall.SIGKILL)
 		if survivors = waitForProcessesExit(survivors, 2*time.Second); len(survivors) > 0 {
-			return fmt.Errorf("managed weclaw processes did not exit: %v", survivors)
+			result.RemainingPIDs = append([]int(nil), survivors...)
+			return result, fmt.Errorf("weclaw stop failed; processes still running after SIGKILL: %s", formatPIDs(survivors))
 		}
 	}
 
-	_ = os.Remove(pidFile())
-	return nil
+	result.PIDFileRemoved = removePIDFile()
+
+	_, _, remaining, err := inspectRuntimeState()
+	if err != nil {
+		return result, err
+	}
+	result.RemainingPIDs = managedProcessPIDs(remaining)
+	if len(result.RemainingPIDs) > 0 {
+		return result, fmt.Errorf("weclaw stop failed; managed processes still running: %s", formatPIDs(result.RemainingPIDs))
+	}
+
+	return result, nil
+}
+
+func managedProcessPIDs(live []managedProcess) []int {
+	targets := make([]int, 0, len(live))
+	for _, proc := range live {
+		if proc.PID > 0 {
+			targets = append(targets, proc.PID)
+		}
+	}
+	slices.Sort(targets)
+	return slices.Compact(targets)
+}
+
+func removePIDFile() bool {
+	if err := os.Remove(pidFile()); err == nil {
+		return true
+	}
+	return false
+}
+
+func formatPIDs(pids []int) string {
+	if len(pids) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(pids))
+	for _, pid := range pids {
+		parts = append(parts, strconv.Itoa(pid))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func waitForAPIReady(pid int, addr string, timeout time.Duration) error {
@@ -175,12 +242,16 @@ func readProcessArgs(pid int) ([]string, error) {
 	return args, nil
 }
 
-func isManagedWeclawProcess(args []string) bool {
+func isWeclawProcess(args []string) bool {
 	if len(args) == 0 {
 		return false
 	}
 	base := filepath.Base(args[0])
-	if !strings.Contains(base, "weclaw") {
+	return strings.Contains(base, "weclaw")
+}
+
+func isManagedWeclawProcess(args []string) bool {
+	if !isWeclawProcess(args) {
 		return false
 	}
 

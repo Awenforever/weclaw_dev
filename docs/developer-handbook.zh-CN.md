@@ -9,7 +9,7 @@
 - 主分支：`main`
 - 当前公开Release：`v0.1.7-alpha`
 - 当前公开Release commit：`25d36b7`
-- 当前内部开发tag：`v0.1p5a25-codex-resume-stable-api`
+- 当前内部开发tag：`v0.1p5a28-stop-semantics`
 - 旧公开Release `v0.1.6-alpha`保持在`bbb2f28`，不得移动。
 - `v0.1.7-alpha`已经发布为Latest，不再是pre-release。
 - Release资产应覆盖五个平台：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64、Windows amd64。
@@ -97,6 +97,7 @@
 - `/now`和`/status`共享profile和session解析逻辑。
 - `/status`应尽量避免裸显示unknown上下文窗口值。
 - `weclaw upgrade --alpha`可以识别同公开tag但commit更新的升级，并迁移受管进程。
+- `weclaw stop`现在会报告停止了哪些PID或当前未运行，清理stale pid状态，并确认没有managed进程残留。
 
 ## 8. 经验总结
 
@@ -107,6 +108,7 @@
 - alpha阶段可能出现同一公开tag指向不同commit的重建，升级逻辑不能只比较公开版本号。
 - Release note清理通常不需要重建资产。
 - ACP raw stdout诊断有价值，但默认应关闭。
+- stop命令必须显式：说明停止了什么，清理stale pid状态，并确认后续`start`不会立刻看到同一个managed进程。
 
 ## 9. 后续方向
 

@@ -77,6 +77,7 @@ weclaw start -f
 | v0.1.7-alpha | Session resume | `resume` usually required an explicit ACP/Codex session ID. | `weclaw start deepseek-thinking resume` may omit the session ID and reuse the latest ACP/Codex session for that profile. |
 | v0.1.7-alpha | Managed start | Starting an already running managed WeClaw process could be confusing. | `weclaw start ...` is idempotent and reports the existing managed process instead of replacing it. |
 | v0.1.7-alpha | Alpha upgrade | Rebuilt assets under the same public tag could be missed by public-version-only checks. | `weclaw upgrade --alpha` compares build metadata and can migrate a running managed process when the same public tag points to a newer commit. |
+| Unreleased main | Stop command | `weclaw stop` printed a generic stopped message and could leave users unsure whether stale runtime state or extra managed processes were cleared. | `weclaw stop` reports whether it stopped PIDs or found nothing, clears stale PID state, and verifies that no managed WeClaw process remains. |
 
 <!-- WECLAW_DOCS_RESTRUCTURE:END:user_changes -->
 
@@ -288,7 +289,7 @@ weclaw upgrade --alpha
 | Start with DeepSeek thinking | `weclaw start deepseek-thinking` | Default daily-use start command for the thinking profile. |
 | Resume the latest ACP/Codex session | `weclaw start deepseek-thinking resume` | Uses the most recent ACP/Codex session recorded for this profile. |
 | Resume a specific ACP/Codex session | `weclaw start deepseek-thinking resume <session-id>` | Use the session/thread ID shown by `/now` or `/status`. |
-| Stop the managed process | `weclaw stop` | Stops the managed WeClaw process. |
+| Stop managed processes | `weclaw stop` | Stops all detected managed WeClaw processes, clears stale PID state, and verifies no managed process remains. |
 | Check runtime status | `weclaw status` | Shows managed process and runtime status from the CLI side. |
 | Upgrade stable/latest channel | `weclaw upgrade` | Uses the normal latest Release channel. |
 | Upgrade alpha channel | `weclaw upgrade --alpha` | Explicitly follows the alpha channel. |

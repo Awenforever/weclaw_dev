@@ -9,7 +9,7 @@ This is the canonical English handoff for starting a new AI development conversa
 - Main branch: `main`
 - Current public Release: `v0.1.7-alpha`
 - Current public Release commit: `25d36b7`
-- Current internal development tag: `v0.1p5a25-codex-resume-stable-api`
+- Current internal development tag: `v0.1p5a28-stop-semantics`
 - Previous public Release `v0.1.6-alpha` remains at `bbb2f28` and must not be moved.
 - `v0.1.7-alpha` has been published as Latest and is no longer marked as pre-release.
 - Release assets expected for five platforms: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
@@ -97,6 +97,7 @@ Key user-visible changes:
 - `/now` and `/status` share profile and session resolution.
 - `/status` should avoid bare unknown context-window values when better source data is available.
 - `weclaw upgrade --alpha` can detect same-public-tag but newer-commit upgrades and migrate a managed process.
+- `weclaw stop` now reports stopped PIDs or not-running state, clears stale PID state, and verifies that no managed process remains.
 
 ## 8. Lessons learned
 
@@ -107,6 +108,7 @@ Key user-visible changes:
 - Same public tag with a different commit can happen during alpha rebuilds. Upgrade logic must compare build metadata, not only public version strings.
 - Release note cleanup normally does not require rebuilding assets.
 - Raw ACP stdout logging is useful for diagnosis but should stay off by default.
+- A stop command must be explicit: report what was stopped, clear stale PID state, and verify that follow-up `start` will not immediately see the same managed process.
 
 ## 9. Next likely work
 

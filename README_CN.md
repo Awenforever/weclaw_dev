@@ -77,6 +77,7 @@ weclaw start -f
 | v0.1.7-alpha | 会话恢复 | `resume`通常需要显式填写ACP/Codex session ID。 | `weclaw start deepseek-thinking resume`可以省略session ID，默认使用该profile最近一次ACP/Codex会话。 |
 | v0.1.7-alpha | 受管启动 | 已有受管WeClaw进程运行时，再次start容易造成理解混乱。 | `weclaw start ...`保持幂等，报告已有受管进程，不直接替换。 |
 | v0.1.7-alpha | alpha升级 | 同一公开tag被重建到新commit时，仅比较公开版本号可能漏升。 | `weclaw upgrade --alpha`会比较构建元数据，并在可恢复场景下迁移运行中的受管进程。 |
+| 未发布main | stop命令 | `weclaw stop`只打印笼统的stopped信息，用户难以确认stale运行态或额外受管进程是否已清理。 | `weclaw stop`会报告是否停止了PID或没有发现进程，清理stale pid状态，并确认没有managed WeClaw进程残留。 |
 
 <!-- WECLAW_DOCS_RESTRUCTURE:END:user_changes -->
 
@@ -282,7 +283,7 @@ weclaw upgrade --alpha
 | 使用DeepSeek thinking启动 | `weclaw start deepseek-thinking` | thinking profile的日常启动命令。 |
 | 恢复最近一次ACP/Codex会话 | `weclaw start deepseek-thinking resume` | 使用该profile最近一次记录的ACP/Codex session。 |
 | 恢复指定ACP/Codex会话 | `weclaw start deepseek-thinking resume <session-id>` | 使用`/now`或`/status`显示的session/thread ID。 |
-| 停止受管进程 | `weclaw stop` | 停止受管WeClaw进程。 |
+| 停止受管进程 | `weclaw stop` | 停止所有检测到的受管WeClaw进程，清理stale pid状态，并确认没有managed进程残留。 |
 | 查看运行状态 | `weclaw status` | 从CLI侧查看受管进程和运行状态。 |
 | 普通通道升级 | `weclaw upgrade` | 使用普通Latest Release通道。 |
 | alpha通道升级 | `weclaw upgrade --alpha` | 显式进入alpha通道。 |
