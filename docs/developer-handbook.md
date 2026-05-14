@@ -9,10 +9,10 @@ This is the canonical English handoff for starting a new AI development conversa
 - Main branch: `main`
 - Current public Release: `v0.1.7-alpha`
 - Current public Release commit: `31fa432`
-- Current internal development tag: `p0.1.5a35-internal-tag-mirror-migration`
-- Current `main` and `origin/main`: same commit as `p0.1.5a35-internal-tag-mirror-migration` after merge
+- Current internal development tag: `p0.1.5a36-alpha-prerelease-cleanup`
+- Current `main` and `origin/main`: same commit as `p0.1.5a36-alpha-prerelease-cleanup` after merge
 - Current Release asset/code line: `p0.1.5a28-stop-semantics` and legacy `v0.1p5a28-stop-semantics`, both at `31fa432`
-- p5a29 synchronized documentation and Release notes, p5a30 removed obsolete documentation entry points, p5a31 fixed final documentation entry references, p5a32 synchronized the handoff with the current `main` line, p0.1.5a33 established the normalized internal version/tag format, p0.1.5a34 added guard tests, and p0.1.5a35 created normalized mirror tags for the 42 auto-mappable legacy `v0.1p...` internal tags. None of these documentation-only or tag-mirror commits should be confused with the Release asset commit.
+- p5a29 synchronized documentation and Release notes, p5a30 removed obsolete documentation entry points, p5a31 fixed final documentation entry references, p5a32 synchronized the handoff with the current `main` line, p0.1.5a33 established the normalized internal version/tag format, p0.1.5a34 added guard tests, p0.1.5a35 created normalized mirror tags for the 42 auto-mappable legacy `v0.1p...` internal tags, and p0.1.5a36 removed the 13 legacy `alpha-work-v0.1p...` temporary pre-releases/tags that had verified normalized mirrors. None of these documentation-only or tag-mirror commits should be confused with the Release asset commit.
 - Previous public Release `v0.1.6-alpha` remains at `bbb2f28` and must not be moved.
 - `v0.1.7-alpha` has been published as Latest and is no longer marked as pre-release.
 - Release assets expected for five platforms: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
@@ -120,7 +120,7 @@ Key user-visible changes:
 
 ## 9. Next likely work
 
-- After p0.1.5a35, use normalized `p*.*.*` internal tags. Legacy `v0.1p...` tags remain only as historical mirrors until an explicit cleanup is approved.
+- After p0.1.5a36, use normalized `p*.*.*` internal tags. Legacy `v0.1p...` tags remain only as historical mirrors until explicit cleanup is approved. Legacy `alpha-work-v0.1p...` temporary pre-releases/tags have been removed after mirror verification.
 - Keep README structure user-oriented.
 - Keep this handoff concise.
 - Continue moving detailed history into `docs/development-log.md`.

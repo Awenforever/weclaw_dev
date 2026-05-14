@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - p0.1.5a36-alpha-prerelease-cleanup
+
+- Deleted the 13 legacy `alpha-work-v0.1p...` GitHub pre-releases and their matching remote tags after verifying each one had a normalized `p0.1.*` mirror tag at the same commit.
+- Preserved all public Release tags, all GitHub public Releases, all legacy `v0.1p...` internal tags, and all normalized `p0.1.*` mirror tags.
+- Left `alpha-p0...`, `alpha-work-p0...`, and `beta-latest` untouched for separate policy review.
+
+
 ## 2026-05-14 - p0.1.5a35-internal-tag-mirror-migration
 
 - Created normalized mirror tags for the 42 auto-mappable legacy `v0.1p...` internal tags.
