@@ -549,3 +549,7 @@ sudo apt install -y bubblewrap
 weclaw stop
 weclaw start deepseek-thinking
 ```
+
+## 升级
+
+> 自`v0.1.7-alpha`起，`weclaw upgrade`会在可恢复的情况下保留运行态。它会先下载并安装新版本，再停止旧的受管WeClaw进程，并使用原profile和ACP session自动启动新版本。

@@ -406,6 +406,9 @@ ACP and CLI agents require their binaries inside the container. HTTP mode works 
 
 ### Upgrade path for older installs
 
+
+> Since `v0.1.7-alpha`, `weclaw upgrade` preserves a running managed WeClaw session when possible. It downloads and installs the new binary first, then stops the old managed process and restarts the new version with the previous profile and ACP session.
+
 If you installed an older alpha, first repeat the one-line installer to move onto the current release channel:
 
 ```bash

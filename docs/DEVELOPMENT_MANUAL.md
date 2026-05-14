@@ -556,3 +556,10 @@ p5a23 fixes upgrade behavior for rebuilt pre-release tags:
 - If the same public tag was rebuilt to a different commit, still download and install the new asset.
 - Upgrade must preserve the existing managed runtime when possible by stopping the old process only after the new asset is downloaded and installed, then restarting with the resolved profile and session.
 - Release asset downloads need a longer timeout than ordinary API checks because VM networks can be slow.
+
+### p5a24 README upgrade migration note
+
+p5a24 is a documentation-only commit used to validate p5a23 same-tag upgrade behavior:
+- README and README_CN explicitly state that since `v0.1.7-alpha`, `weclaw upgrade` preserves a running managed session when possible.
+- The public `v0.1.7-alpha` pre-release is rebuilt to the p5a24 commit so a VM already running p5a23 can test `weclaw upgrade --alpha` across the same public tag with a different commit.
+- Do not mark `v0.1.7-alpha` Latest until this upgrade migration path is verified.

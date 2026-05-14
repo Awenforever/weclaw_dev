@@ -99,3 +99,14 @@ p5a23 changes:
 - Download timeout was increased to tolerate slow VM network paths.
 
 After p5a23, rebuild `v0.1.7-alpha` as pre-release again, then verify upgrade from an older `v0.1.7-alpha` commit to the rebuilt same tag.
+
+## p5a24 README upgrade migration note
+
+p5a24 is a documentation-only rebuild target for validating p5a23 upgrade behavior.
+
+Expected validation:
+- VM starts from `v0.1.7-alpha | 0fb7b8f` with internal `v0.1p5a23-upgrade-runtime-migration`.
+- `v0.1.7-alpha` is rebuilt to p5a24.
+- VM runs `weclaw upgrade --alpha`.
+- The p5a23 upgrader should detect that the same public tag now points to a different commit.
+- It should download the new asset, replace the binary, stop the old managed process and restart with the prior profile/session when available.
