@@ -15,6 +15,17 @@ Each entry should use:
 - Notes or lessons
 - Follow-up
 
+## 2026-05-14 · v0.1p5a30-doc-entry-cleanup
+
+- Date: 2026-05-14
+- Version or tag: `v0.1p5a30-doc-entry-cleanup`
+- Commit: pending at patch time
+- Scope: documentation entry cleanup
+- Change: removed obsolete pointer/duplicate documents `HANDOFF.md`, `docs/HANDOFF.md`, and `docs/DEVELOPMENT_MANUAL.md`. Kept the canonical document set limited to `README.md`, `README_CN.md`, `docs/developer-handbook.md`, `docs/developer-handbook.zh-CN.md`, and `docs/development-log.md`.
+- Validation: document inventory checks, stale-entry checks, `git diff --check`, `bash -n install.sh`, and full `go test ./...`.
+- Notes or lessons: do not keep meaningless compatibility pointer documents just to satisfy old tests or ghost references. Tests and references must follow the canonical documentation layout.
+- Follow-up: future document additions must justify their audience and maintenance owner before being added.
+
 ## 2026-05-14 · v0.1p5a29-release-note-devlog-sync
 
 - Date: 2026-05-14
