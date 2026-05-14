@@ -110,3 +110,18 @@ Expected validation:
 - VM runs `weclaw upgrade --alpha`.
 - The p5a23 upgrader should detect that the same public tag now points to a different commit.
 - It should download the new asset, replace the binary, stop the old managed process and restart with the prior profile/session when available.
+
+## p5a25 Codex resume stable API
+
+p5a25 fixes the VM regression where natural-language turns after upgrade failed with:
+
+`thread/resume.excludeTurns requires experimentalApi capability`
+
+Cause:
+- p5a21 correctly switched to `thread/resume`, but included `excludeTurns:true`.
+- Codex app-server treats `excludeTurns` as experimental unless the client opts into `capabilities.experimentalApi=true`.
+
+Fix:
+- Remove `excludeTurns:true` from WeClaw's default `thread/resume` request.
+- Keep using stable `thread/resume`.
+- Rebuild `v0.1.7-alpha` as pre-release and verify resume through WeChat again.

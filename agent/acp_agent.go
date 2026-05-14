@@ -669,7 +669,6 @@ func (a *ACPAgent) resumeCodexThread(ctx context.Context, conversationID, thread
 
 	params := map[string]interface{}{
 		"threadId":       threadID,
-		"excludeTurns":   true,
 		"approvalPolicy": "never",
 		"cwd":            a.cwd,
 		"sandbox":        "danger-full-access",

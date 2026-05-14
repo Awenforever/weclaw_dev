@@ -563,3 +563,11 @@ p5a24 is a documentation-only commit used to validate p5a23 same-tag upgrade beh
 - README and README_CN explicitly state that since `v0.1.7-alpha`, `weclaw upgrade` preserves a running managed session when possible.
 - The public `v0.1.7-alpha` pre-release is rebuilt to the p5a24 commit so a VM already running p5a23 can test `weclaw upgrade --alpha` across the same public tag with a different commit.
 - Do not mark `v0.1.7-alpha` Latest until this upgrade migration path is verified.
+
+### p5a25 Codex resume stable API
+
+p5a25 fixes a p5a21 resume regression:
+- `thread/resume` is the correct stable app-server method for resuming Codex threads.
+- `excludeTurns:true` is an experimental field and requires `capabilities.experimentalApi=true` during app-server initialize.
+- WeClaw does not need the experimental field for normal resume, so it must not send `excludeTurns` by default.
+- Resume tests must assert that stable resume parameters do not include experimental fields.

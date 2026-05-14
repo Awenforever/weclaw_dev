@@ -28,6 +28,9 @@ func TestACPAgentResumeCodexThreadCallsThreadResumeAndAvoidsThreadStart(t *testi
 			if resumeParams["threadId"] != "thread-existing" {
 				t.Fatalf("thread/resume threadId = %#v, want thread-existing", resumeParams["threadId"])
 			}
+			if _, ok := resumeParams["excludeTurns"]; ok {
+				t.Fatalf("thread/resume should not send experimental excludeTurns without experimentalApi capability")
+			}
 			return json.RawMessage(`{"thread":{"id":"thread-existing"}}`), nil
 		case "thread/start":
 			t.Fatalf("thread/start should not be called for resumed thread")
