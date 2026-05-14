@@ -580,3 +580,4 @@ weclaw start deepseek-thinking
 ## 许可证
 
 [MIT](LICENSE)
+- slash command输出会把Markdown当作视觉设计系统使用：引用块用于提示条，代码围栏用于状态面板，表格用于紧凑结构化数据，列表用于移动端阅读。

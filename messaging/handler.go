@@ -1280,7 +1280,7 @@ func commandCard(title string, lines ...string) string {
 		}
 		parts = append(parts, body...)
 	}
-	return strings.TrimSpace(strings.Join(parts, "\\n"))
+	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
 func markdownCommandLines(lines ...string) []string {
@@ -1289,7 +1289,7 @@ func markdownCommandLines(lines ...string) []string {
 	inFence := false
 
 	for _, line := range lines {
-		line = strings.TrimRight(strings.TrimSpace(line), " 	")
+		line = strings.TrimRight(strings.TrimSpace(line), " \t")
 		if line == "" {
 			if len(out) > 0 && !lastBlank {
 				out = append(out, "")
@@ -1345,8 +1345,15 @@ func commandSectionLine(line string) bool {
 	return false
 }
 
+func visualCommandFence(title string, lines ...string) []string {
+	out := []string{"```text", title}
+	out = append(out, lines...)
+	out = append(out, "```")
+	return out
+}
+
 func markdownTableCell(value string) string {
-	value = strings.TrimSpace(strings.ReplaceAll(value, "\\n", " "))
+	value = strings.TrimSpace(strings.ReplaceAll(value, "\n", " "))
 	value = strings.ReplaceAll(value, "|", `\|`)
 	if value == "" {
 		return "--"
@@ -2409,46 +2416,47 @@ func (h *Handler) buildStatus() string {
 }
 
 func buildHelpText() string {
-	return `## 📖 WeClaw commands
-
-### 🧩 Agent
-
-| Command | Action |
-| --- | --- |
-| /profile deepseek\|deepseek-thinking | Switch DeepSeek profile |
-| /restart | Start a new session for the current profile |
-| /now | Show current task progress |
-| /cancel | Cancel the current running task |
-| /status | Show runtime diagnostics |
-| /info | Show current agent info |
-| /help | Show this help message |
-| unknown /xxx | Blocked locally, not sent to agent |
-
-### ⚙️ DeepSeek runtime
-
-| Command | Action |
-| --- | --- |
-| /model deepseek-v4-pro\|deepseek-v4-flash | Change DeepSeek model without resetting session |
-| /effort high\|max | Change DeepSeek effort without resetting session |
-| /balance | Show DeepSeek account balance |
-
-### 💬 Chat routing
-
-| Command | Action |
-| --- | --- |
-| @agent or /agent | Switch default agent |
-| @agent msg or /agent msg | Send to a specific agent |
-| @a @b msg | Broadcast to multiple agents |
-| /new or /clear | Start a new session |
-| /cwd /path | Switch workspace directory |
-
-### Aliases
-
-| Alias group | Agents |
-| --- | --- |
-| /cc /cx /cs /km /gm | claude, codex, cursor, kimi, gemini |
-| /oc /ocd /pi /cp | openclaw, opencode, pi, copilot |
-| /dr /if /kr /qw | droid, iflow, kiro, qwen |`
+	return strings.Join([]string{
+		"## 📖 WeClaw commands",
+		"",
+		"> 常用命令优先。会改变会话或配置的命令已经标注。",
+		"",
+		"```text",
+		"QUICK MAP",
+		"status   /status  /now  /cancel  /info",
+		"runtime  /model   /effort  /balance",
+		"session  /restart /new     /clear",
+		"route    @agent   /agent   /cwd",
+		"```",
+		"",
+		"### 🧩 Agent",
+		"- `/status`：运行诊断、上下文窗口和token用量。",
+		"- `/now`：查看当前任务进展。",
+		"- `/cancel`：取消当前运行任务。",
+		"- `/info`：查看当前agent信息。",
+		"- `/restart`：为当前profile创建新session。",
+		"- `/help`：显示本帮助。",
+		"",
+		"### ⚙️ DeepSeek runtime",
+		"- `/model deepseek-v4-pro|deepseek-v4-flash`：切换模型，保留当前session。",
+		"- `/effort high|max`：切换推理强度，保留当前session。",
+		"- `/balance`：查看DeepSeek账户余额。",
+		"",
+		"### 💬 Chat routing",
+		"- `@agent`或`/agent`：切换默认agent。",
+		"- `@agent msg`或`/agent msg`：发送给指定agent。",
+		"- `@a @b msg`：广播给多个agent。",
+		"- `/new`或`/clear`：开始新session。",
+		"- `/cwd /path`：切换工作目录。",
+		"",
+		"### 🔗 Aliases",
+		"- `/cc` `/cx` `/cs` `/km` `/gm`：claude、codex、cursor、kimi、gemini。",
+		"- `/oc` `/ocd` `/pi` `/cp`：openclaw、opencode、pi、copilot。",
+		"- `/dr` `/if` `/kr` `/qw`：droid、iflow、kiro、qwen。",
+		"",
+		"### 🛡️ Safety",
+		"- 未知slash command会被本地拦截，不会误发给agent。",
+	}, "\n")
 }
 
 func extractText(msg ilink.WeixinMessage) string {
@@ -2642,21 +2650,28 @@ func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWi
 func formatContextWindowLines(window, used int64) []string {
 	percent := formatTokenPercent(used, window)
 	bar := formatCommandProgressBar(used, window, 20)
-	return []string{
+
+	lines := []string{
 		"- limit: " + formatContextLimit(window),
 		"- used: " + formatContextUsageValue(used, window),
 		"- left: " + formatContextLeftValue(used, window),
 		"",
-		"```text",
-		"Context [" + bar + "] " + percent,
-		"```",
+	}
+	lines = append(lines, visualCommandFence(
+		"CONTEXT WINDOW",
+		"["+bar+"] "+percent,
+		"used  "+formatTokenCount(maxInt64(used, 0))+" / "+formatContextLimit(window),
+		"left  "+formatContextLeftValue(used, window),
+	)...)
+	lines = append(lines,
 		"",
 		"| Metric | Value |",
 		"| --- | ---: |",
-		"| Limit | " + markdownTableCell(formatContextLimit(window)) + " |",
-		"| Used | " + markdownTableCell(formatContextUsageValue(used, window)) + " |",
-		"| Left | " + markdownTableCell(formatContextLeftValue(used, window)) + " |",
-	}
+		"| Limit | "+markdownTableCell(formatContextLimit(window))+" |",
+		"| Used | "+markdownTableCell(formatContextUsageValue(used, window))+" |",
+		"| Left | "+markdownTableCell(formatContextLeftValue(used, window))+" |",
+	)
+	return lines
 }
 
 func formatContextUsageValue(used, window int64) string {
@@ -2711,6 +2726,13 @@ func zeroTokenUsageLines(source string) []string {
 		"- other: --",
 		"- source: " + source,
 	}
+}
+
+func maxInt64(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func formatTokenCount(n int64) string {

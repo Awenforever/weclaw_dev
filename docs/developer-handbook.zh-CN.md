@@ -129,3 +129,4 @@
 - 保持handoff简洁。
 - 详细历史继续进入`docs/development-log.md`。
 - 如果dsproxy后续开放token attribution接口，WeClaw应在`/status`中读取，并在接口不存在时优雅降级。
+- p0.1.5a43将Markdown语法作为视觉表达工具使用：引用块可作为提示条，代码围栏可作为状态面板，表格用于紧凑结构化数据，移动端帮助优先使用列表。

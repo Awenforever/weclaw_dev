@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - p0.1.5a43-slash-markdown-newlines-mobile-preview
+
+- Scope: WeChat slash command Markdown rendering and runtime validation.
+- Fix: replaced accidental literal `\n` joins with real newline joins so ClawBot can render headings, lists, fenced panels and tables.
+- Change: treats Markdown syntax as visual affordances rather than literal semantic names; blockquotes can be callouts, fenced text can be status panels, tables are kept for compact structured data, and mobile help uses sections and lists.
+- Runtime: local development binary should be rebuilt with p0.1.5a43 metadata and restarted without resume to avoid reusing stale invalid Codex threads.
+- Validation: focused tests, full tests and active WeChat ClawBot preview messages are required.
+
+
 ## 2026-05-14 - p0.1.5a42-slash-command-markdown-formatting
 
 - Scope: WeChat slash command output formatting.

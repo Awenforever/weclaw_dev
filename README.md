@@ -590,3 +590,4 @@ weclaw start deepseek-thinking
 [MIT](LICENSE)
 
 ---
+- Slash command output uses Markdown as a visual design system: quotes as callouts, code fences as status panels, tables for compact structured data, and lists for mobile readability.
