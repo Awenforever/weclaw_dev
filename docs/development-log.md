@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - v0.1p5a32-doc-current-state-sync
+
+- Synchronized `docs/developer-handbook.md` and `docs/developer-handbook.zh-CN.md` with the actual current `main` line after p5a31.
+- Preserved the public Release state: `v0.1.7-alpha` remains the Latest public Release and continues to point to the Release asset/code line at `31fa432`.
+- Preserved the old public Release state: `v0.1.6-alpha` remains at `bbb2f28`.
+- Clarified that p5a29, p5a30, p5a31, and p5a32 are documentation-only or handoff-synchronization commits and must not be confused with the Release asset commit.
+
+
 This file keeps detailed, chronological, and reviewable development history. Keep entries uniform. Keep the AI startup context in `docs/developer-handbook.md`.
 
 ## Entry format

@@ -9,10 +9,10 @@ This is the canonical English handoff for starting a new AI development conversa
 - Main branch: `main`
 - Current public Release: `v0.1.7-alpha`
 - Current public Release commit: `31fa432`
-- Current internal development tag: `v0.1p5a30-doc-entry-cleanup`
-- Current `main` and `origin/main`: `059c4a8`
+- Current internal development tag: `v0.1p5a32-doc-current-state-sync`
+- Current `main` and `origin/main`: same commit as `v0.1p5a32-doc-current-state-sync` after merge
 - Current Release asset/code line: `v0.1p5a28-stop-semantics` at `31fa432`
-- p5a29 is a documentation and Release-note synchronization commit; p5a30 removes obsolete documentation entry points. Neither should be confused with the Release asset commit.
+- p5a29 synchronized documentation and Release notes, p5a30 removed obsolete documentation entry points, p5a31 fixed final documentation entry references, and p5a32 synchronizes this handoff state with the actual current `main` line. None of these documentation-only commits should be confused with the Release asset commit.
 - Previous public Release `v0.1.6-alpha` remains at `bbb2f28` and must not be moved.
 - `v0.1.7-alpha` has been published as Latest and is no longer marked as pre-release.
 - Release assets expected for five platforms: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
@@ -117,6 +117,7 @@ Key user-visible changes:
 
 ## 9. Next likely work
 
+- After p5a32, treat this handoff as synchronized with `main`; if a later documentation-only commit advances `main`, update this section immediately.
 - Keep README structure user-oriented.
 - Keep this handoff concise.
 - Continue moving detailed history into `docs/development-log.md`.

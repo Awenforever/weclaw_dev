@@ -9,10 +9,10 @@
 - 主分支：`main`
 - 当前公开Release：`v0.1.7-alpha`
 - 当前公开Release commit：`31fa432`
-- 当前内部开发tag：`v0.1p5a30-doc-entry-cleanup`
-- 当前`main`和`origin/main`：`059c4a8`
+- 当前内部开发标签：`v0.1p5a32-doc-current-state-sync`
+- 当前`main`和`origin/main`：合并后与`v0.1p5a32-doc-current-state-sync`指向同一提交
 - 当前Release资产/代码线：`v0.1p5a28-stop-semantics`，commit为`31fa432`
-- p5a29是文档和Release note同步提交，p5a30删除废弃文档入口，二者都不应与Release资产commit混淆。
+- p5a29同步文档和Release note，p5a30删除过时文档入口，p5a31修复最终文档入口引用，p5a32用于把本手册状态同步到实际当前main线。这些文档类提交都不应与Release资产提交混淆。
 - 旧公开Release `v0.1.6-alpha`保持在`bbb2f28`，不得移动。
 - `v0.1.7-alpha`已经发布为Latest，不再是pre-release。
 - Release资产应覆盖五个平台：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64、Windows amd64。
@@ -114,6 +114,8 @@
 - Release note清理通常不需要重建资产。
 - ACP raw stdout诊断有价值，但默认应关闭。
 - stop命令必须显式：说明停止了什么，清理stale pid状态，并确认后续`start`不会立刻看到同一个managed进程。
+
+- p5a32同步后，可将本手册视为与`main`同步。如果后续文档类提交继续推进`main`，应立即同步本节状态。
 
 ## 9. 后续方向
 
