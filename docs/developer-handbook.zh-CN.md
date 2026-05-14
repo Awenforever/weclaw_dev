@@ -9,10 +9,10 @@
 - 主分支：`main`
 - 当前公开Release：`v0.1.7-alpha`
 - 当前公开Release commit：`31fa432`
-- 当前内部开发标签：`v0.1p5a32-doc-current-state-sync`
-- 当前`main`和`origin/main`：合并后与`v0.1p5a32-doc-current-state-sync`指向同一提交
+- 当前内部开发标签：`p0.1.5a33-internal-version-format-policy`
+- 当前`main`和`origin/main`：合并后与`p0.1.5a33-internal-version-format-policy`指向同一提交
 - 当前Release资产/代码线：`v0.1p5a28-stop-semantics`，commit为`31fa432`
-- p5a29同步文档和Release note，p5a30删除过时文档入口，p5a31修复最终文档入口引用，p5a32用于把本手册状态同步到实际当前main线。这些文档类提交都不应与Release资产提交混淆。
+- p5a29同步文档和Release note，p5a30删除过时文档入口，p5a31修复最终文档入口引用，p5a32同步手册到当前main线，p0.1.5a33确立规范化内部版本/tag格式。这些文档类提交都不应与Release资产提交混淆。
 - 旧公开Release `v0.1.6-alpha`保持在`bbb2f28`，不得移动。
 - `v0.1.7-alpha`已经发布为Latest，不再是pre-release。
 - Release资产应覆盖五个平台：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64、Windows amd64。
@@ -58,13 +58,16 @@
 ## 4. 版本、tag和Release规则
 
 - 公开Release tag使用`v0.1.x-alpha`。
-- WeClaw内部开发tag当前使用`v0.1p...`。
-- 不得静默移动公开Release tag。
-- 更新已有公开Release tag必须明确说明删除并重建哪个Release和tag。
-- 除非用户明确要求，旧公开Release tag保持稳定。
-- 内部tag可以累计，但不能作为用户公开安装目标。
-- Release前开发机必须同步到当前`main` commit。
-- Release资产必须检查所有目标平台。
+- 内部开发和handoff tag必须使用`p<major>.<minor>.<patch>[aN[aM...]][-topic]`。
+- 内部tag必须以`p`开头，不得以`v`开头，并且可选`aN`修复/子版本后缀之前必须包含三段数字版本号。
+- 合规示例包括`p0.1.5-topic`、`p0.1.5a1-topic`、`p0.1.5a1a3-topic`和`p0.1.5a33-internal-version-format-policy`。
+- 旧的`v0.1p...`内部tag格式已经废弃。历史tag可暂时保留以便追溯，只有在显式规划并验证tag迁移后才处理。
+- 不要静默移动公开Release tag。
+- 更新已有公开Release tag必须明确决定删除并重建该Release和tag。
+- 除非用户明确要求，否则旧公开Release tag必须保持稳定。
+- 内部tag可以累计，但不能作为公开用户安装目标。
+- 发布Release前，开发机必须与当前`main`提交同步。
+- Release资产必须覆盖全部预期平台。
 
 ## 5. Release note规则
 
@@ -115,7 +118,7 @@
 - ACP raw stdout诊断有价值，但默认应关闭。
 - stop命令必须显式：说明停止了什么，清理stale pid状态，并确认后续`start`不会立刻看到同一个managed进程。
 
-- p5a32同步后，可将本手册视为与`main`同步。如果后续文档类提交继续推进`main`，应立即同步本节状态。
+- p0.1.5a33之后，新的内部开发tag只能使用规范化`p*.*.*`格式。
 
 ## 9. 后续方向
 

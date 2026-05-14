@@ -10,7 +10,7 @@ on:
         description: Public Release commit SHA
         required: true
       internal_tag:
-        description: Internal development tag, for example v0.1p5a20-release-v0.1.7-alpha
+        description: Internal development tag, for example p0.1.5a33-internal-version-format-policy
         required: true
       internal_commit:
         description: Internal development commit SHA

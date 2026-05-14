@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - p0.1.5a33-internal-version-format-policy
+
+- Established the normalized internal development tag format: `p<major>.<minor>.<patch>[aN[aM...]][-topic]`.
+- Confirmed that internal tags must start with `p`, must not start with `v`, and must keep three numeric components before optional repair/subversion suffixes.
+- Recorded the read-only audit result: local and remote internal-like tags are synchronized, with 42 legacy `v0.1p...` tags, 3 suspect `v0.1d/e/f...` legacy tags, and 13 remote `alpha-work-v0.1p...` pre-release tags that do not match the new internal tag format.
+- Preserved all historical tags and GitHub Releases in this change. No old tag was deleted or moved.
+- Updated `.github/workflows/release.yml` so the internal tag input example uses the normalized `p0.1.5a33-...` style.
+
+
 ## 2026-05-14 - v0.1p5a32-doc-current-state-sync
 
 - Synchronized `docs/developer-handbook.md` and `docs/developer-handbook.zh-CN.md` with the actual current `main` line after p5a31.

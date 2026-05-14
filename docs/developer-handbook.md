@@ -9,10 +9,10 @@ This is the canonical English handoff for starting a new AI development conversa
 - Main branch: `main`
 - Current public Release: `v0.1.7-alpha`
 - Current public Release commit: `31fa432`
-- Current internal development tag: `v0.1p5a32-doc-current-state-sync`
-- Current `main` and `origin/main`: same commit as `v0.1p5a32-doc-current-state-sync` after merge
+- Current internal development tag: `p0.1.5a33-internal-version-format-policy`
+- Current `main` and `origin/main`: same commit as `p0.1.5a33-internal-version-format-policy` after merge
 - Current Release asset/code line: `v0.1p5a28-stop-semantics` at `31fa432`
-- p5a29 synchronized documentation and Release notes, p5a30 removed obsolete documentation entry points, p5a31 fixed final documentation entry references, and p5a32 synchronizes this handoff state with the actual current `main` line. None of these documentation-only commits should be confused with the Release asset commit.
+- p5a29 synchronized documentation and Release notes, p5a30 removed obsolete documentation entry points, p5a31 fixed final documentation entry references, p5a32 synchronized the handoff with the current `main` line, and p0.1.5a33 establishes the normalized internal version/tag format. None of these documentation-only commits should be confused with the Release asset commit.
 - Previous public Release `v0.1.6-alpha` remains at `bbb2f28` and must not be moved.
 - `v0.1.7-alpha` has been published as Latest and is no longer marked as pre-release.
 - Release assets expected for five platforms: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
@@ -58,7 +58,10 @@ This is the canonical English handoff for starting a new AI development conversa
 ## 4. Version, tag, and Release rules
 
 - Public Release tags use `v0.1.x-alpha`.
-- WeClaw internal development tags currently use `v0.1p...`.
+- Internal development and handoff tags must use `p<major>.<minor>.<patch>[aN[aM...]][-topic]`.
+- Internal tags must start with `p`, must not start with `v`, and must contain three numeric components before any optional `aN` repair/subversion suffix.
+- Valid examples include `p0.1.5-topic`, `p0.1.5a1-topic`, `p0.1.5a1a3-topic`, and `p0.1.5a33-internal-version-format-policy`.
+- The old `v0.1p...` internal tag style is deprecated. Historical tags may remain for traceability until an explicit tag migration is planned and verified.
 - Do not silently move public Release tags.
 - Updating an existing public Release tag requires an explicit decision to delete and rebuild that Release and tag.
 - Old public Release tags must remain stable unless the user explicitly asks otherwise.
@@ -117,7 +120,7 @@ Key user-visible changes:
 
 ## 9. Next likely work
 
-- After p5a32, treat this handoff as synchronized with `main`; if a later documentation-only commit advances `main`, update this section immediately.
+- After p0.1.5a33, create new internal development tags only with the normalized `p*.*.*` format.
 - Keep README structure user-oriented.
 - Keep this handoff concise.
 - Continue moving detailed history into `docs/development-log.md`.
