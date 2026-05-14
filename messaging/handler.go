@@ -122,6 +122,13 @@ type runningTurnState struct {
 	sessionID       string
 }
 
+type defaultSessionStatus struct {
+	profile   string
+	ag        agent.Agent
+	sessionID string
+	source    string
+}
+
 func (s *runningTurnState) update(status, progress string) {
 	if s == nil {
 		return
@@ -321,15 +328,13 @@ func (h *Handler) buildNowStatus(ctx context.Context, userID string) string {
 		)
 	}
 
-	name, ag := h.getDefaultAgentWithName()
-	h.applyPendingResume(ctx, name, ag, userID)
-	sessionID := ensureAgentSession(ctx, ag, userID)
-	h.recordRuntimeSession(name, userID, sessionID)
+	resolved := h.resolveDefaultSessionForRuntimeControl(ctx, userID)
 	return commandCard(
 		"✅ Idle",
 		"• running: no",
-		"• profile: "+valueOrUnknown(name),
-		"• session: "+valueOrUnknown(sessionID),
+		"• profile: "+valueOrUnknown(resolved.profile),
+		"• session: "+valueOrUnknown(resolved.sessionID),
+		"• source: "+resolved.source,
 	)
 }
 
@@ -549,6 +554,44 @@ func currentAgentSessionID(ag agent.Agent, userID string) string {
 		return ""
 	}
 	return inspector.CurrentSessionID(userID)
+}
+
+func (h *Handler) resolveDefaultSessionForRuntimeControl(ctx context.Context, userID string) defaultSessionStatus {
+	h.mu.RLock()
+	name := h.defaultName
+	ag := h.agents[name]
+	h.mu.RUnlock()
+
+	if name != "" && ag == nil && h.factory != nil {
+		if started, err := h.getAgent(ctx, name); err == nil {
+			ag = started
+		} else {
+			log.Printf("[handler] default agent %q not ready for runtime control: %v", name, err)
+		}
+	}
+
+	if ag != nil {
+		h.applyPendingResume(ctx, name, ag, userID)
+		sessionID := ensureAgentSession(ctx, ag, userID)
+		if sessionID != "" {
+			h.recordRuntimeSession(name, userID, sessionID)
+			return defaultSessionStatus{profile: name, ag: ag, sessionID: sessionID, source: "agent"}
+		}
+		return defaultSessionStatus{profile: name, ag: ag, source: "agent_without_session"}
+	}
+
+	if !strings.HasSuffix(os.Args[0], ".test") {
+		if name != "" {
+			if hint, ok := runtime_state.MostRecentSessionForProfile(name); ok {
+				return defaultSessionStatus{profile: hint.Profile, sessionID: hint.SessionID, source: "runtime_state"}
+			}
+		}
+		if profile, sessionID, ok := runtime_state.MostRecentSessionForDefaultProfile(); ok {
+			return defaultSessionStatus{profile: profile, sessionID: sessionID, source: "runtime_state"}
+		}
+	}
+
+	return defaultSessionStatus{profile: name, ag: ag, source: "unavailable"}
 }
 
 func ensureAgentSession(ctx context.Context, ag agent.Agent, userID string) string {
@@ -1048,10 +1091,10 @@ func unknownSlashCommandCard(command string) string {
 }
 
 func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) string {
-	h.mu.RLock()
-	defaultName := h.defaultName
-	ag := h.agents[defaultName]
-	h.mu.RUnlock()
+	resolved := h.resolveDefaultSessionForRuntimeControl(ctx, userID)
+	defaultName := resolved.profile
+	ag := resolved.ag
+	sessionID := resolved.sessionID
 
 	agentType := "none"
 	agentModel := "none"
@@ -1090,11 +1133,8 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 		proxyEffort = "unknown"
 	}
 
-	h.applyPendingResume(ctx, defaultName, ag, userID)
-	sessionID := ensureAgentSession(ctx, ag, userID)
-	h.recordRuntimeSession(defaultName, userID, sessionID)
-	contextWindow := fallbackContextWindow(defaultName, agentModel, proxyModel)
-	contextLines := buildContextUsageLines(ag, userID, sessionID, contextWindow)
+	contextWindow, contextSource := fallbackContextWindow(defaultName, agentModel, proxyModel, dsproxyConfig)
+	contextLines := buildContextUsageLines(ag, userID, sessionID, contextWindow, contextSource)
 
 	lines := []string{
 		"• profile: " + valueOrUnknown(defaultName),
@@ -2363,7 +2403,7 @@ func detectImageExt(data []byte) string {
 	return ".jpg" // default to jpg for WeChat images
 }
 
-func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWindow int64) []string {
+func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWindow int64, windowSource string) []string {
 	lines := []string{
 		"📊 Context window",
 		"• session: " + valueOrUnknown(sessionID),
@@ -2383,12 +2423,22 @@ func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWi
 	window := fallbackWindow
 	if window <= 0 && hasSnapshot && snapshot.ModelContextWindow > 0 {
 		window = snapshot.ModelContextWindow
+		windowSource = "codex_token_usage_event"
 	}
-	lines = append(lines, formatContextWindowLines(window)...)
+	if windowSource == "" {
+		windowSource = "unconfigured"
+	}
+
+	used := int64(0)
+	if hasSnapshot && snapshot.Total.TotalTokens > 0 {
+		used = snapshot.Total.TotalTokens
+	}
+	lines = append(lines, formatContextWindowLines(window, used)...)
+	lines = append(lines, "• source: "+windowSource)
 	lines = append(lines, "", "📈 Token usage")
 
 	if !hasSnapshot {
-		return append(lines, unknownTokenUsageLines()...)
+		return append(lines, zeroTokenUsageLines("waiting_for_codex_usage_event")...)
 	}
 
 	total := snapshot.Total
@@ -2400,6 +2450,7 @@ func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWi
 		"• reasoning output: "+formatTokenCount(total.ReasoningOutputTokens),
 		"• tools: --",
 		"• other: --",
+		"• source: codex_token_usage_event",
 	)
 	if snapshot.Last.TotalTokens > 0 {
 		lines = append(lines, fmt.Sprintf("• last turn: %s total, %s input, %s output",
@@ -2409,17 +2460,38 @@ func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWi
 		))
 	}
 	if snapshot.TurnID != "" {
-		lines = append(lines, "• turn: "+snapshot.TurnID)
+		lines = append(lines, "• last turn id: "+snapshot.TurnID)
 	}
 	return lines
 }
 
-func formatContextWindowLines(window int64) []string {
+func formatContextWindowLines(window, used int64) []string {
 	return []string{
 		"• limit: " + formatContextLimit(window),
-		"• used: unknown",
-		"• left: unknown",
+		"• used: " + formatContextUsageValue(used, window),
+		"• left: " + formatContextLeftValue(used, window),
 	}
+}
+
+func formatContextUsageValue(used, window int64) string {
+	if used < 0 {
+		used = 0
+	}
+	return fmt.Sprintf("%s (%s)", formatTokenCount(used), formatTokenPercent(used, window))
+}
+
+func formatContextLeftValue(used, window int64) string {
+	if window <= 0 {
+		return "-- (0.0%)"
+	}
+	if used < 0 {
+		used = 0
+	}
+	left := window - used
+	if left < 0 {
+		left = 0
+	}
+	return fmt.Sprintf("%s (%s)", formatTokenCount(left), formatTokenPercent(left, window))
 }
 
 func formatContextLimit(window int64) string {
@@ -2429,15 +2501,19 @@ func formatContextLimit(window int64) string {
 	return formatTokenCount(window)
 }
 
-func unknownTokenUsageLines() []string {
+func zeroTokenUsageLines(source string) []string {
+	if source == "" {
+		source = "unavailable"
+	}
 	return []string{
-		"• total: --",
-		"• input: --",
-		"• cached input: --",
-		"• output: --",
-		"• reasoning output: --",
+		"• total: 0",
+		"• input: 0",
+		"• cached input: 0",
+		"• output: 0",
+		"• reasoning output: 0",
 		"• tools: --",
 		"• other: --",
+		"• source: " + source,
 	}
 }
 
@@ -2456,7 +2532,13 @@ func formatTokenCount(n int64) string {
 
 func formatTokenPercent(used, window int64) string {
 	if window <= 0 {
-		return "unknown"
+		return "0.0%"
+	}
+	if used < 0 {
+		used = 0
+	}
+	if used > window {
+		used = window
 	}
 	return fmt.Sprintf("%.1f%%", float64(used)*100/float64(window))
 }
@@ -2468,11 +2550,16 @@ func dsproxyStatusArgsForProfile(profile string) []string {
 	return []string{"status"}
 }
 
-func fallbackContextWindow(profile, agentModel, proxyModel string) int64 {
+func fallbackContextWindow(profile, agentModel, proxyModel, dsproxyConfig string) (int64, string) {
+	_ = agentModel
+	_ = proxyModel
 	if window := codexProfileContextWindow(profile); window > 0 {
-		return window
+		return window, "codex_profile_config"
 	}
-	return 0
+	if window := dsproxyConfigContextWindow(dsproxyConfig); window > 0 {
+		return window, "dsproxy_config"
+	}
+	return 0, "unconfigured"
 }
 
 func formatContextWindowLine(window int64) string {
@@ -2480,15 +2567,16 @@ func formatContextWindowLine(window int64) string {
 }
 
 func unknownContextUsageLines(window int64) []string {
-	lines := formatContextWindowLines(window)
+	lines := formatContextWindowLines(window, 0)
 	lines = append(lines, "", "📈 Token usage")
-	return append(lines, unknownTokenUsageLines()...)
+	return append(lines, zeroTokenUsageLines("waiting_for_codex_usage_event")...)
 }
 
 func formatContextUsageLine(used, window int64, hasUsage bool) string {
-	_ = used
-	_ = hasUsage
-	return formatContextWindowLine(window)
+	if !hasUsage {
+		used = 0
+	}
+	return "• used: " + formatContextUsageValue(used, window)
 }
 
 func trimFixedDecimal(value float64) string {
@@ -2510,6 +2598,32 @@ func codexProfileContextWindow(profile string) int64 {
 		return 0
 	}
 	return parseCodexProfileInt(string(data), profile, "model_context_window")
+}
+
+func dsproxyConfigContextWindow(configText string) int64 {
+	return extractCommandIntValue(configText,
+		"DEEPSEEK_PROXY_MODEL_CONTEXT_WINDOW",
+		"DEEPSEEK_PROXY_CONTEXT_WINDOW",
+		"MODEL_CONTEXT_WINDOW",
+		"CONTEXT_WINDOW",
+		"model_context_window",
+	)
+}
+
+func extractCommandIntValue(text string, keys ...string) int64 {
+	for _, key := range keys {
+		value := extractCommandValue(text, key)
+		if value == "" {
+			continue
+		}
+		value = strings.TrimSpace(strings.Trim(value, `"'`))
+		value = strings.NewReplacer("_", "", ",", "").Replace(value)
+		parsed, err := strconv.ParseInt(value, 10, 64)
+		if err == nil && parsed > 0 {
+			return parsed
+		}
+	}
+	return 0
 }
 
 func parseCodexProfileInt(configText, profile, key string) int64 {

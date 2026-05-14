@@ -74,3 +74,16 @@ p5a21 correction:
 - `weclaw start ... resume ...` while WeClaw is already running must report that resume was not applied.
 
 The public `v0.1.7-alpha` pre-release may be deleted and rebuilt at the p5a21 commit for validation. Keep it marked as pre-release until VM validation passes. After validation passes, mark the same Release as Latest instead of publishing another tag.
+
+
+## p5a22 status and context usage consistency
+
+p5a22 changes:
+- `/now` and `/status` share a default profile/session resolver.
+- `/now` can fall back to runtime-state session hints when the default agent is not ready.
+- `/status` reports context window usage numerically instead of `unknown`.
+- Configured context window is read from Codex profile `model_context_window` first.
+- If no usage event exists, `/status` reports zero token usage and marks source as `waiting_for_codex_usage_event`.
+- Token usage turn ID is labeled as `last turn id`, because turn ID is per-message and not the session/thread ID.
+
+After p5a22, rebuild `v0.1.7-alpha` as pre-release again, then VM-test `/status`, `/now`, one natural-language turn, and `/now` again before marking Latest.

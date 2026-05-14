@@ -612,8 +612,9 @@ func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
 		"📊 Context window",
 		"session: thread-usage-1",
 		"limit: 1M",
-		"used: unknown",
-		"left: unknown",
+		"used: 43.6k (4.4%)",
+		"left: 956.4k (95.6%)",
+		"source: codex_profile_config",
 		"📈 Token usage",
 		"total: 43.6k",
 		"input: 43.2k",
@@ -622,7 +623,9 @@ func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
 		"reasoning output: 17",
 		"tools: --",
 		"other: --",
+		"source: codex_token_usage_event",
 		"last turn: 22.3k total, 22.1k input, 270 output",
+		"last turn id: turn-usage-1",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
@@ -655,13 +658,15 @@ func TestRuntimeControlStatusShowsFallbackContextWindowWhileUsageIsWaiting(t *te
 		"📊 Context window",
 		"session: thread-waiting-1",
 		"limit: 1M",
-		"used: unknown",
-		"left: unknown",
+		"used: 0 (0.0%)",
+		"left: 1M (100.0%)",
+		"source: codex_profile_config",
 		"📈 Token usage",
-		"total: --",
-		"input: --",
-		"output: --",
+		"total: 0",
+		"input: 0",
+		"output: 0",
 		"tools: --",
+		"source: waiting_for_codex_usage_event",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
@@ -681,11 +686,11 @@ func TestDsproxyStatusArgsForThinkingProfile(t *testing.T) {
 }
 
 func TestFormatContextWindowLines(t *testing.T) {
-	got := strings.Join(formatContextWindowLines(258400), "\n")
+	got := strings.Join(formatContextWindowLines(258400, 12920), "\n")
 	for _, want := range []string{
 		"limit: 258.4k",
-		"used: unknown",
-		"left: unknown",
+		"used: 12.9k (5.0%)",
+		"left: 245.5k (95.0%)",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("formatContextWindowLines = %q, want %q", got, want)
@@ -705,5 +710,57 @@ model_context_window = 750000
 	}
 	if got := parseCodexProfileInt(configText, "deepseek-thinking", "model_context_window"); got != 750000 {
 		t.Fatalf("deepseek-thinking model_context_window = %d, want 750000", got)
+	}
+}
+
+func TestDsproxyConfigContextWindow(t *testing.T) {
+	text := `{
+  "DEEPSEEK_PROXY_MODEL": "deepseek-v4-pro",
+  "DEEPSEEK_PROXY_MODEL_CONTEXT_WINDOW": 950000
+}`
+	if got := dsproxyConfigContextWindow(text); got != 950000 {
+		t.Fatalf("dsproxyConfigContextWindow = %d, want 950000", got)
+	}
+}
+
+func TestRuntimeControlStatusFallsBackToSnapshotWindowWhenConfigMissing(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	ag := &runtimeControlTestAgent{
+		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-pro"},
+		currentSessionID: "thread-snapshot-window",
+		tokenUsageOK:     true,
+		tokenUsage: agent.TokenUsageSnapshot{
+			ThreadID:           "thread-snapshot-window",
+			TurnID:             "turn-snapshot-window",
+			ModelContextWindow: 258400,
+			Total: agent.TokenUsageBreakdown{
+				TotalTokens:  12920,
+				InputTokens:  12000,
+				OutputTokens: 920,
+			},
+		},
+	}
+	h := NewHandler(nil, nil)
+	h.SetDefaultAgent("deepseek-thinking", ag)
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/status", "user-1")
+	if !ok {
+		t.Fatal("/status should be intercepted")
+	}
+	for _, want := range []string{
+		"limit: 258.4k",
+		"used: 12.9k (5.0%)",
+		"left: 245.5k (95.0%)",
+		"source: codex_token_usage_event",
+		"last turn id: turn-snapshot-window",
+	} {
+		if !strings.Contains(reply, want) {
+			t.Fatalf("status reply = %q, want %q", reply, want)
+		}
+	}
+	if strings.Contains(reply, "used: unknown") || strings.Contains(reply, "left: unknown") {
+		t.Fatalf("status reply = %q, should not contain unknown context usage", reply)
 	}
 }

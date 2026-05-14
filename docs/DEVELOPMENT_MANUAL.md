@@ -534,3 +534,14 @@ Required behavior:
 Release policy for this fix:
 - Rebuild `v0.1.7-alpha` as a pre-release for VM validation.
 - Do not mark it Latest until VM validation passes.
+
+
+### p5a22 status and context usage consistency
+
+p5a22 fixes runtime status display consistency:
+- `/now` and `/status` must resolve the default profile and session through the same helper.
+- `/now` should not show `unknown` when a recent runtime-state session is available.
+- Context-window display must read actual configured values, especially Codex profile `model_context_window`, before falling back to Codex token usage events.
+- Context-window `used` and `left` must be numeric with percentages; do not display raw `unknown`.
+- If Codex token usage has not arrived yet, show zero usage with source `waiting_for_codex_usage_event` rather than unknown.
+- `turn` is not a session ID. The status UI should label token usage turn IDs as `last turn id`.
