@@ -78,6 +78,7 @@ weclaw start -f
 | v0.1.7-alpha | 受管启动 | 已有受管WeClaw进程运行时，再次start容易造成理解混乱。 | `weclaw start ...`保持幂等，报告已有受管进程，不直接替换。 |
 | v0.1.7-alpha | alpha升级 | 同一公开tag被重建到新commit时，仅比较公开版本号可能漏升。 | `weclaw upgrade --alpha`会比较构建元数据，并在可恢复场景下迁移运行中的受管进程。 |
 | 未发布main | stop命令 | `weclaw stop`只打印笼统的stopped信息，用户难以确认stale运行态或额外受管进程是否已清理。 | `weclaw stop`会报告是否停止了PID或没有发现进程，清理stale pid状态，并确认没有managed WeClaw进程残留。 |
+| 未发布main | 微信端slash commands | 命令回复混合语言，部分输出重复字段或表格过长。 | slash command回复统一为英文，采用紧凑Markdown面板，重点优化`/status`、`/now`、`/balance`、运行时切换、restart、cancel和未知命令提示。 |
 
 <!-- WECLAW_DOCS_RESTRUCTURE:END:user_changes -->
 
@@ -305,7 +306,6 @@ weclaw upgrade --alpha
 | `/help` | 查看精简命令帮助 |
 | `/profile` | 在支持时查看或复用profile/session上下文 |
 | `/balance` | 在后端支持时查看余额 |
-| `/info` | 查看当前Agent信息 |
 
 默认别名：
 

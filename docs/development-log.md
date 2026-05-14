@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - p0.1.5a45-english-compact-slash-renderer
+
+- Scope: WeChat slash command output design.
+- Change: made slash command replies English and compact across `/help`, `/status`, `/now`, `/balance`, `/model`, `/effort`, `/profile`, `/cancel`, `/restart`, `/info`, and unknown slash commands.
+- Status: `/status` now uses a compact mobile panel for context, token usage, cost placeholder, proxy and paths; session cost remains `n/a` because no reliable session-cost data source is available yet.
+- Balance: `/balance` uses a single table and hides empty Granted/Topped-up columns instead of duplicating account rows as bullet lines.
+- Compatibility: `/info` remains available as a hidden compatibility reply but points users to `/status`.
+- Validation: focused messaging tests, broader package tests and full `go test ./...` are expected before merge.
+
 ## 2026-05-14 - p0.1.5a43-slash-markdown-newlines-mobile-preview
 
 - Scope: WeChat slash command Markdown rendering and runtime validation.

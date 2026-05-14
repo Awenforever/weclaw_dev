@@ -282,20 +282,38 @@ func (h *Handler) cancelRunningTurn(userID string) string {
 	}
 	value, ok := h.runningTurns.Load(userID)
 	if !ok {
-		return commandCard("ℹ️ No running task", "- action: nothing to cancel")
+		return commandCard(
+			"ℹ️ No running task",
+			"> There is no active turn to cancel.",
+			"",
+			"```text",
+			"Action   none",
+			"```",
+		)
 	}
 	state, ok := value.(*runningTurnState)
 	if !ok {
 		h.runningTurns.Delete(userID)
-		return commandCard("ℹ️ No running task", "- action: nothing to cancel")
+		return commandCard(
+			"ℹ️ No running task",
+			"> There is no active turn to cancel.",
+			"",
+			"```text",
+			"Action   cleared stale task state",
+			"```",
+		)
 	}
 	snap := state.snapshot()
 	state.requestCancel()
 	return commandCard(
 		"🛑 Cancel requested",
-		"• profile: "+snap.agentName,
-		"• running: "+formatTurnDuration(time.Since(snap.startedAt)),
-		"- session: preserved",
+		slashBoldField("Profile", slashInlineCode(snap.agentName)),
+		slashBoldField("Session", "preserved"),
+		"",
+		"```text",
+		"State    cancelling",
+		"Running  "+formatTurnDuration(time.Since(snap.startedAt)),
+		"```",
 	)
 }
 
@@ -319,22 +337,29 @@ func (h *Handler) buildNowStatus(ctx context.Context, userID string) string {
 		}
 		return commandCard(
 			"⏳ Current task",
-			"• profile: "+snap.agentName,
-			"• session: "+sessionID,
-			"• status: "+status,
-			"• running: "+formatTurnDuration(time.Since(snap.startedAt)),
-			"• last update: "+updated,
-			"• now: "+progress,
+			slashBoldField("Profile", slashInlineCode(snap.agentName)),
+			slashBoldField("Session", slashInlineCode(sessionID)),
+			"",
+			"```text",
+			"State    "+status,
+			"Running  "+formatTurnDuration(time.Since(snap.startedAt)),
+			"Updated  "+updated,
+			"Now      "+compactCommandOutput(progress, 120),
+			"```",
 		)
 	}
 
 	resolved := h.resolveDefaultSessionForRuntimeControl(ctx, userID)
 	return commandCard(
 		"✅ Idle",
-		"• running: no",
-		"• profile: "+valueOrUnknown(resolved.profile),
-		"• session: "+valueOrUnknown(resolved.sessionID),
-		"• source: "+resolved.source,
+		slashBoldField("Profile", slashInlineCode(valueOrUnknown(resolved.profile))),
+		slashBoldField("Session", slashInlineCode(valueOrUnknown(resolved.sessionID))),
+		"",
+		"```text",
+		"State    idle",
+		"Running  no",
+		"Source   "+valueOrUnknown(resolved.source),
+		"```",
 	)
 }
 
@@ -929,13 +954,27 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 	switch fields[0] {
 	case "/status":
 		if len(fields) != 1 {
-			return commandCard("ℹ️ Usage", "- command: /status"), true
+			return commandCard(
+				"ℹ️ Usage",
+				"> Show the compact runtime dashboard.",
+				"",
+				"```text",
+				"/status",
+				"```",
+			), true
 		}
 		return h.buildStatusDiagnostics(ctx, userID), true
 
 	case "/balance":
 		if len(fields) != 1 {
-			return commandCard("ℹ️ Usage", "• /balance"), true
+			return commandCard(
+				"ℹ️ Usage",
+				"> Show backend account balance when dsproxy supports it.",
+				"",
+				"```text",
+				"/balance",
+				"```",
+			), true
 		}
 
 		balanceReply := runDsproxyCommand(ctx, "balance")
@@ -943,105 +982,184 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 
 	case "/now":
 		if len(fields) != 1 {
-			return commandCard("ℹ️ Usage", "- command: /now"), true
+			return commandCard(
+				"ℹ️ Usage",
+				"> Show the current running turn, or idle session context.",
+				"",
+				"```text",
+				"/now",
+				"```",
+			), true
 		}
 		return h.buildNowStatus(ctx, userID), true
 
 	case "/cancel":
 		if len(fields) != 1 {
-			return commandCard("ℹ️ Usage", "- command: /cancel"), true
+			return commandCard(
+				"ℹ️ Usage",
+				"> Request cancellation for the current running turn.",
+				"",
+				"```text",
+				"/cancel",
+				"```",
+			), true
 		}
 		return h.cancelRunningTurn(userID), true
 
 	case "/model":
 		if len(fields) != 2 {
-			return commandCard("ℹ️ Usage", "• /model deepseek-v4-pro|deepseek-v4-flash"), true
+			return commandCard(
+				"ℹ️ Usage",
+				"> Switch the DeepSeek runtime model and keep the current session.",
+				"",
+				"```text",
+				"/model deepseek-v4-pro",
+				"/model deepseek-v4-flash",
+				"```",
+			), true
 		}
 
 		requestedModel := fields[1]
 		switch requestedModel {
 		case "deepseek-v4-pro", "deepseek-v4-flash":
 		default:
-			return commandCard("⚠️ Unsupported model", "• allowed: deepseek-v4-pro, deepseek-v4-flash"), true
+			return commandCard(
+				"⚠️ Unsupported model",
+				"> Not applied.",
+				"",
+				"```text",
+				"Allowed  deepseek-v4-pro | deepseek-v4-flash",
+				"```",
+			), true
 		}
 
 		h.mu.RLock()
 		defaultName := h.defaultName
 		h.mu.RUnlock()
 		if !isDeepSeekRuntimeAgent(defaultName) {
-			return commandCard("⛔ DeepSeek only", "• /model is only supported for deepseek and deepseek-thinking"), true
+			return commandCard(
+				"⛔ DeepSeek only",
+				"> `/model` is only supported for `deepseek` and `deepseek-thinking`.",
+			), true
 		}
 
 		dsproxyReply := runDsproxyCommand(ctx, "config", "set-model", requestedModel)
-		persistLine := "• weclaw config: updated"
+		weclawStatus := "updated"
 		if err := persistDeepSeekRuntimeModel(defaultName, requestedModel); err != nil {
-			persistLine = fmt.Sprintf("• weclaw config: Warning: failed to persist WeClaw model for %s: %v", defaultName, err)
+			weclawStatus = "warning: " + err.Error()
 		}
 
-		runtimeLine := "• runtime: Current agent model updated for subsequent turns."
+		runtimeStatus := "updated for subsequent turns"
 		if !h.setRunningAgentModel(defaultName, requestedModel) {
-			runtimeLine = "• runtime: Current running agent was not updated. Use /restart if the next turn still uses the old model."
+			runtimeStatus = "not updated; use /restart only if the next turn still uses the old model"
 		}
 
 		return commandCard(
 			"✅ Model updated",
-			"• profile: "+defaultName,
-			"• model: "+requestedModel,
-			"• dsproxy: "+commandStatusFromOutput(dsproxyReply),
-			persistLine,
-			runtimeLine,
-			"• session: Current session was preserved. Use /restart only when you want a new session.",
+			slashBoldField("Profile", slashInlineCode(defaultName)),
+			slashBoldField("Model", slashInlineCode(requestedModel)),
+			slashBoldField("Session", "preserved"),
+			"",
+			"```text",
+			"dsproxy  "+commandStatusFromOutput(dsproxyReply),
+			"weclaw   "+weclawStatus,
+			"runtime  "+runtimeStatus,
+			"```",
 		), true
 
 	case "/effort":
 		if len(fields) != 2 {
-			return commandCard("ℹ️ Usage", "• /effort high|max"), true
+			return commandCard(
+				"ℹ️ Usage",
+				"> Switch reasoning effort and keep the current session.",
+				"",
+				"```text",
+				"/effort high",
+				"/effort max",
+				"```",
+			), true
 		}
 
 		requestedEffort := fields[1]
 		dsproxyEffort := ""
-		effortLine := ""
+		displayEffort := ""
 		switch requestedEffort {
 		case "high":
 			dsproxyEffort = "high"
-			effortLine = "• effort: high"
+			displayEffort = "high"
 		case "max":
 			dsproxyEffort = "xhigh"
-			effortLine = "• effort: max (Codex: xhigh, DeepSeek: max)"
+			displayEffort = "max"
 		default:
-			return commandCard("⚠️ Unsupported effort", "• allowed: high, max"), true
+			return commandCard(
+				"⚠️ Unsupported effort",
+				"> Not applied.",
+				"",
+				"```text",
+				"Allowed  high | max",
+				"```",
+			), true
 		}
 
 		h.mu.RLock()
 		defaultName := h.defaultName
 		h.mu.RUnlock()
 		if !isDeepSeekRuntimeAgent(defaultName) {
-			return commandCard("⛔ DeepSeek only", "• /effort is only supported for deepseek and deepseek-thinking"), true
+			return commandCard(
+				"⛔ DeepSeek only",
+				"> `/effort` is only supported for `deepseek` and `deepseek-thinking`.",
+			), true
 		}
 
 		dsproxyReply := runDsproxyCommand(ctx, "config", "set-effort", dsproxyEffort)
 		return commandCard(
 			"✅ Effort updated",
-			"• profile: "+defaultName,
-			effortLine,
-			"• dsproxy: "+commandStatusFromOutput(dsproxyReply),
-			"• session: Current session was preserved. Use /restart only when you want a new session.",
+			slashBoldField("Profile", slashInlineCode(defaultName)),
+			slashBoldField("Effort", slashInlineCode(displayEffort)),
+			slashBoldField("Session", "preserved"),
+			"",
+			"```text",
+			"Codex    "+dsproxyEffort,
+			"dsproxy  "+commandStatusFromOutput(dsproxyReply),
+			"```",
 		), true
 
 	case "/profile":
 		if len(fields) != 2 {
-			return commandCard("ℹ️ Usage", "- command: /profile deepseek|deepseek-thinking"), true
+			return commandCard(
+				"ℹ️ Usage",
+				"> Switch the active DeepSeek profile.",
+				"",
+				"```text",
+				"/profile deepseek",
+				"/profile deepseek-thinking",
+				"```",
+			), true
 		}
 		switch fields[1] {
 		case "deepseek", "deepseek-thinking":
 			return h.restartProfileAgent(ctx, fields[1], userID), true
 		default:
-			return "Unsupported profile. Allowed values: deepseek, deepseek-thinking", true
+			return commandCard(
+				"⚠️ Unsupported profile",
+				"> Not applied.",
+				"",
+				"```text",
+				"Allowed  deepseek | deepseek-thinking",
+				"```",
+			), true
 		}
 
 	case "/restart":
 		if len(fields) != 1 {
-			return commandCard("ℹ️ Usage", "- command: /restart"), true
+			return commandCard(
+				"ℹ️ Usage",
+				"> Create a new session for the current profile.",
+				"",
+				"```text",
+				"/restart",
+				"```",
+			), true
 		}
 		return h.restartCurrentDefaultAgent(ctx, userID), true
 	}
@@ -1075,17 +1193,17 @@ func unknownSlashCommandCard(command string) string {
 		command = "/"
 	}
 	lines := []string{
-		"• command: " + command,
-		"• action: Not sent to agent.",
-		"• help: Use /help to list supported commands.",
+		"> Not sent to agent.",
+		slashBoldField("Command", slashInlineCode(command)),
+		slashBoldField("Next", "use `/help` to list supported commands"),
 	}
 	switch strings.ToLower(command) {
 	case "/cancle", "/canel", "/cnacel":
-		lines = append(lines, "• did you mean: /cancel")
+		lines = append(lines, slashBoldField("Did you mean", "`/cancel`"))
 	case "/stats":
-		lines = append(lines, "• did you mean: /status")
+		lines = append(lines, slashBoldField("Did you mean", "`/status`"))
 	case "/restat", "/restrat":
-		lines = append(lines, "• did you mean: /restart")
+		lines = append(lines, slashBoldField("Did you mean", "`/restart`"))
 	}
 	return commandCard("⚠️ Unknown slash command", lines...)
 }
@@ -1121,7 +1239,7 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 	if strings.Contains(statusLower, "reachable") || strings.Contains(statusLower, "\"status\": \"ok\"") || strings.Contains(statusLower, "\"status\":\"ok\"") {
 		proxyState = "reachable"
 	} else if strings.TrimSpace(dsproxyStatus) != "" {
-		proxyState = compactCommandOutput(dsproxyStatus, 180)
+		proxyState = compactCommandOutput(dsproxyStatus, 120)
 	}
 
 	proxyModel := extractCommandValue(dsproxyConfig, "DEEPSEEK_PROXY_MODEL")
@@ -1133,31 +1251,18 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 		proxyEffort = "unknown"
 	}
 
-	contextWindow, contextSource := fallbackContextWindow(defaultName, agentModel, proxyModel, dsproxyConfig)
-	contextLines := buildContextUsageLines(ag, userID, sessionID, contextWindow, contextSource)
+	contextWindow, _ := fallbackContextWindow(defaultName, agentModel, proxyModel, dsproxyConfig)
+	panelLines := buildCompactStatusPanel(ag, userID, contextWindow, proxyRoute, proxyEndpoint, proxyState)
 
 	lines := []string{
-		"• profile: " + valueOrUnknown(defaultName),
-		"• type: " + agentType,
-		"• model: " + agentModel,
+		slashBoldField("Profile", slashInlineCode(valueOrUnknown(defaultName))+" @"+slashAgentTypeBadge(agentType)),
+		slashBoldField("Model", slashInlineCode(slashModelDisplay(agentModel, proxyModel))+" "+slashInlineCode(slashEffortDisplay(proxyEffort))),
+		slashBoldField("Session", slashInlineCode(valueOrUnknown(sessionID))),
 		"",
 	}
-	lines = append(lines, contextLines...)
-	lines = append(lines,
-		"",
-		"🔌 Proxy",
-		"• route: "+proxyRoute,
-		"• endpoint: "+proxyEndpoint,
-		"• status: "+proxyState,
-		"• config model: "+proxyModel,
-		"• effort: "+proxyEffort,
-		"",
-		"📁 Paths",
-		"• config: ~/.weclaw/config.json",
-		"• log: ~/.weclaw/weclaw.log",
-	)
+	lines = append(lines, visualCommandFence("", panelLines...)...)
 
-	return commandCard("🧩 Agent", lines...)
+	return commandCard("🧩 Status", lines...)
 }
 
 func resolveDsproxyBinary() string {
@@ -1288,32 +1393,34 @@ func markdownCommandLines(lines ...string) []string {
 	lastBlank := false
 	inFence := false
 
-	for _, line := range lines {
-		line = strings.TrimRight(strings.TrimSpace(line), " \t")
-		if line == "" {
-			if len(out) > 0 && !lastBlank {
+	for _, rawLine := range lines {
+		lineForFence := strings.TrimRight(rawLine, " \t")
+		trimmed := strings.TrimSpace(lineForFence)
+
+		if trimmed == "" {
+			if !lastBlank {
 				out = append(out, "")
 				lastBlank = true
 			}
 			continue
 		}
 
-		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "```") {
-			inFence = !inFence
 			out = append(out, trimmed)
+			inFence = !inFence
 			lastBlank = false
 			continue
 		}
+
 		if inFence {
-			out = append(out, line)
+			out = append(out, lineForFence)
 			lastBlank = false
 			continue
 		}
 
 		switch {
-		case strings.HasPrefix(trimmed, "## "),
-			strings.HasPrefix(trimmed, "### "),
+		case strings.HasPrefix(trimmed, "#"),
+			strings.HasPrefix(trimmed, "```"),
 			strings.HasPrefix(trimmed, "|"),
 			strings.HasPrefix(trimmed, "---"),
 			strings.HasPrefix(trimmed, ">"),
@@ -1346,7 +1453,10 @@ func commandSectionLine(line string) bool {
 }
 
 func visualCommandFence(title string, lines ...string) []string {
-	out := []string{"```text", title}
+	out := []string{"```text"}
+	if strings.TrimSpace(title) != "" {
+		out = append(out, title)
+	}
 	out = append(out, lines...)
 	out = append(out, "```")
 	return out
@@ -1359,6 +1469,140 @@ func markdownTableCell(value string) string {
 		return "--"
 	}
 	return value
+}
+
+func slashInlineCode(value string) string {
+	value = valueOrUnknown(strings.TrimSpace(value))
+	value = strings.ReplaceAll(value, "`", "'")
+	return "`" + value + "`"
+}
+
+func slashBoldField(label, value string) string {
+	return "- **" + label + ":** " + value
+}
+
+func slashAgentTypeBadge(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "acp":
+		return "ACP"
+	case "cli":
+		return "CLI"
+	case "http":
+		return "HTTP"
+	case "", "none", "unknown":
+		return "unknown"
+	default:
+		return strings.ToUpper(strings.TrimSpace(value))
+	}
+}
+
+func slashEffortDisplay(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "xhigh":
+		return "max"
+	case "high", "max", "medium", "low":
+		return strings.ToLower(strings.TrimSpace(value))
+	case "":
+		return "unknown"
+	default:
+		return strings.TrimSpace(value)
+	}
+}
+
+func slashModelDisplay(agentModel, proxyModel string) string {
+	agentModel = strings.TrimSpace(agentModel)
+	if agentModel != "" && agentModel != "none" && agentModel != "unknown" {
+		return agentModel
+	}
+	proxyModel = strings.TrimSpace(proxyModel)
+	if proxyModel != "" {
+		return proxyModel
+	}
+	return "unknown"
+}
+
+func buildCompactStatusPanel(ag agent.Agent, userID string, fallbackWindow int64, proxyRoute, proxyEndpoint, proxyState string) []string {
+	var snapshot agent.TokenUsageSnapshot
+	hasSnapshot := false
+	if ag != nil {
+		if inspector, ok := ag.(agent.TokenUsageInspector); ok {
+			if current, ok := inspector.CurrentTokenUsage(userID); ok {
+				snapshot = current
+				hasSnapshot = true
+			}
+		}
+	}
+
+	window := fallbackWindow
+	if window <= 0 && hasSnapshot && snapshot.ModelContextWindow > 0 {
+		window = snapshot.ModelContextWindow
+	}
+
+	used := int64(0)
+	if hasSnapshot && snapshot.Total.TotalTokens > 0 {
+		used = snapshot.Total.TotalTokens
+	}
+
+	contextLine := fmt.Sprintf(
+		"Context  [%s]  %s  %s/%s",
+		formatCommandProgressBar(used, window, 20),
+		formatTokenPercent(used, window),
+		formatTokenCount(maxInt64(used, 0)),
+		formatContextLimit(window),
+	)
+
+	tokenLine := "Tokens   waiting for Codex usage event"
+	if hasSnapshot {
+		tokenLine = fmt.Sprintf(
+			"Tokens   in %s  cached %s  out %s  reason %s",
+			formatTokenCount(snapshot.Total.InputTokens),
+			formatTokenCount(snapshot.Total.CachedInputTokens),
+			formatTokenCount(snapshot.Total.OutputTokens),
+			formatTokenCount(snapshot.Total.ReasoningOutputTokens),
+		)
+		if snapshot.Last.TotalTokens > 0 {
+			tokenLine += fmt.Sprintf(
+				"  last %s",
+				formatTokenCount(snapshot.Last.TotalTokens),
+			)
+		}
+	}
+
+	lines := []string{
+		contextLine,
+		tokenLine,
+		"Cost     session n/a  last n/a",
+	}
+
+	if strings.TrimSpace(proxyRoute) != "" || strings.TrimSpace(proxyEndpoint) != "" || strings.TrimSpace(proxyState) != "" {
+		lines = append(lines,
+			fmt.Sprintf("Proxy    %s · %s · %s", valueOrUnknown(proxyRoute), valueOrUnknown(proxyEndpoint), valueOrUnknown(proxyState)),
+			"Paths    cfg ~/.weclaw/config.json",
+			"         log ~/.weclaw/weclaw.log",
+		)
+	}
+
+	return lines
+}
+
+func balanceFieldHasData(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	switch strings.ToLower(value) {
+	case "unknown", "--", "null", "none":
+		return false
+	default:
+		return true
+	}
+}
+
+func boolText(value bool) string {
+	if value {
+		return "yes"
+	}
+	return "no"
 }
 
 func formatCommandProgressBar(used, window int64, width int) string {
@@ -1423,15 +1667,21 @@ type dsproxyBalanceResponse struct {
 func formatBalanceReply(text string) string {
 	trimmed := strings.TrimSpace(text)
 	if trimmed == "" {
-		return commandCard("💰 Balance", "- status: empty response")
+		return commandCard(
+			"💰 Balance",
+			"> dsproxy returned an empty balance response.",
+		)
 	}
 
 	var payload dsproxyBalanceResponse
 	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
 		return commandCard(
 			"💰 Balance",
-			"- status: "+commandStatusFromOutput(trimmed),
-			"- detail: "+compactCommandOutput(trimmed, 360),
+			slashBoldField("Status", slashInlineCode(commandStatusFromOutput(trimmed))),
+			"",
+			"```text",
+			compactCommandOutput(trimmed, 360),
+			"```",
 		)
 	}
 
@@ -1440,57 +1690,61 @@ func formatBalanceReply(text string) string {
 		status = "ok"
 	}
 
-	available := "no"
-	if payload.Balance.IsAvailable {
-		available = "yes"
-	}
-
 	lines := []string{
-		"- status: " + status,
-		"- available: " + available,
+		slashBoldField("Status", slashInlineCode(status)),
+		slashBoldField("Available", slashInlineCode(boolText(payload.Balance.IsAvailable))),
 		"",
 	}
 
 	if len(payload.Balance.BalanceInfos) == 0 {
 		lines = append(lines,
-			"| Field | Value |",
-			"| --- | --- |",
-			"| Balance | none |",
-			"",
-			"- balance: none",
+			"```text",
+			"Balance  none",
+			"```",
 		)
 		return commandCard("💰 Balance", lines...)
 	}
 
-	lines = append(lines,
-		"| Currency | Total | Granted | Topped-up |",
-		"| --- | ---: | ---: | ---: |",
-	)
+	hasGranted := false
+	hasToppedUp := false
+	for _, info := range payload.Balance.BalanceInfos {
+		if balanceFieldHasData(info.GrantedBalance) {
+			hasGranted = true
+		}
+		if balanceFieldHasData(info.ToppedUpBalance) {
+			hasToppedUp = true
+		}
+	}
+
+	header := "| Currency | Total |"
+	align := "| --- | ---: |"
+	if hasGranted {
+		header += " Granted |"
+		align += " ---: |"
+	}
+	if hasToppedUp {
+		header += " Topped-up |"
+		align += " ---: |"
+	}
+
+	lines = append(lines, header, align)
 	for _, info := range payload.Balance.BalanceInfos {
 		currency := info.Currency
 		if currency == "" {
 			currency = "unknown"
 		}
-		lines = append(lines, fmt.Sprintf(
-			"| %s | %s | %s | %s |",
+		row := fmt.Sprintf(
+			"| %s | %s |",
 			markdownTableCell(currency),
 			markdownTableCell(valueOrUnknown(info.TotalBalance)),
-			markdownTableCell(valueOrUnknown(info.GrantedBalance)),
-			markdownTableCell(valueOrUnknown(info.ToppedUpBalance)),
-		))
-	}
-	lines = append(lines, "")
-
-	for _, info := range payload.Balance.BalanceInfos {
-		currency := info.Currency
-		if currency == "" {
-			currency = "unknown"
-		}
-		lines = append(lines,
-			fmt.Sprintf("- %s total: %s", currency, valueOrUnknown(info.TotalBalance)),
-			fmt.Sprintf("- %s granted: %s", currency, valueOrUnknown(info.GrantedBalance)),
-			fmt.Sprintf("- %s topped-up: %s", currency, valueOrUnknown(info.ToppedUpBalance)),
 		)
+		if hasGranted {
+			row = strings.TrimSuffix(row, "|") + fmt.Sprintf(" %s |", markdownTableCell(info.GrantedBalance))
+		}
+		if hasToppedUp {
+			row = strings.TrimSuffix(row, "|") + fmt.Sprintf(" %s |", markdownTableCell(info.ToppedUpBalance))
+		}
+		lines = append(lines, row)
 	}
 
 	return commandCard("💰 Balance", lines...)
@@ -1557,10 +1811,13 @@ func profileThinkingLine(name string) string {
 func (h *Handler) restartProfileAgent(ctx context.Context, name, userID string) string {
 	if !h.isKnownAgent(name) {
 		return commandCard(
-			"⚠️ Profile",
-			fmt.Sprintf("• profile: %s", name),
-			"• status: not configured",
-			fmt.Sprintf("• action: Run weclaw start %s once, or ensure codex is installed and auto-detection can register it.", name),
+			"⚠️ Profile unavailable",
+			slashBoldField("Profile", slashInlineCode(name)),
+			"",
+			"```text",
+			"State    not configured",
+			"Action   run weclaw start "+name+" once, or check agent detection",
+			"```",
 		)
 	}
 
@@ -1573,11 +1830,14 @@ func (h *Handler) restartProfileAgent(ctx context.Context, name, userID string) 
 		return reply
 	}
 
-	return reply + "\n" + commandCard(
+	return reply + "\n\n" + commandCard(
 		"🧵 Session",
-		"• action: Existing session was preserved when available.",
-		profileThinkingLine(name),
-		"• restart: Use /restart only when you want a new session.",
+		slashBoldField("Session", "preserved when available"),
+		slashBoldField("Thinking", strings.TrimPrefix(profileThinkingLine(name), "• thinking: ")),
+		"",
+		"```text",
+		"Restart  use /restart only when you want a new session",
+		"```",
 	)
 }
 
@@ -1587,7 +1847,10 @@ func (h *Handler) restartCurrentDefaultAgent(ctx context.Context, userID string)
 	h.mu.RUnlock()
 
 	if name == "" {
-		return commandCard("⚠️ Restart", "• status: No default agent configured.")
+		return commandCard(
+			"⚠️ Restart",
+			"> No default profile is configured.",
+		)
 	}
 
 	if value, ok := h.runningTurns.Load(userID); ok {
@@ -1597,11 +1860,14 @@ func (h *Handler) restartCurrentDefaultAgent(ctx context.Context, userID string)
 	}
 
 	sessionReply := h.resetDefaultSession(ctx, userID)
-	return sessionReply + "\n" + commandCard(
+	return sessionReply + "\n\n" + commandCard(
 		"🔄 Restart",
-		"• profile: "+name,
-		"• action: Created a new session for the current profile.",
-		"• config: preserved",
+		slashBoldField("Profile", slashInlineCode(name)),
+		"",
+		"```text",
+		"Action   new session created",
+		"Config   preserved",
+		"```",
 	)
 }
 
@@ -2241,7 +2507,14 @@ func (h *Handler) switchDefault(ctx context.Context, name string) string {
 	ag, err := h.getAgent(ctx, name)
 	if err != nil {
 		log.Printf("[handler] failed to switch default to %q: %v", name, err)
-		return commandCard("⚠️ Profile switch failed", fmt.Sprintf("- profile: %s", name), fmt.Sprintf("- error: %v", err))
+		return commandCard(
+			"⚠️ Profile switch failed",
+			slashBoldField("Profile", slashInlineCode(name)),
+			"",
+			"```text",
+			"Error    "+compactCommandOutput(err.Error(), 160),
+			"```",
+		)
 	}
 
 	h.mu.Lock()
@@ -2250,7 +2523,6 @@ func (h *Handler) switchDefault(ctx context.Context, name string) string {
 	h.agents[name] = ag
 	h.mu.Unlock()
 
-	// Persist to config file
 	if h.saveDefault != nil {
 		if err := h.saveDefault(name); err != nil {
 			log.Printf("[handler] failed to save default agent to config: %v", err)
@@ -2261,7 +2533,16 @@ func (h *Handler) switchDefault(ctx context.Context, name string) string {
 
 	info := ag.Info()
 	log.Printf("[handler] switched default agent: %s -> %s (%s)", old, name, info)
-	return commandCard("🔁 Profile switched", fmt.Sprintf("• action: Switched default agent to %s.", userFacingAgentLabel(name, info)))
+	return commandCard(
+		"🔁 Profile updated",
+		slashBoldField("Profile", slashInlineCode(userFacingAgentLabel(name, info))),
+		"",
+		"```text",
+		"Previous "+valueOrUnknown(old),
+		"Session  preserved when available",
+		"Next     send a message or use /status",
+		"```",
+	)
 }
 
 // resetDefaultSession resets the session for the given userID on the default agent.
@@ -2272,19 +2553,36 @@ func (h *Handler) resetDefaultSession(ctx context.Context, userID string) string
 
 	ag := h.getDefaultAgent()
 	if ag == nil {
-		return commandCard("⚠️ Session", "• status: No agent running.")
+		return commandCard(
+			"⚠️ Session",
+			"> No agent is running.",
+		)
 	}
 	info := ag.Info()
 	name := userFacingAgentLabel(defaultName, info)
 	sessionID, err := ag.ResetSession(ctx, userID)
 	if err != nil {
 		log.Printf("[handler] reset session failed for %s: %v", userID, err)
-		return commandCard("⚠️ Session", fmt.Sprintf("- error: Failed to reset session: %v", err))
+		return commandCard(
+			"⚠️ Session",
+			"> Failed to create a new session.",
+			"",
+			"```text",
+			"Error    "+compactCommandOutput(err.Error(), 160),
+			"```",
+		)
+	}
+	lines := []string{
+		slashBoldField("Profile", slashInlineCode(name)),
+		"",
+		"```text",
+		"Action   new session created",
 	}
 	if sessionID != "" {
-		return commandCard("🧵 Session", fmt.Sprintf("• action: Created a new %s session: %s", name, sessionID))
+		lines = append(lines, "Session  "+sessionID)
 	}
-	return commandCard("🧵 Session", fmt.Sprintf("• action: Created a new %s session.", name))
+	lines = append(lines, "```")
+	return commandCard("🧵 Session", lines...)
 }
 
 func userFacingAgentLabel(preferred string, info agent.AgentInfo) string {
@@ -2388,30 +2686,9 @@ func (h *Handler) handleCwd(trimmed string) string {
 
 // buildStatus returns a short status string showing the current default agent.
 func (h *Handler) buildStatus() string {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
-	if h.defaultName == "" {
-		return commandCard("🧩 Agent", "- agent: none", "- mode: echo")
-	}
-
-	ag, ok := h.agents[h.defaultName]
-	if !ok {
-		return commandCard("🧩 Agent", "- agent: "+h.defaultName, "- status: not started")
-	}
-
-	info := ag.Info()
 	return commandCard(
-		"🧩 Agent",
-		"| Field | Value |",
-		"| --- | --- |",
-		"| Agent | "+markdownTableCell(h.defaultName)+" |",
-		"| Type | "+markdownTableCell(info.Type)+" |",
-		"| Model | "+markdownTableCell(info.Model)+" |",
-		"",
-		"- agent: "+h.defaultName,
-		"- type: "+info.Type,
-		"- model: "+info.Model,
+		"ℹ️ Info",
+		"> `/info` is kept for compatibility. Use `/status` for the compact runtime dashboard.",
 	)
 }
 
@@ -2419,43 +2696,45 @@ func buildHelpText() string {
 	return strings.Join([]string{
 		"## 📖 WeClaw commands",
 		"",
-		"> 常用命令优先。会改变会话或配置的命令已经标注。",
+		"> Common WeChat-side commands. `/info` is kept as a hidden compatibility alias; use `/status` instead.",
 		"",
 		"```text",
 		"QUICK MAP",
-		"status   /status  /now  /cancel  /info",
+		"status   /status  /now  /cancel",
 		"runtime  /model   /effort  /balance",
 		"session  /restart /new     /clear",
 		"route    @agent   /agent   /cwd",
 		"```",
 		"",
-		"### 🧩 Agent",
-		"- `/status`：运行诊断、上下文窗口和token用量。",
-		"- `/now`：查看当前任务进展。",
-		"- `/cancel`：取消当前运行任务。",
-		"- `/info`：查看当前agent信息。",
-		"- `/restart`：为当前profile创建新session。",
-		"- `/help`：显示本帮助。",
+		"### 🧩 Status",
+		"- `/status`: compact runtime dashboard.",
+		"- `/now`: current task progress or idle session context.",
+		"- `/cancel`: request cancellation for the active turn.",
+		"- `/help`: show this help card.",
 		"",
 		"### ⚙️ DeepSeek runtime",
-		"- `/model deepseek-v4-pro|deepseek-v4-flash`：切换模型，保留当前session。",
-		"- `/effort high|max`：切换推理强度，保留当前session。",
-		"- `/balance`：查看DeepSeek账户余额。",
+		"- `/model deepseek-v4-pro|deepseek-v4-flash`: switch model and preserve the session.",
+		"- `/effort high|max`: switch reasoning effort and preserve the session.",
+		"- `/balance`: show backend account balance when supported.",
 		"",
-		"### 💬 Chat routing",
-		"- `@agent`或`/agent`：切换默认agent。",
-		"- `@agent msg`或`/agent msg`：发送给指定agent。",
-		"- `@a @b msg`：广播给多个agent。",
-		"- `/new`或`/clear`：开始新session。",
-		"- `/cwd /path`：切换工作目录。",
+		"### 🧵 Session",
+		"- `/restart`: create a new session for the current profile.",
+		"- `/new` or `/clear`: create a new session.",
+		"- `/profile deepseek|deepseek-thinking`: switch profile.",
+		"- `/cwd /path`: change working directory.",
+		"",
+		"### 💬 Routing",
+		"- `@agent` or `/agent`: switch default agent.",
+		"- `@agent message` or `/agent message`: send to one agent.",
+		"- `@a @b message`: broadcast to multiple agents.",
 		"",
 		"### 🔗 Aliases",
-		"- `/cc` `/cx` `/cs` `/km` `/gm`：claude、codex、cursor、kimi、gemini。",
-		"- `/oc` `/ocd` `/pi` `/cp`：openclaw、opencode、pi、copilot。",
-		"- `/dr` `/if` `/kr` `/qw`：droid、iflow、kiro、qwen。",
+		"- `/cc` `/cx` `/cs` `/km` `/gm`: claude, codex, cursor, kimi, gemini.",
+		"- `/oc` `/ocd` `/pi` `/cp`: openclaw, opencode, pi, copilot.",
+		"- `/dr` `/if` `/kr` `/qw`: droid, iflow, kiro, qwen.",
 		"",
 		"### 🛡️ Safety",
-		"- 未知slash command会被本地拦截，不会误发给agent。",
+		"- Unknown slash commands are intercepted locally and are not sent to the agent.",
 	}, "\n")
 }
 
@@ -2576,102 +2855,23 @@ func detectImageExt(data []byte) string {
 }
 
 func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWindow int64, windowSource string) []string {
-	lines := []string{
-		"📊 Context window",
-		"- session: " + valueOrUnknown(sessionID),
-	}
-
-	var snapshot agent.TokenUsageSnapshot
-	hasSnapshot := false
-	if ag != nil {
-		if inspector, ok := ag.(agent.TokenUsageInspector); ok {
-			if current, ok := inspector.CurrentTokenUsage(userID); ok {
-				snapshot = current
-				hasSnapshot = true
-			}
-		}
-	}
-
-	window := fallbackWindow
-	if window <= 0 && hasSnapshot && snapshot.ModelContextWindow > 0 {
-		window = snapshot.ModelContextWindow
-		windowSource = "codex_token_usage_event"
-	}
-	if windowSource == "" {
-		windowSource = "unconfigured"
-	}
-
-	used := int64(0)
-	if hasSnapshot && snapshot.Total.TotalTokens > 0 {
-		used = snapshot.Total.TotalTokens
-	}
-	lines = append(lines, formatContextWindowLines(window, used)...)
-	lines = append(lines, "- source: "+windowSource)
-	lines = append(lines, "", "📈 Token usage")
-
-	if !hasSnapshot {
-		return append(lines, zeroTokenUsageLines("waiting_for_codex_usage_event")...)
-	}
-
-	total := snapshot.Total
-	lines = append(lines,
-		"| Metric | Tokens |",
-		"| --- | ---: |",
-		fmt.Sprintf("| total | %s |", markdownTableCell(formatTokenCount(total.TotalTokens))),
-		fmt.Sprintf("| input | %s |", markdownTableCell(formatTokenCount(total.InputTokens))),
-		fmt.Sprintf("| cached input | %s |", markdownTableCell(formatTokenCount(total.CachedInputTokens))),
-		fmt.Sprintf("| output | %s |", markdownTableCell(formatTokenCount(total.OutputTokens))),
-		fmt.Sprintf("| reasoning output | %s |", markdownTableCell(formatTokenCount(total.ReasoningOutputTokens))),
-		"| tools | -- |",
-		"| other | -- |",
-		"",
-		"- total: "+formatTokenCount(total.TotalTokens),
-		"- input: "+formatTokenCount(total.InputTokens),
-		"- cached input: "+formatTokenCount(total.CachedInputTokens),
-		"- output: "+formatTokenCount(total.OutputTokens),
-		"- reasoning output: "+formatTokenCount(total.ReasoningOutputTokens),
-		"- tools: --",
-		"- other: --",
-		"- source: codex_token_usage_event",
-	)
-	if snapshot.Last.TotalTokens > 0 {
-		lines = append(lines, fmt.Sprintf("- last turn: %s total, %s input, %s output",
-			formatTokenCount(snapshot.Last.TotalTokens),
-			formatTokenCount(snapshot.Last.InputTokens),
-			formatTokenCount(snapshot.Last.OutputTokens),
-		))
-	}
-	if snapshot.TurnID != "" {
-		lines = append(lines, "- last turn id: "+snapshot.TurnID)
-	}
-	return lines
+	_ = sessionID
+	_ = windowSource
+	panel := buildCompactStatusPanel(ag, userID, fallbackWindow, "", "", "")
+	return visualCommandFence("", panel...)
 }
 
 func formatContextWindowLines(window, used int64) []string {
-	percent := formatTokenPercent(used, window)
-	bar := formatCommandProgressBar(used, window, 20)
-
-	lines := []string{
-		"- limit: " + formatContextLimit(window),
-		"- used: " + formatContextUsageValue(used, window),
-		"- left: " + formatContextLeftValue(used, window),
+	return visualCommandFence(
 		"",
-	}
-	lines = append(lines, visualCommandFence(
-		"CONTEXT WINDOW",
-		"["+bar+"] "+percent,
-		"used  "+formatTokenCount(maxInt64(used, 0))+" / "+formatContextLimit(window),
-		"left  "+formatContextLeftValue(used, window),
-	)...)
-	lines = append(lines,
-		"",
-		"| Metric | Value |",
-		"| --- | ---: |",
-		"| Limit | "+markdownTableCell(formatContextLimit(window))+" |",
-		"| Used | "+markdownTableCell(formatContextUsageValue(used, window))+" |",
-		"| Left | "+markdownTableCell(formatContextLeftValue(used, window))+" |",
+		fmt.Sprintf(
+			"Context  [%s]  %s  %s/%s",
+			formatCommandProgressBar(used, window, 20),
+			formatTokenPercent(used, window),
+			formatTokenCount(maxInt64(used, 0)),
+			formatContextLimit(window),
+		),
 	)
-	return lines
 }
 
 func formatContextUsageValue(used, window int64) string {
@@ -2786,8 +2986,8 @@ func formatContextWindowLine(window int64) string {
 
 func unknownContextUsageLines(window int64) []string {
 	lines := formatContextWindowLines(window, 0)
-	lines = append(lines, "", "📈 Token usage")
-	return append(lines, zeroTokenUsageLines("waiting_for_codex_usage_event")...)
+	lines = append(lines[:len(lines)-1], "Tokens   waiting for Codex usage event", "```")
+	return lines
 }
 
 func formatContextUsageLine(used, window int64, hasUsage bool) string {

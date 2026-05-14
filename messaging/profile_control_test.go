@@ -105,14 +105,24 @@ func TestRuntimeControlStatusReturnsDiagnostics(t *testing.T) {
 	if !ok {
 		t.Fatal("/status should be intercepted as diagnostics")
 	}
-	if !strings.Contains(reply, "🧩 Agent") {
-		t.Fatalf("status reply = %q, want agent card", reply)
+	for _, want := range []string{
+		"## 🧩 Status",
+		"**Profile:**",
+		"**Model:**",
+		"**Session:**",
+		"Context  [",
+		"Tokens",
+		"Cost     session n/a  last n/a",
+		"Proxy    default · 127.0.0.1:8000",
+		"Paths    cfg ~/.weclaw/config.json",
+		"         log ~/.weclaw/weclaw.log",
+	} {
+		if !strings.Contains(reply, want) {
+			t.Fatalf("status reply = %q, want %q", reply, want)
+		}
 	}
-	if !strings.Contains(reply, "🔌 Proxy") {
-		t.Fatalf("status reply = %q, want proxy card", reply)
-	}
-	if !strings.Contains(reply, "📁 Paths") {
-		t.Fatalf("status reply = %q, want paths card", reply)
+	if strings.Contains(reply, "📊 Context window") || strings.Contains(reply, "🔌 Proxy") || strings.Contains(reply, "📁 Paths") {
+		t.Fatalf("status reply = %q, should not contain old verbose section headings", reply)
 	}
 }
 
@@ -123,7 +133,7 @@ func TestRuntimeControlRestartWithoutDefault(t *testing.T) {
 	if !ok {
 		t.Fatal("/restart should be intercepted")
 	}
-	if !strings.Contains(reply, "No default agent configured") {
+	if !strings.Contains(reply, "No default profile is configured") {
 		t.Fatalf("restart reply = %q, want no default message", reply)
 	}
 }
@@ -149,14 +159,17 @@ func TestRuntimeControlProfileSwitchDoesNotChat(t *testing.T) {
 	if !ok {
 		t.Fatal("/profile should be intercepted")
 	}
-	if !strings.Contains(reply, "Switched default agent to deepseek") {
-		t.Fatalf("reply = %q, want profile switch message", reply)
-	}
-	if !strings.Contains(reply, "Existing session was preserved") {
-		t.Fatalf("reply = %q, want preserved session message", reply)
-	}
-	if !strings.Contains(reply, "thinking: disabled") {
-		t.Fatalf("reply = %q, want thinking disabled marker", reply)
+	for _, want := range []string{
+		"## 🔁 Profile updated",
+		"Profile:** `deepseek`",
+		"Session  preserved when available",
+		"## 🧵 Session",
+		"Thinking:** disabled",
+		"Restart  use /restart only when you want a new session",
+	} {
+		if !strings.Contains(reply, want) {
+			t.Fatalf("reply = %q, want %q", reply, want)
+		}
 	}
 	if factoryCalls != 1 {
 		t.Fatalf("factoryCalls = %d, want 1", factoryCalls)
@@ -193,14 +206,17 @@ func TestRuntimeControlProfileSwitchThinkingEnabled(t *testing.T) {
 	if !ok {
 		t.Fatal("/profile should be intercepted")
 	}
-	if !strings.Contains(reply, "Switched default agent to deepseek-thinking") {
-		t.Fatalf("reply = %q, want profile switch message", reply)
-	}
-	if !strings.Contains(reply, "Existing session was preserved") {
-		t.Fatalf("reply = %q, want preserved session message", reply)
-	}
-	if !strings.Contains(reply, "thinking: enabled") {
-		t.Fatalf("reply = %q, want thinking enabled marker", reply)
+	for _, want := range []string{
+		"## 🔁 Profile updated",
+		"Profile:** `deepseek-thinking`",
+		"Session  preserved when available",
+		"## 🧵 Session",
+		"Thinking:** enabled",
+		"Restart  use /restart only when you want a new session",
+	} {
+		if !strings.Contains(reply, want) {
+			t.Fatalf("reply = %q, want %q", reply, want)
+		}
 	}
 	if factoryCalls != 1 {
 		t.Fatalf("factoryCalls = %d, want 1", factoryCalls)
@@ -249,7 +265,7 @@ func TestRuntimeControlRestartCurrentDefaultResetsSessionOnly(t *testing.T) {
 	if strings.Contains(reply, "Profile switched") || strings.Contains(reply, "Switched default agent") {
 		t.Fatalf("reply = %q, want no profile switch message", reply)
 	}
-	if !strings.Contains(reply, "config: preserved") {
+	if !strings.Contains(reply, "Config   preserved") {
 		t.Fatalf("reply = %q, want config preserved marker", reply)
 	}
 }
@@ -424,8 +440,15 @@ func TestRuntimeControlEffortOnlySupportsDeepSeekProfiles(t *testing.T) {
 	if !ok {
 		t.Fatal("/effort should be intercepted")
 	}
-	if !strings.Contains(reply, "only supported for deepseek and deepseek-thinking") {
-		t.Fatalf("reply = %q, want DeepSeek-only message", reply)
+	for _, want := range []string{
+		"## ⛔ DeepSeek only",
+		"`/effort` is only supported",
+		"`deepseek`",
+		"`deepseek-thinking`",
+	} {
+		if !strings.Contains(reply, want) {
+			t.Fatalf("reply = %q, want %q", reply, want)
+		}
 	}
 }
 
@@ -444,7 +467,7 @@ func TestRuntimeControlNowReportsSessionID(t *testing.T) {
 	if !ok {
 		t.Fatal("/now should be intercepted")
 	}
-	if !strings.Contains(reply, "session: thread-now-123") {
+	if !strings.Contains(reply, "`thread-now-123`") {
 		t.Fatalf("reply = %q, want session ID", reply)
 	}
 }
@@ -483,8 +506,8 @@ func TestRuntimeControlNowIdleAppliesPendingResumeBeforeEnsure(t *testing.T) {
 	if ag.ensureCalls != 0 {
 		t.Fatalf("ensureCalls = %d, want 0 because pending resume should be applied before ensure", ag.ensureCalls)
 	}
-	if !strings.Contains(reply, "session: thread-resume-now") {
-		t.Fatalf("reply = %q, want resumed session ID", reply)
+	if !strings.Contains(reply, "`thread-resume-now`") {
+		t.Fatalf("reply = %q, want compact resumed session ID", reply)
 	}
 	if strings.Contains(reply, "thread-created-unexpected") {
 		t.Fatalf("reply = %q, should not show newly ensured session", reply)
@@ -519,8 +542,8 @@ func TestRuntimeControlStatusAppliesPendingResumeBeforeEnsure(t *testing.T) {
 	if ag.ensureCalls != 0 {
 		t.Fatalf("ensureCalls = %d, want 0 because pending resume should be applied before ensure", ag.ensureCalls)
 	}
-	if !strings.Contains(reply, "session: thread-resume-status") {
-		t.Fatalf("reply = %q, want resumed session ID", reply)
+	if !strings.Contains(reply, "`thread-resume-status`") {
+		t.Fatalf("reply = %q, want compact resumed session ID", reply)
 	}
 	if strings.Contains(reply, "thread-created-unexpected") {
 		t.Fatalf("reply = %q, should not show newly ensured session", reply)
@@ -539,10 +562,10 @@ func TestRuntimeControlNowIdleReportsOpenSessionID(t *testing.T) {
 	if !ok {
 		t.Fatal("/now should be intercepted")
 	}
-	if !strings.Contains(reply, "running: no") {
-		t.Fatalf("reply = %q, want idle status", reply)
+	if !strings.Contains(reply, "Running  no") {
+		t.Fatalf("reply = %q, want compact idle status", reply)
 	}
-	if !strings.Contains(reply, "session: thread-idle-123") {
+	if !strings.Contains(reply, "`thread-idle-123`") {
 		t.Fatalf("reply = %q, want idle session ID", reply)
 	}
 }
@@ -562,10 +585,10 @@ func TestRuntimeControlNowIdleEnsuresSessionID(t *testing.T) {
 	if ag.ensureCalls != 1 {
 		t.Fatalf("ensureCalls = %d, want 1", ag.ensureCalls)
 	}
-	if !strings.Contains(reply, "running: no") {
-		t.Fatalf("reply = %q, want idle status", reply)
+	if !strings.Contains(reply, "Running  no") {
+		t.Fatalf("reply = %q, want compact idle status", reply)
 	}
-	if !strings.Contains(reply, "session: thread-ensure-123") {
+	if !strings.Contains(reply, "`thread-ensure-123`") {
 		t.Fatalf("reply = %q, want ensured session ID", reply)
 	}
 }
@@ -609,26 +632,24 @@ func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
 		t.Fatal("/status should be intercepted")
 	}
 	for _, want := range []string{
-		"📊 Context window",
-		"session: thread-usage-1",
-		"limit: 1M",
-		"used: 43.6k (4.4%)",
-		"left: 956.4k (95.6%)",
-		"source: codex_profile_config",
-		"📈 Token usage",
-		"total: 43.6k",
-		"input: 43.2k",
-		"cached input: 1.2k",
-		"output: 350",
-		"reasoning output: 17",
-		"tools: --",
-		"other: --",
-		"source: codex_token_usage_event",
-		"last turn: 22.3k total, 22.1k input, 270 output",
-		"last turn id: turn-usage-1",
+		"## 🧩 Status",
+		"Profile:** `deepseek-thinking` @ACP",
+		"Model:** `deepseek-v4-pro`",
+		"Session:** `thread-usage-1`",
+		"Context  [",
+		"4.4%",
+		"43.6k/1M",
+		"Tokens   in 43.2k  cached 1.2k  out 350  reason 17  last 22.3k",
+		"Cost     session n/a  last n/a",
+		"Proxy    thinking · 127.0.0.1:8001 ·",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
+		}
+	}
+	for _, old := range []string{"📊 Context window", "limit:", "left:", "source:", "tools:", "other:", "last turn id:"} {
+		if strings.Contains(reply, old) {
+			t.Fatalf("status reply = %q, should not contain old verbose token %q", reply, old)
 		}
 	}
 }
@@ -655,21 +676,21 @@ func TestRuntimeControlStatusShowsFallbackContextWindowWhileUsageIsWaiting(t *te
 		t.Fatal("/status should be intercepted")
 	}
 	for _, want := range []string{
-		"📊 Context window",
-		"session: thread-waiting-1",
-		"limit: 1M",
-		"used: 0 (0.0%)",
-		"left: 1M (100.0%)",
-		"source: codex_profile_config",
-		"📈 Token usage",
-		"total: 0",
-		"input: 0",
-		"output: 0",
-		"tools: --",
-		"source: waiting_for_codex_usage_event",
+		"## 🧩 Status",
+		"Session:** `thread-waiting-1`",
+		"Context  [",
+		"0.0%",
+		"0/1M",
+		"Tokens   waiting for Codex usage event",
+		"Cost     session n/a  last n/a",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
+		}
+	}
+	for _, old := range []string{"limit:", "left:", "source:", "tools:", "other:"} {
+		if strings.Contains(reply, old) {
+			t.Fatalf("status reply = %q, should not contain old verbose token %q", reply, old)
 		}
 	}
 }
@@ -688,12 +709,18 @@ func TestDsproxyStatusArgsForThinkingProfile(t *testing.T) {
 func TestFormatContextWindowLines(t *testing.T) {
 	got := strings.Join(formatContextWindowLines(258400, 12920), "\n")
 	for _, want := range []string{
-		"limit: 258.4k",
-		"used: 12.9k (5.0%)",
-		"left: 245.5k (95.0%)",
+		"```text",
+		"Context  [",
+		"5.0%",
+		"12.9k/258.4k",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("formatContextWindowLines = %q, want %q", got, want)
+		}
+	}
+	for _, old := range []string{"limit:", "left:", "CONTEXT WINDOW", "| Metric |"} {
+		if strings.Contains(got, old) {
+			t.Fatalf("formatContextWindowLines = %q, should not contain old token %q", got, old)
 		}
 	}
 }
@@ -750,29 +777,31 @@ func TestRuntimeControlStatusFallsBackToSnapshotWindowWhenConfigMissing(t *testi
 		t.Fatal("/status should be intercepted")
 	}
 	for _, want := range []string{
-		"limit: 258.4k",
-		"used: 12.9k (5.0%)",
-		"left: 245.5k (95.0%)",
-		"source: codex_token_usage_event",
-		"last turn id: turn-snapshot-window",
+		"Session:** `thread-snapshot-window`",
+		"Context  [",
+		"5.0%",
+		"12.9k/258.4k",
+		"Tokens   in 12k  cached 0  out 920  reason 0",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
 		}
 	}
-	if strings.Contains(reply, "used: unknown") || strings.Contains(reply, "left: unknown") {
-		t.Fatalf("status reply = %q, should not contain unknown context usage", reply)
+	for _, old := range []string{"used: unknown", "left: unknown", "source:", "last turn id:"} {
+		if strings.Contains(reply, old) {
+			t.Fatalf("status reply = %q, should not contain old token %q", reply, old)
+		}
 	}
 }
 
 func TestCommandCardUsesRealNewlines(t *testing.T) {
-	got := commandCard("🧩 Agent", "- profile: deepseek-thinking", "📊 Context window", "| Metric | Value |", "| --- | --- |", "| Used | 4.4% |")
+	got := commandCard("🧩 Agent", "- profile: deepseek-thinking", "Context  [", "| Metric | Value |", "| --- | --- |", "| Used | 4.4% |")
 	if strings.Contains(got, `\n`) {
 		t.Fatalf("commandCard() leaked literal backslash-n: %q", got)
 	}
 	for _, want := range []string{
 		"## 🧩 Agent\n\n- profile: deepseek-thinking",
-		"### 📊 Context window",
+		"Context  [",
 		"| Metric | Value |",
 	} {
 		if !strings.Contains(got, want) {
@@ -784,14 +813,17 @@ func TestCommandCardUsesRealNewlines(t *testing.T) {
 func TestFormatContextWindowLinesUsesVisualPanel(t *testing.T) {
 	got := strings.Join(formatContextWindowLines(258400, 12920), "\n")
 	for _, want := range []string{
-		"limit: 258.4k",
-		"used: 12.9k (5.0%)",
-		"```text\nCONTEXT WINDOW\n[█",
-		"| Metric | Value |",
-		"| Used | 12.9k (5.0%) |",
+		"```text\nContext  [",
+		"5.0%",
+		"12.9k/258.4k",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("formatContextWindowLines = %q, want %q", got, want)
+		}
+	}
+	for _, old := range []string{"CONTEXT WINDOW", "| Used | 12.9k (5.0%) |", "limit:", "left:"} {
+		if strings.Contains(got, old) {
+			t.Fatalf("formatContextWindowLines = %q, should not contain old token %q", got, old)
 		}
 	}
 	if strings.Contains(got, `\n`) {
@@ -803,10 +835,10 @@ func TestBuildHelpTextUsesDisplayEffects(t *testing.T) {
 	text := buildHelpText()
 	for _, want := range []string{
 		"## 📖 WeClaw commands",
-		"> 常用命令优先",
+		"Common WeChat-side commands",
 		"```text\nQUICK MAP",
-		"### 🧩 Agent",
-		"- `/status`：",
+		"### 🧩 Status",
+		"- `/status`:",
 		"### ⚙️ DeepSeek runtime",
 		"### 🛡️ Safety",
 	} {
