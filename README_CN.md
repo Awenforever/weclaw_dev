@@ -33,7 +33,6 @@ WeClaw Dev用于把微信消息接入本地或远程AI Agent。
 
 ## 效果预览
 
-
 | 命令输出 | 长文本回复格式化 |
 | --- | --- |
 | <img src="assets/readme/weclaw-dev-formatted-status.jpg" width="420" alt="WeClaw Dev格式化状态命令" /> | <img src="assets/readme/weclaw-dev-codex-session.jpg" width="420" alt="Codex长文本回复在微信中的格式化效果" /> |
@@ -41,26 +40,6 @@ WeClaw Dev用于把微信消息接入本地或远程AI Agent。
 | typing状态保活 | Profile和Balance命令 |
 | --- | --- |
 | <img src="assets/readme/weclaw-dev-typing-keepalive.jpg" width="420" alt="长回复期间typing状态保活" /> | <img src="assets/readme/weclaw-dev-profile-balance.jpg" width="420" alt="Profile和Balance命令示例" /> |
-
-
----
-
-## WeClaw Dev与原始WeClaw的区别
-
-| 维度 | 原始`fastclaw-ai/weclaw` | `Awenforever/weclaw_dev` |
-| --- | --- | --- |
-| 项目定位 | 通用微信AI Agent桥接器 | 面向Codex、DeepSeek和微信命令工作流的开发分支 |
-| 安装来源 | `fastclaw-ai/weclaw` | `Awenforever/weclaw_dev` |
-| 安装逻辑 | 标准安装路径 | 优先使用GitHub Release，无Release时回退源码构建 |
-| Agent模式 | ACP、CLI和HTTP | 保留ACP、CLI和HTTP，并额外关注Codex ACP运行行为 |
-| Codex使用方式 | 基础Codex支持 | ACP模式下直接使用真实`codex`可执行文件，除非明确需要持久NDJSON日志，否则不建议套`tee`或stdout抓取脚本 |
-| 对话处理 | 基础路由和`/new`清空会话 | 更强调当前会话复用、Agent/Profile切换和微信侧命令连续性 |
-| 命令格式化 | 可用的纯文本命令回复 | 面向微信阅读优化的紧凑命令摘要 |
-| 模型与后端 | 本地Agent和HTTP兼容后端 | 更适合Codex profile、DeepSeek-backed Codex和CoDeepSeedeX联动 |
-| typing状态 | 不是重点 | 长时间Agent回复期间尽量保持微信typing状态，降低“机器人卡死”的观感 |
-| 运维命令 | `/help`、`/info`、`/cwd`、`/new`等基础命令 | 增强或整理`/status`、`/help`、`/profile`和`/balance`等命令输出 |
-| 目标用户 | 普通微信接入Agent用户 | 需要从微信管理Agent、代理后端、模型profile和命令式工作流的用户 |
-| 稳定性策略 | 上游release线 | dev分支，迭代更快，行为可能更频繁变化 |
 
 ---
 
@@ -88,6 +67,18 @@ weclaw start -f
 ```
 
 ---
+
+<!-- WECLAW_DOCS_RESTRUCTURE:BEGIN:user_changes -->
+## 用户可感知行为变化
+
+| 版本 | 影响对象 | 此前行为 | 当前行为 |
+| --- | --- | --- | --- |
+| v0.1.7-alpha | 后台日志 | 很多后台运行场景需要显式配置stdout/stderr保存。 | `weclaw start`默认将后台日志写入`~/.weclaw/weclaw.log`，并带有有限裁剪。 |
+| v0.1.7-alpha | 会话恢复 | `resume`通常需要显式填写ACP/Codex session ID。 | `weclaw start deepseek-thinking resume`可以省略session ID，默认使用该profile最近一次ACP/Codex会话。 |
+| v0.1.7-alpha | 受管启动 | 已有受管WeClaw进程运行时，再次start容易造成理解混乱。 | `weclaw start ...`保持幂等，报告已有受管进程，不直接替换。 |
+| v0.1.7-alpha | alpha升级 | 同一公开tag被重建到新commit时，仅比较公开版本号可能漏升。 | `weclaw upgrade --alpha`会比较构建元数据，并在可恢复场景下迁移运行中的受管进程。 |
+
+<!-- WECLAW_DOCS_RESTRUCTURE:END:user_changes -->
 
 ## 安装说明
 <!-- weclaw-install-fallbacks -->
@@ -118,7 +109,6 @@ curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | 
 curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh -s -- --uninstall
 ```
 
-
 本分支安装源为：
 
 ```text
@@ -137,6 +127,70 @@ Awenforever/weclaw_dev
 ```bash
 go install github.com/Awenforever/weclaw_dev@latest
 docker run -it -v ~/.weclaw:/root/.weclaw ghcr.io/fastclaw-ai/weclaw start
+```
+
+---
+
+## 更新与卸载
+
+### 旧版本升级路径
+
+如果已经安装过较旧alpha版本，先重复运行一行安装命令，把本机切到当前release通道：
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
+```
+
+安装v0.1.2-alpha或更新版本后，后续可以使用内置更新命令：
+
+```bash
+weclaw upgrade
+
+自v0.1.4-alpha起，可使用`weclaw upgrade --alpha`显式升级到pre-release/alpha通道；普通`weclaw upgrade`仍默认使用stable latest。
+```
+
+更新后的会话连续性：
+
+```bash
+# 任务运行中，先在微信端查看当前session/thread ID。
+/now
+
+# 升级或重启后，用该ID恢复Codex会话。
+weclaw start deepseek resume <session-id>
+weclaw start deepseek-thinking resume <session-id>
+# 或省略session ID，默认使用最近一次ACP/Codex会话ID：
+weclaw start deepseek-thinking resume
+```
+
+该resume ID会应用到对应profile收到的第一个微信用户回合。只有明确需要新会话时，才使用`/restart`或`/new`。
+
+可以随时重复运行一行安装命令来安装最新GitHub Release：
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
+```
+
+安装后推荐使用内置更新命令：
+
+```bash
+weclaw upgrade
+weclaw update
+weclaw version
+```
+
+`weclaw start`会定期检查GitHub Release。如果发现新版本，会提示用户运行`weclaw upgrade`。
+
+仅卸载二进制文件并保留`~/.weclaw`用户数据：
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh -s -- --uninstall
+weclaw uninstall
+```
+
+同时删除二进制文件和本地用户数据：
+
+```bash
+weclaw uninstall --purge
 ```
 
 ---
@@ -186,23 +240,51 @@ https://github.com/Awenforever/CoDeepSeedeX
 
 ---
 
-## 工作原理
+## 重启或升级后的会话恢复
 
-<p align="center">
-  <img src="assets/readme/weclaw-dev-architecture.jpg" width="720" alt="WeClaw Dev架构图" />
-</p>
+WeClaw Dev可以在重启或升级后继续使用已有的Codex会话。只要你能从微信端看到当前session ID，就可以在重启时指定它。
 
-| 模式 | 工作方式 | 典型Agent |
+常用流程：
+
+```bash
+# 先在微信端查看当前session。
+/status
+/now
+
+# 重启WeClaw，并尝试恢复该session。
+weclaw start deepseek-thinking resume <session-id>
+# 或省略session ID，默认使用最近一次ACP/Codex会话ID：
+weclaw start deepseek-thinking resume
+```
+
+如果旧session已经不能继续使用，WeClaw现在会自动开启新session并继续处理当前消息，不会让对话一直卡在失效session上。
+
+升级时：
+
+```bash
+weclaw upgrade
+
+# 如需显式进入alpha/pre-release通道：
+weclaw upgrade --alpha
+```
+
+<!-- WECLAW_DOCS_RESTRUCTURE:BEGIN:cli_commands -->
+## WeClaw CLI命令
+
+| 任务 | 命令 | 说明 |
 | --- | --- | --- |
-| ACP | 长驻子进程，通过stdio进行JSON-RPC通信。速度最快，因为进程和会话可以复用 | Claude、Codex、Gemini、Kimi、Cursor、OpenCode |
-| CLI | 每条消息启动一个新进程。部分Agent支持会话恢复 | Claude CLI、Codex exec |
-| HTTP | OpenAI兼容Chat Completions API | OpenClaw、自定义网关、本地proxy |
+| 使用DeepSeek thinking启动 | `weclaw start deepseek-thinking` | thinking profile的日常启动命令。 |
+| 恢复最近一次ACP/Codex会话 | `weclaw start deepseek-thinking resume` | 使用该profile最近一次记录的ACP/Codex session。 |
+| 恢复指定ACP/Codex会话 | `weclaw start deepseek-thinking resume <session-id>` | 使用`/now`或`/status`显示的session/thread ID。 |
+| 停止受管进程 | `weclaw stop` | 停止受管WeClaw进程。 |
+| 查看运行状态 | `weclaw status` | 从CLI侧查看受管进程和运行状态。 |
+| 普通通道升级 | `weclaw upgrade` | 使用普通Latest Release通道。 |
+| alpha通道升级 | `weclaw upgrade --alpha` | 显式进入alpha通道。 |
+| 查看构建元数据 | `weclaw version` | 显示公开版本和内部版本元数据。 |
 
-当同一Agent同时存在ACP和CLI时，WeClaw优先选择ACP。
+<!-- WECLAW_DOCS_RESTRUCTURE:END:cli_commands -->
 
----
-
-## 聊天命令
+## 微信端slash commands
 
 | 命令 | 说明 |
 | --- | --- |
@@ -242,6 +324,91 @@ https://github.com/Awenforever/CoDeepSeedeX
   }
 }
 ```
+
+---
+
+## 配置
+
+配置文件：
+
+```text
+~/.weclaw/config.json
+```
+
+示例：
+
+```json
+{
+  "default_agent": "codex",
+  "agents": {
+    "codex": {
+      "type": "acp",
+      "command": "/usr/local/bin/codex",
+      "args": ["app-server", "--listen", "stdio://"],
+      "cwd": "/home/user/project"
+    },
+    "openclaw": {
+      "type": "http",
+      "endpoint": "https://api.example.com/v1/chat/completions",
+      "api_key": "sk-xxx",
+      "model": "openclaw:main"
+    }
+  }
+}
+```
+
+环境变量：
+
+| 变量 | 说明 |
+| --- | --- |
+| `WECLAW_DEFAULT_AGENT` | 覆盖默认Agent |
+| `OPENCLAW_GATEWAY_URL` | OpenClaw或兼容HTTP端点 |
+| `OPENCLAW_GATEWAY_TOKEN` | HTTP网关Token |
+| `WECLAW_API_ADDR` | 主动推送API监听地址 |
+
+---
+
+## 后台运行
+
+```bash
+weclaw start
+weclaw start --stdout
+weclaw status
+weclaw stop
+weclaw start -f
+```
+
+`weclaw start --stdout`会把stdout/stderr写入`~/.weclaw/weclaw.log`。
+
+---
+
+## 权限说明
+
+部分CLI Agent需要交互式权限确认，不适合微信场景。
+
+| Agent | 参数 | 含义 |
+| --- | --- | --- |
+| Claude CLI | `--dangerously-skip-permissions` | 跳过交互式工具权限确认 |
+| Codex CLI | `--skip-git-repo-check` | 允许在非git仓库目录运行 |
+
+只有在理解安全影响后，才应启用权限绕过参数。能用ACP时优先使用ACP。
+
+---
+
+## Docker
+
+```bash
+docker build -t weclaw .
+docker run -it -v ~/.weclaw:/root/.weclaw weclaw login
+docker run -d --name weclaw \
+  -v ~/.weclaw:/root/.weclaw \
+  -e OPENCLAW_GATEWAY_URL=https://api.example.com \
+  -e OPENCLAW_GATEWAY_TOKEN=sk-xxx \
+  weclaw
+docker logs -f weclaw
+```
+
+ACP和CLI Agent需要容器内存在对应二进制文件。HTTP模式只需要兼容的远程或本地HTTP端点。
 
 ---
 
@@ -317,171 +484,38 @@ export WECLAW_API_ADDR=0.0.0.0:18011
 
 ---
 
-## 配置
+## 工作原理
 
-配置文件：
+<p align="center">
+  <img src="assets/readme/weclaw-dev-architecture.jpg" width="720" alt="WeClaw Dev架构图" />
+</p>
 
-```text
-~/.weclaw/config.json
-```
-
-示例：
-
-```json
-{
-  "default_agent": "codex",
-  "agents": {
-    "codex": {
-      "type": "acp",
-      "command": "/usr/local/bin/codex",
-      "args": ["app-server", "--listen", "stdio://"],
-      "cwd": "/home/user/project"
-    },
-    "openclaw": {
-      "type": "http",
-      "endpoint": "https://api.example.com/v1/chat/completions",
-      "api_key": "sk-xxx",
-      "model": "openclaw:main"
-    }
-  }
-}
-```
-
-环境变量：
-
-| 变量 | 说明 |
-| --- | --- |
-| `WECLAW_DEFAULT_AGENT` | 覆盖默认Agent |
-| `OPENCLAW_GATEWAY_URL` | OpenClaw或兼容HTTP端点 |
-| `OPENCLAW_GATEWAY_TOKEN` | HTTP网关Token |
-| `WECLAW_API_ADDR` | 主动推送API监听地址 |
-
----
-
-## 权限说明
-
-部分CLI Agent需要交互式权限确认，不适合微信场景。
-
-| Agent | 参数 | 含义 |
+| 模式 | 工作方式 | 典型Agent |
 | --- | --- | --- |
-| Claude CLI | `--dangerously-skip-permissions` | 跳过交互式工具权限确认 |
-| Codex CLI | `--skip-git-repo-check` | 允许在非git仓库目录运行 |
+| ACP | 长驻子进程，通过stdio进行JSON-RPC通信。速度最快，因为进程和会话可以复用 | Claude、Codex、Gemini、Kimi、Cursor、OpenCode |
+| CLI | 每条消息启动一个新进程。部分Agent支持会话恢复 | Claude CLI、Codex exec |
+| HTTP | OpenAI兼容Chat Completions API | OpenClaw、自定义网关、本地proxy |
 
-只有在理解安全影响后，才应启用权限绕过参数。能用ACP时优先使用ACP。
-
----
-
-## 后台运行
-
-```bash
-weclaw start
-weclaw start --stdout
-weclaw status
-weclaw stop
-weclaw start -f
-```
-
-`weclaw start --stdout`会把stdout/stderr写入`~/.weclaw/weclaw.log`。
+当同一Agent同时存在ACP和CLI时，WeClaw优先选择ACP。
 
 ---
 
-## Docker
+## WeClaw Dev与原始WeClaw的区别
 
-```bash
-docker build -t weclaw .
-docker run -it -v ~/.weclaw:/root/.weclaw weclaw login
-docker run -d --name weclaw \
-  -v ~/.weclaw:/root/.weclaw \
-  -e OPENCLAW_GATEWAY_URL=https://api.example.com \
-  -e OPENCLAW_GATEWAY_TOKEN=sk-xxx \
-  weclaw
-docker logs -f weclaw
-```
-
-ACP和CLI Agent需要容器内存在对应二进制文件。HTTP模式只需要兼容的远程或本地HTTP端点。
-
----
-
-## 更新与卸载
-
-### 旧版本升级路径
-
-如果已经安装过较旧alpha版本，先重复运行一行安装命令，把本机切到当前release通道：
-
-```bash
-curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
-```
-
-安装v0.1.2-alpha或更新版本后，后续可以使用内置更新命令：
-
-```bash
-weclaw upgrade
-
-自v0.1.4-alpha起，可使用`weclaw upgrade --alpha`显式升级到pre-release/alpha通道；普通`weclaw upgrade`仍默认使用stable latest。
-```
-
-更新后的会话连续性：
-
-```bash
-# 任务运行中，先在微信端查看当前session/thread ID。
-/now
-
-# 升级或重启后，用该ID恢复Codex会话。
-weclaw start deepseek resume <session-id>
-weclaw start deepseek-thinking resume <session-id>
-# 或省略session ID，默认使用最近一次ACP/Codex会话ID：
-weclaw start deepseek-thinking resume
-```
-
-该resume ID会应用到对应profile收到的第一个微信用户回合。只有明确需要新会话时，才使用`/restart`或`/new`。
-
-
-可以随时重复运行一行安装命令来安装最新GitHub Release：
-
-```bash
-curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh
-```
-
-安装后推荐使用内置更新命令：
-
-```bash
-weclaw upgrade
-weclaw update
-weclaw version
-```
-
-`weclaw start`会定期检查GitHub Release。如果发现新版本，会提示用户运行`weclaw upgrade`。
-
-仅卸载二进制文件并保留`~/.weclaw`用户数据：
-
-```bash
-curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh -s -- --uninstall
-weclaw uninstall
-```
-
-同时删除二进制文件和本地用户数据：
-
-```bash
-weclaw uninstall --purge
-```
-
----
-
-## 开发
-
-```bash
-make dev
-go build -o weclaw .
-./weclaw start
-```
-
-推荐检查：
-
-```bash
-git status --short
-go test ./...
-git diff --check
-```
+| 维度 | 原始`fastclaw-ai/weclaw` | `Awenforever/weclaw_dev` |
+| --- | --- | --- |
+| 项目定位 | 通用微信AI Agent桥接器 | 面向Codex、DeepSeek和微信命令工作流的开发分支 |
+| 安装来源 | `fastclaw-ai/weclaw` | `Awenforever/weclaw_dev` |
+| 安装逻辑 | 标准安装路径 | 优先使用GitHub Release，无Release时回退源码构建 |
+| Agent模式 | ACP、CLI和HTTP | 保留ACP、CLI和HTTP，并额外关注Codex ACP运行行为 |
+| Codex使用方式 | 基础Codex支持 | ACP模式下直接使用真实`codex`可执行文件，除非明确需要持久NDJSON日志，否则不建议套`tee`或stdout抓取脚本 |
+| 对话处理 | 基础路由和`/new`清空会话 | 更强调当前会话复用、Agent/Profile切换和微信侧命令连续性 |
+| 命令格式化 | 可用的纯文本命令回复 | 面向微信阅读优化的紧凑命令摘要 |
+| 模型与后端 | 本地Agent和HTTP兼容后端 | 更适合Codex profile、DeepSeek-backed Codex和CoDeepSeedeX联动 |
+| typing状态 | 不是重点 | 长时间Agent回复期间尽量保持微信typing状态，降低“机器人卡死”的观感 |
+| 运维命令 | `/help`、`/info`、`/cwd`、`/new`等基础命令 | 增强或整理`/status`、`/help`、`/profile`和`/balance`等命令输出 |
+| 目标用户 | 普通微信接入Agent用户 | 需要从微信管理Agent、代理后端、模型profile和命令式工作流的用户 |
+| 稳定性策略 | 上游release线 | dev分支，迭代更快，行为可能更频繁变化 |
 
 ---
 
@@ -505,39 +539,23 @@ dev分支增加的是日常从微信使用Agent时更需要的实用行为。
 
 ---
 
-## 许可证
+## 开发
 
-[MIT](LICENSE)
+```bash
+make dev
+go build -o weclaw .
+./weclaw start
+```
+
+推荐检查：
+
+```bash
+git status --short
+go test ./...
+git diff --check
+```
 
 ---
-
-## 重启或升级后的会话恢复
-
-WeClaw Dev可以在重启或升级后继续使用已有的Codex会话。只要你能从微信端看到当前session ID，就可以在重启时指定它。
-
-常用流程：
-
-```bash
-# 先在微信端查看当前session。
-/status
-/now
-
-# 重启WeClaw，并尝试恢复该session。
-weclaw start deepseek-thinking resume <session-id>
-# 或省略session ID，默认使用最近一次ACP/Codex会话ID：
-weclaw start deepseek-thinking resume
-```
-
-如果旧session已经不能继续使用，WeClaw现在会自动开启新session并继续处理当前消息，不会让对话一直卡在失效session上。
-
-升级时：
-
-```bash
-weclaw upgrade
-
-# 如需显式进入alpha/pre-release通道：
-weclaw upgrade --alpha
-```
 
 ## Codex sandbox依赖提示
 
@@ -549,6 +567,12 @@ sudo apt install -y bubblewrap
 weclaw stop
 weclaw start deepseek-thinking
 ```
+
+## 许可证
+
+[MIT](LICENSE)
+
+---
 
 ## 升级
 
