@@ -9,10 +9,10 @@ This is the canonical English handoff for starting a new AI development conversa
 - Main branch: `main`
 - Current public Release: `v0.1.7-alpha`
 - Current public Release commit: `31fa432`
-- Current internal development tag: `p0.1.5a38-special-legacy-tag-archive`
-- Current `main` and `origin/main`: same commit as `p0.1.5a38-special-legacy-tag-archive` after merge
+- Current internal development tag: `p0.1.5a39-final-audit-polish`
+- Current `main` and `origin/main`: same commit as `p0.1.5a39-final-audit-polish` after merge
 - Current Release asset/code line: `p0.1.5a28-stop-semantics` and legacy `v0.1p5a28-stop-semantics`, both at `31fa432`
-- p5a29 synchronized documentation and Release notes, p5a30 removed obsolete documentation entry points, p5a31 fixed final documentation entry references, p5a32 synchronized the handoff with the current `main` line, p0.1.5a33 established the normalized internal version/tag format, p0.1.5a34 added guard tests, p0.1.5a35 created normalized mirror tags for the 42 auto-mappable legacy `v0.1p...` internal tags, and p0.1.5a36 removed the 13 legacy `alpha-work-v0.1p...` temporary pre-releases/tags that had verified normalized mirrors, and p0.1.5a37 disabled CI auto pre-release publishing and removed the remaining CI-generated alpha/beta pre-release noise, and p0.1.5a38 archived the final special `v0.1d/e/f...` legacy tags as normalized `p0.1.0a*` tags before removing the old refs. None of these documentation-only or tag-mirror commits should be confused with the Release asset commit.
+- p5a29 synchronized documentation and Release notes, p5a30 removed obsolete documentation entry points, p5a31 fixed final documentation entry references, p5a32 synchronized the handoff with the current `main` line, p0.1.5a33 established the normalized internal version/tag format, p0.1.5a34 added guard tests, p0.1.5a35 created normalized mirror tags for the 42 auto-mappable legacy `v0.1p...` internal tags, and p0.1.5a36 removed the 13 legacy alpha-work temporary pre-releases/tags that had verified normalized mirrors, and p0.1.5a37 disabled CI auto pre-release publishing and removed the remaining CI-generated alpha/beta pre-release noise, and p0.1.5a38 archived the final special `v0.1d/e/f...` legacy tags as normalized `p0.1.0a*` tags before removing the old refs, and p0.1.5a39 cleaned final audit false positives around GitHub Release `targetCommitish` metadata and future-facing handbook wording. None of these documentation-only or tag-mirror commits should be confused with the Release asset commit.
 - Previous public Release `v0.1.6-alpha` remains at `bbb2f28` and must not be moved.
 - `v0.1.7-alpha` has been published as Latest and is no longer marked as pre-release.
 - Release assets expected for five platforms: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
@@ -120,7 +120,7 @@ Key user-visible changes:
 
 ## 9. Next likely work
 
-- After p0.1.5a38, internal tag hygiene is complete: use normalized `p*.*.*` internal tags, CI no longer auto-publishes branch/tag pre-releases, and public Releases must go through the manual `release.yml` workflow. Legacy `v0.1p...` tags remain only as historical mirrors until explicit cleanup is approved.
+- After p0.1.5a39, internal tag hygiene is complete: use normalized `p*.*.*` internal tags, CI no longer auto-publishes branch/tag pre-releases, and public Releases must go through the manual `release.yml` workflow. GitHub Release `targetCommitish` may display `main`, so the tag target is the source of truth for Release commit verification. Legacy `v0.1p...` tags remain only as historical mirrors until explicit cleanup is approved.
 - Keep README structure user-oriented.
 - Keep this handoff concise.
 - Continue moving detailed history into `docs/development-log.md`.

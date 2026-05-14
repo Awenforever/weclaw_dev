@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - p0.1.5a39-final-audit-polish
+
+- Removed literal old alpha-work internal tag tokens from future-facing developer handbooks while keeping precise historical mappings in `docs/development-log.md`.
+- Documented that GitHub Release `targetCommitish` may display `main`; Release commit verification should use the immutable Release tag target.
+- Added guard coverage so future-facing documentation and CI workflows do not reintroduce alpha/beta pre-release noise tokens.
+
+
 ## 2026-05-14 - p0.1.5a38-special-legacy-tag-archive
 
 - Created normalized archival mirror tags for the four special legacy `v0.1d/e/f...` tags, then deleted the old special legacy refs after verifying identical commit targets.

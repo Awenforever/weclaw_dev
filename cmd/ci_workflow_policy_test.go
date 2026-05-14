@@ -85,3 +85,29 @@ func readRepoFileForCIWorkflowPolicyTest(t *testing.T, root, rel string) string 
 	}
 	return string(data)
 }
+
+func TestFutureFacingDocsDoNotReferenceAlphaBetaNoise(t *testing.T) {
+	root := repoRootForCIWorkflowPolicyTest(t)
+	files := []string{
+		"README.md",
+		"README_CN.md",
+		".github/workflows/ci.yml",
+		".github/workflows/release.yml",
+		"docs/developer-handbook.md",
+		"docs/developer-handbook.zh-CN.md",
+	}
+	forbidden := []string{
+		"alpha-work-v0.1p",
+		"alpha-p0.1.",
+		"alpha-work-p0.1.",
+		"beta-latest",
+	}
+	for _, rel := range files {
+		text := readRepoFileForCIWorkflowPolicyTest(t, root, rel)
+		for _, token := range forbidden {
+			if strings.Contains(text, token) {
+				t.Fatalf("%s contains future-facing alpha/beta pre-release noise token %q", rel, token)
+			}
+		}
+	}
+}
