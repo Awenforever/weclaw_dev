@@ -115,3 +115,21 @@ func extractBacktickValueAfterPrefixForInternalTagFormatTest(t *testing.T, text,
 	}
 	return rest[:end]
 }
+
+func TestFutureFacingDocsDoNotUseLegacyVInternalTagTokens(t *testing.T) {
+	root := repoRootForInternalTagFormatTest(t)
+	files := []string{
+		"README.md",
+		"README_CN.md",
+		".github/workflows/ci.yml",
+		".github/workflows/release.yml",
+		"docs/developer-handbook.md",
+		"docs/developer-handbook.zh-CN.md",
+	}
+	for _, rel := range files {
+		text := readRepoFileForInternalTagFormatTest(t, root, rel)
+		if strings.Contains(text, "v0.1p") {
+			t.Fatalf("%s contains legacy v-prefixed internal tag token", rel)
+		}
+	}
+}

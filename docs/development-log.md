@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - p0.1.5a40-delete-legacy-v-internal-tags
+
+- Deleted the remaining legacy `v0.1p...` internal tags after verifying every one had a normalized `p0.1.*` mirror tag at the same commit.
+- Preserved public Release tags, GitHub Releases, normalized `p*.*.*` internal tags, and the `p0.1.0a*` archival tags.
+- After this change, remote `v*` tags are reserved for public Release tags only.
+
+
 ## 2026-05-14 - p0.1.5a39-final-audit-polish
 
 - Removed literal old alpha-work internal tag tokens from future-facing developer handbooks while keeping precise historical mappings in `docs/development-log.md`.

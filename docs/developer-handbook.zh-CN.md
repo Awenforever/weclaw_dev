@@ -9,10 +9,10 @@
 - 主分支：`main`
 - 当前公开Release：`v0.1.7-alpha`
 - 当前公开Release commit：`31fa432`
-- 当前内部开发标签：`p0.1.5a39-final-audit-polish`
-- 当前`main`和`origin/main`：合并后与`p0.1.5a39-final-audit-polish`指向同一提交
-- 当前Release资产/代码线：规范镜像tag `p0.1.5a28-stop-semantics`和历史tag `v0.1p5a28-stop-semantics`均指向`31fa432`
-- p5a29同步文档和Release note，p5a30删除过时文档入口，p5a31修复最终文档入口引用，p5a32同步手册到当前main线，p0.1.5a33确立规范化内部版本/tag格式，p0.1.5a34增加防回流测试，p0.1.5a35为42个可自动映射的历史`v0.1p...`内部tag创建规范镜像tag，p0.1.5a36删除了13个已验证存在规范镜像的历史alpha-work临时pre-release/tag，p0.1.5a37禁用CI自动发布pre-release并删除剩余CI生成的alpha/beta pre-release噪声，p0.1.5a38将最后的特殊历史`v0.1d/e/f...`tag归档为规范`p0.1.0a*`tag后删除旧ref，p0.1.5a39清理最终审计中关于GitHub Release `targetCommitish`元数据和面向未来手册措辞的误报。这些文档类或tag镜像提交都不应与Release资产提交混淆。
+- 当前内部开发标签：`p0.1.5a40-delete-legacy-v-internal-tags`
+- 当前`main`和`origin/main`：合并后与`p0.1.5a40-delete-legacy-v-internal-tags`指向同一提交
+- 当前Release资产/代码线：规范tag `p0.1.5a28-stop-semantics`指向`31fa432`
+- p5a29同步文档和Release note，p5a30删除过时文档入口，p5a31修复最终文档入口引用，p5a32同步手册到当前main线，p0.1.5a33确立规范化内部版本/tag格式，p0.1.5a34增加防回流测试，p0.1.5a35为42个可自动映射的预规范化内部tag创建规范镜像tag，p0.1.5a36删除了13个已验证存在规范镜像的历史alpha-work临时pre-release/tag，p0.1.5a37禁用CI自动发布pre-release并删除剩余CI生成的alpha/beta pre-release噪声，p0.1.5a38将最后的特殊历史`v0.1d/e/f...`tag归档为规范`p0.1.0a*`tag后删除旧ref，p0.1.5a39清理最终审计中关于GitHub Release `targetCommitish`元数据和面向未来手册措辞的误报，p0.1.5a40在确认规范镜像覆盖后删除剩余预规范化内部`v`前缀ref。这些文档类或tag镜像提交都不应与Release资产提交混淆。
 - 旧公开Release `v0.1.6-alpha`保持在`bbb2f28`，不得移动。
 - `v0.1.7-alpha`已经发布为Latest，不再是pre-release。
 - Release资产应覆盖五个平台：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64、Windows amd64。
@@ -61,7 +61,7 @@
 - 内部开发和handoff tag必须使用`p<major>.<minor>.<patch>[aN[aM...]][-topic]`。
 - 内部tag必须以`p`开头，不得以`v`开头，并且可选`aN`修复/子版本后缀之前必须包含三段数字版本号。
 - 合规示例包括`p0.1.5-topic`、`p0.1.5a1-topic`、`p0.1.5a1a3-topic`和`p0.1.5a33-internal-version-format-policy`。
-- 旧的`v0.1p...`内部tag格式已经废弃。历史tag可暂时保留以便追溯，只有在显式规划并验证tag迁移后才处理。
+- 旧的预规范化内部tag格式已经废弃。历史追溯通过规范镜像tag和开发日志维护。
 - 不要静默移动公开Release tag。
 - 更新已有公开Release tag必须明确决定删除并重建该Release和tag。
 - 除非用户明确要求，否则旧公开Release tag必须保持稳定。
@@ -118,7 +118,7 @@
 - ACP raw stdout诊断有价值，但默认应关闭。
 - stop命令必须显式：说明停止了什么，清理stale pid状态，并确认后续`start`不会立刻看到同一个managed进程。
 
-- p0.1.5a39之后，内部tag治理完成：内部开发使用规范化`p*.*.*`tag，CI不再自动发布分支/tag pre-release，公开Release必须通过手动`release.yml`流程发布。GitHub Release `targetCommitish`可能显示`main`，因此Release commit校验以tag目标为准。历史`v0.1p...`tag仅作为追溯镜像保留，除非明确批准清理。
+- p0.1.5a39之后，内部tag治理完成：内部开发使用规范化`p*.*.*`tag，CI不再自动发布分支/tag pre-release，公开Release必须通过手动`release.yml`流程发布。GitHub Release `targetCommitish`可能显示`main`，因此Release commit校验以tag目标为准。所有预规范化内部`v`前缀ref已在确认规范镜像覆盖后删除。
 
 ## 9. 后续方向
 
