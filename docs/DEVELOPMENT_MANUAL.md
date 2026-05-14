@@ -67,6 +67,7 @@ Channel rules:
 
 - `weclaw upgrade` defaults to stable GitHub latest, using `/releases/latest`.
 - `weclaw upgrade --alpha` is the explicit alpha/pre-release channel.
+- If a public pre-release tag is rebuilt for validation, `upgrade` must compare the installed `PublicCommit` with the remote public tag commit and reinstall when they differ, even when the public version string is unchanged.
 - Alpha channel must only select draft=false, prerelease=true and tag matching `v*.*.*-alpha`.
 - `maybePrintUpdateNotice` should remain stable-channel only unless explicitly redesigned.
 
@@ -545,3 +546,13 @@ p5a22 fixes runtime status display consistency:
 - Context-window `used` and `left` must be numeric with percentages; do not display raw `unknown`.
 - If Codex token usage has not arrived yet, show zero usage with source `waiting_for_codex_usage_event` rather than unknown.
 - `turn` is not a session ID. The status UI should label token usage turn IDs as `last turn id`.
+
+
+### p5a23 upgrade runtime migration
+
+p5a23 fixes upgrade behavior for rebuilt pre-release tags:
+- Do not decide upgrade freshness from the public version string alone.
+- When `latest == Version`, compare the installed `PublicCommit` with the remote public tag commit.
+- If the same public tag was rebuilt to a different commit, still download and install the new asset.
+- Upgrade must preserve the existing managed runtime when possible by stopping the old process only after the new asset is downloaded and installed, then restarting with the resolved profile and session.
+- Release asset downloads need a longer timeout than ordinary API checks because VM networks can be slow.

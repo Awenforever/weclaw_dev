@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,8 +26,10 @@ const githubRepo = "Awenforever/weclaw_dev"
 var uninstallPurgeFlag bool
 
 const updateCheckInterval = 24 * time.Hour
-const updateHTTPMaxAttempts = 3
+const updateHTTPMaxAttempts = 5
 const updateHTTPRetryDelay = 750 * time.Millisecond
+const updateCommandTimeout = 15 * time.Minute
+const updateHTTPTimeout = 10 * time.Minute
 
 func init() {
 	rootCmd.AddCommand(updateCmd)
@@ -82,7 +85,7 @@ type updateCheckState struct {
 func runUpdate(cmd *cobra.Command, args []string) error {
 	fmt.Println("Checking for updates...")
 
-	ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(cmd.Context(), updateCommandTimeout)
 	defer cancel()
 
 	latest, err := getUpgradeTargetVersion(ctx, upgradeAlpha)
@@ -91,8 +94,19 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	if latest == Version {
-		fmt.Printf("Already up to date (%s)\n", Version)
-		return nil
+		latestCommit, commitErr := getReleaseTagCommit(ctx, latest)
+		if commitErr != nil {
+			fmt.Printf("Warning: failed to verify release tag commit: %v\n", commitErr)
+		}
+		if shouldSkipSameVersionUpgrade(Version, PublicCommit, latest, latestCommit) {
+			fmt.Printf("Already up to date (%s)\n", Version)
+			return nil
+		}
+		if latestCommit != "" {
+			fmt.Printf("Current tag %s was rebuilt: current commit %s -> release commit %s\n", latest, shortCommitValue(PublicCommit), shortCommitValue(latestCommit))
+		} else {
+			fmt.Printf("Reinstalling %s because current commit metadata is incomplete\n", latest)
+		}
 	}
 
 	if upgradeAlpha {
@@ -299,6 +313,114 @@ func getLatestVersion(ctx context.Context) (string, error) {
 	return release.TagName, nil
 }
 
+func getReleaseTagCommit(ctx context.Context, tag string) (string, error) {
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return "", fmt.Errorf("release tag is required")
+	}
+
+	refURL := fmt.Sprintf("https://api.github.com/repos/%s/git/ref/tags/%s", githubRepo, neturl.PathEscape(tag))
+	resp, err := doUpdateGET(ctx, "weclaw-tag-commit-checker", refURL)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
+		return "", fmt.Errorf("GitHub tag ref returned %d", resp.StatusCode)
+	}
+
+	var ref struct {
+		Object struct {
+			SHA  string `json:"sha"`
+			Type string `json:"type"`
+		} `json:"object"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&ref); err != nil {
+		return "", err
+	}
+	objSHA := strings.TrimSpace(ref.Object.SHA)
+	switch strings.TrimSpace(ref.Object.Type) {
+	case "commit":
+		return objSHA, nil
+	case "tag":
+		if objSHA == "" {
+			return "", fmt.Errorf("annotated tag object has no sha")
+		}
+		tagURL := fmt.Sprintf("https://api.github.com/repos/%s/git/tags/%s", githubRepo, neturl.PathEscape(objSHA))
+		tagResp, err := doUpdateGET(ctx, "weclaw-tag-object-checker", tagURL)
+		if err != nil {
+			return "", err
+		}
+		defer tagResp.Body.Close()
+		if tagResp.StatusCode != http.StatusOK {
+			io.Copy(io.Discard, tagResp.Body)
+			return "", fmt.Errorf("GitHub tag object returned %d", tagResp.StatusCode)
+		}
+		var tagObject struct {
+			Object struct {
+				SHA  string `json:"sha"`
+				Type string `json:"type"`
+			} `json:"object"`
+		}
+		if err := json.NewDecoder(tagResp.Body).Decode(&tagObject); err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(tagObject.Object.Type) != "commit" {
+			return "", fmt.Errorf("annotated tag points to %q, want commit", tagObject.Object.Type)
+		}
+		commit := strings.TrimSpace(tagObject.Object.SHA)
+		if commit == "" {
+			return "", fmt.Errorf("annotated tag has empty commit sha")
+		}
+		return commit, nil
+	default:
+		return "", fmt.Errorf("tag ref points to %q, want commit or tag", ref.Object.Type)
+	}
+}
+
+func shouldSkipSameVersionUpgrade(currentVersion, currentCommit, latestVersion, latestCommit string) bool {
+	currentVersion = strings.TrimSpace(currentVersion)
+	latestVersion = strings.TrimSpace(latestVersion)
+	if currentVersion == "" || currentVersion != latestVersion {
+		return false
+	}
+	latestCommit = strings.TrimSpace(latestCommit)
+	if latestCommit == "" {
+		return true
+	}
+	return commitMatches(currentCommit, latestCommit)
+}
+
+func commitMatches(current, latest string) bool {
+	current = strings.TrimSpace(current)
+	latest = strings.TrimSpace(latest)
+	if current == "" || current == "unknown" || latest == "" {
+		return false
+	}
+	if current == latest {
+		return true
+	}
+	if len(current) >= 7 && strings.HasPrefix(latest, current) {
+		return true
+	}
+	if len(latest) >= 7 && strings.HasPrefix(current, latest) {
+		return true
+	}
+	return false
+}
+
+func shortCommitValue(commit string) string {
+	commit = strings.TrimSpace(commit)
+	if commit == "" {
+		return "unknown"
+	}
+	if len(commit) > 7 {
+		return commit[:7]
+	}
+	return commit
+}
+
 func downloadFile(ctx context.Context, url string) (string, error) {
 	resp, err := doUpdateGET(ctx, "weclaw-upgrader", url)
 	if err != nil {
@@ -376,7 +498,7 @@ func isRetriableHTTPStatus(status int) bool {
 }
 
 func updateHTTPClient() *http.Client {
-	return &http.Client{Timeout: 30 * time.Second}
+	return &http.Client{Timeout: updateHTTPTimeout}
 }
 
 func releaseAssetName(goos, goarch string) string {

@@ -87,3 +87,15 @@ p5a22 changes:
 - Token usage turn ID is labeled as `last turn id`, because turn ID is per-message and not the session/thread ID.
 
 After p5a22, rebuild `v0.1.7-alpha` as pre-release again, then VM-test `/status`, `/now`, one natural-language turn, and `/now` again before marking Latest.
+
+
+## p5a23 upgrade runtime migration
+
+p5a23 changes:
+- `weclaw upgrade` no longer treats the same public version string as sufficient freshness evidence.
+- It compares installed public commit metadata with the remote public tag commit.
+- Rebuilt `v0.1.7-alpha` assets can be pulled by `weclaw upgrade --alpha` when the installed commit differs.
+- Runtime migration remains automatic: after the asset is prepared, upgrade stops the old managed process and restarts the new binary with the resolved profile and session when available.
+- Download timeout was increased to tolerate slow VM network paths.
+
+After p5a23, rebuild `v0.1.7-alpha` as pre-release again, then verify upgrade from an older `v0.1.7-alpha` commit to the rebuilt same tag.

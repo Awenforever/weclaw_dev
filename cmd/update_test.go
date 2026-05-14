@@ -247,3 +247,35 @@ func TestReleaseMetadataLDFlagsDocumentRequiredFields(t *testing.T) {
 		}
 	}
 }
+
+func TestShouldSkipSameVersionUpgradeUsesCommitMetadata(t *testing.T) {
+	tests := []struct {
+		name          string
+		current       string
+		currentCommit string
+		latest        string
+		latestCommit  string
+		want          bool
+	}{
+		{name: "different version upgrades", current: "v0.1.6-alpha", currentCommit: "bbb2f28", latest: "v0.1.7-alpha", latestCommit: "da41af2", want: false},
+		{name: "same version same full commit skips", current: "v0.1.7-alpha", currentCommit: "da41af2bf467f641ff8fa0e741394268e1e3bc31", latest: "v0.1.7-alpha", latestCommit: "da41af2bf467f641ff8fa0e741394268e1e3bc31", want: true},
+		{name: "same version current short commit skips", current: "v0.1.7-alpha", currentCommit: "da41af2", latest: "v0.1.7-alpha", latestCommit: "da41af2bf467f641ff8fa0e741394268e1e3bc31", want: true},
+		{name: "same version rebuilt commit upgrades", current: "v0.1.7-alpha", currentCommit: "6f11c7c", latest: "v0.1.7-alpha", latestCommit: "da41af2bf467f641ff8fa0e741394268e1e3bc31", want: false},
+		{name: "same version unknown latest commit skips", current: "v0.1.7-alpha", currentCommit: "6f11c7c", latest: "v0.1.7-alpha", latestCommit: "", want: true},
+		{name: "same version unknown current commit upgrades when latest known", current: "v0.1.7-alpha", currentCommit: "unknown", latest: "v0.1.7-alpha", latestCommit: "da41af2bf467f641ff8fa0e741394268e1e3bc31", want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := shouldSkipSameVersionUpgrade(tc.current, tc.currentCommit, tc.latest, tc.latestCommit)
+			if got != tc.want {
+				t.Fatalf("shouldSkipSameVersionUpgrade() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestUpdateHTTPClientUsesLongTimeoutForReleaseAssets(t *testing.T) {
+	if updateHTTPClient().Timeout < 10*time.Minute {
+		t.Fatalf("updateHTTPClient timeout = %s, want at least 10m", updateHTTPClient().Timeout)
+	}
+}
