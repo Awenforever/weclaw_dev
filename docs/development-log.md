@@ -1,5 +1,16 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - p0.1.5a38-special-legacy-tag-archive
+
+- Created normalized archival mirror tags for the four special legacy `v0.1d/e/f...` tags, then deleted the old special legacy refs after verifying identical commit targets.
+- `v0.1d-codex-model-provider-thread-fix` -> `p0.1.0a1-codex-model-provider-thread-fix`
+- `v0.1e-slash-output-polish` -> `p0.1.0a2-slash-output-polish`
+- `v0.1f-acp-raw-stdout-log` -> `p0.1.0a3-acp-raw-stdout-log`
+- `v0.1f1-handoff-notes` -> `p0.1.0a4-handoff-notes`
+- Preserved all public Release tags, all public GitHub Releases, all legacy `v0.1p...` historical internal tags, and all normalized `p0.1.*` internal tags.
+- Temporarily disabled the GitHub Actions CI workflow while pushing archival tags to old commits, then re-enabled CI after the archive tag push.
+
+
 ## 2026-05-14 - p0.1.5a37-ci-prerelease-policy
 
 - Disabled CI auto pre-release publishing. The CI workflow now keeps test/build/artifact behavior but no longer creates `beta-latest`, `alpha-p...`, or `alpha-work-p...` GitHub pre-releases.
