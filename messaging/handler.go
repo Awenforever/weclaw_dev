@@ -1641,7 +1641,7 @@ func (h *Handler) sendReplyWithMediaOptions(ctx context.Context, client *ilink.C
 }
 
 func finalReplyTextChunks(reply string) []string {
-	return PlainTextReplyChunks(reply)
+	return ClawBotMarkdownReplyChunks(reply)
 }
 
 func (h *Handler) latestContextToken(userID, fallback string) string {
@@ -1817,7 +1817,7 @@ func (h *Handler) chatMaybeStream(ctx context.Context, client *ilink.Client, msg
 				return
 			}
 		}
-		chunks := PlainTextReplyChunks(evt.Text)
+		chunks := ClawBotMarkdownReplyChunks(evt.Text)
 		if len(chunks) == 0 {
 			return
 		}

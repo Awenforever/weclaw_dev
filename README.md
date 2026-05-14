@@ -429,8 +429,8 @@ ACP and CLI agents require their binaries inside the container. HTTP mode works 
 
 WeChat is not a terminal. This fork therefore emphasizes readable mobile output:
 
-- Markdown is converted into WeChat-readable text
-- Code fences can be stripped when plain text is more useful
+- Markdown is preserved and normalized for WeChat ClawBot rich rendering
+- Code fences, tables, headings, quotes, links, inline code and emphasis are kept where possible
 - Links remain readable
 - Status-like command output is summarized
 - Large raw JSON payloads are avoided in normal chat replies
@@ -523,7 +523,7 @@ When ACP and CLI are both available, WeClaw prefers ACP.
 | Agent modes | ACP, CLI and HTTP | Keeps ACP, CLI and HTTP, with additional Codex ACP attention |
 | Codex usage | Basic Codex support | Use the real `codex` binary directly for ACP mode. Avoid stdout wrappers unless persistent NDJSON logging is explicitly required |
 | Conversation | Basic routing and `/new` reset | Current-session reuse, agent/profile switching and WeChat-side continuity |
-| Formatting | Functional plain-text replies | Mobile-readable command summaries and less raw JSON dumping |
+| Formatting | Functional plain-text replies | ClawBot Markdown-first replies with graceful plain-text readability |
 | Model workflow | Local agents and HTTP backends | Designed for Codex profiles, DeepSeek-backed Codex and CoDeepSeedeX |
 | Typing state | Not the main focus | Keeps WeChat typing state alive during long-running agent turns where supported |
 | Commands | Core commands such as `/help`, `/info`, `/cwd`, `/new` | Refined `/status`, `/help`, `/profile`, `/balance` output |

@@ -423,8 +423,8 @@ ACP和CLI Agent需要容器内存在对应二进制文件。HTTP模式只需要�
 
 微信不是终端。这个分支更强调手机端可读性：
 
-- 将Markdown回复转换为适合微信阅读的文本
-- 在更适合纯文本展示时移除代码块围栏
+- 保留并规范化Markdown回复，优先面向微信ClawBot富文本渲染
+- 尽可能保留代码块、表格、标题、引用、链接、行内代码和强调语法
 - 保留链接可读文本
 - 将状态类命令输出整理成摘要
 - 常规聊天中避免直接倾倒大段原始JSON
@@ -517,7 +517,7 @@ export WECLAW_API_ADDR=0.0.0.0:18011
 | Agent模式 | ACP、CLI和HTTP | 保留ACP、CLI和HTTP，并额外关注Codex ACP运行行为 |
 | Codex使用方式 | 基础Codex支持 | ACP模式下直接使用真实`codex`可执行文件，除非明确需要持久NDJSON日志，否则不建议套`tee`或stdout抓取脚本 |
 | 对话处理 | 基础路由和`/new`清空会话 | 更强调当前会话复用、Agent/Profile切换和微信侧命令连续性 |
-| 命令格式化 | 可用的纯文本命令回复 | 面向微信阅读优化的紧凑命令摘要 |
+| 命令格式化 | 可用的纯文本命令回复 | ClawBot Markdown优先输出，并保留纯文本可读性 |
 | 模型与后端 | 本地Agent和HTTP兼容后端 | 更适合Codex profile、DeepSeek-backed Codex和CoDeepSeedeX联动 |
 | typing状态 | 不是重点 | 长时间Agent回复期间尽量保持微信typing状态，降低“机器人卡死”的观感 |
 | 运维命令 | `/help`、`/info`、`/cwd`、`/new`等基础命令 | 增强或整理`/status`、`/help`、`/profile`和`/balance`等命令输出 |

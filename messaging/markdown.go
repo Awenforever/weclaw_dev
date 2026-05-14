@@ -7,19 +7,19 @@ import (
 )
 
 var (
-	// Code blocks: strip fences, keep code content
+	// Code blocks: strip fences, keep code content for internal plain-text classification.
 	reCodeBlock = regexp.MustCompile("(?s)```[^\n]*\n?(.*?)```")
-	// Inline code: strip backticks, keep content
+	// Inline code: strip backticks, keep content for internal plain-text classification.
 	reInlineCode = regexp.MustCompile("`([^`]+)`")
-	// Images: remove entirely
+	// Images: remove entirely for internal plain-text classification.
 	reImage = regexp.MustCompile(`!\[[^\]]*\]\([^)]*\)`)
-	// Links: keep display text only
+	// Links: keep display text only for internal plain-text classification.
 	reLink = regexp.MustCompile(`\[([^\]]+)\]\([^)]*\)`)
-	// Table separator rows: remove
+	// Table separator rows: remove for internal plain-text classification.
 	reTableSep = regexp.MustCompile(`(?m)^\|[\s:|\-]+\|$`)
-	// Table rows: convert pipe-delimited to space-delimited
+	// Table rows: convert pipe-delimited to space-delimited for internal plain-text classification.
 	reTableRow = regexp.MustCompile(`(?m)^\|(.+)\|$`)
-	// Headers: remove # prefix
+	// Headers: remove # prefix for internal plain-text classification.
 	reHeader = regexp.MustCompile(`(?m)^#{1,6}\s+`)
 	// Bold: **text** or __text__
 	reBold = regexp.MustCompile(`\*\*(.+?)\*\*|__(.+?)__`)
@@ -39,7 +39,45 @@ var (
 	reMarkerOnlyTail = regexp.MustCompile(`^(?:\s|\[NEW LINE\]|\[PARAGRAPH\]|\[ITEM\]|\[EOF\])*$`)
 )
 
-// MarkdownToPlainText converts markdown to readable plain text for WeChat.
+// MarkdownForClawBot preserves Markdown that ClawBot can render while normalizing
+// WeClaw-local stream markers and bullet notation into Markdown-friendly text.
+// It is intentionally not a Markdown-to-plain-text downgrade.
+func MarkdownForClawBot(text string) string {
+	result := normalizeLineEndings(text)
+	result = applyClawBotMarkdownMarkers(result)
+	result = normalizeEnglishQuoteCharacters(result)
+	result = normalizeClawBotMarkdownListMarkers(result)
+	result = cleanupMarkdownSpacing(result)
+	result = ensureBalancedCodeFence(result)
+	return strings.TrimSpace(result)
+}
+
+// ClawBotMarkdownReplyChunks converts a final reply to Markdown-first chunks.
+// Chunks preserve code fences, tables, links, emphasis, blockquotes and headings.
+func ClawBotMarkdownReplyChunks(markdown string) []string {
+	rich := MarkdownForClawBot(markdown)
+	if rich == "" {
+		return nil
+	}
+
+	blocks := splitMarkdownBlocks(rich)
+	chunks := make([]string, 0, len(blocks))
+	for _, block := range blocks {
+		block = strings.TrimSpace(block)
+		if block == "" {
+			continue
+		}
+		if len(chunks) > 0 && strings.HasSuffix(strings.TrimSpace(chunks[len(chunks)-1]), ":") && isMarkdownListBlock(block) {
+			chunks[len(chunks)-1] += "\n" + block
+			continue
+		}
+		chunks = append(chunks, block)
+	}
+	return chunks
+}
+
+// MarkdownToPlainText converts markdown to readable plain text for internal
+// classification, progress previews and conservative fallback logic.
 func MarkdownToPlainText(text string) string {
 	result := normalizeLineEndings(text)
 	result = applyPlainTextMarkers(result)
@@ -113,7 +151,8 @@ func MarkdownToPlainText(text string) string {
 	return strings.TrimSpace(result)
 }
 
-// PlainTextReplyChunks converts a final markdown reply to plain text chunks.
+// PlainTextReplyChunks is kept for internal fallback callers and tests.
+// User-visible WeChat text should prefer ClawBotMarkdownReplyChunks.
 func PlainTextReplyChunks(markdown string) []string {
 	plain := MarkdownToPlainText(markdown)
 	if plain == "" {
@@ -157,6 +196,22 @@ func applyPlainTextMarkers(text string) string {
 	return text
 }
 
+func applyClawBotMarkdownMarkers(text string) string {
+	if idx := strings.Index(text, "[EOF]"); idx >= 0 {
+		tail := text[idx+len("[EOF]"):]
+		if reMarkerOnlyTail.MatchString(tail) {
+			text = text[:idx]
+		} else {
+			text = text[:idx] + tail
+		}
+	}
+	text = strings.ReplaceAll(text, "[PARAGRAPH]", "\n\n")
+	text = strings.ReplaceAll(text, "[NEW LINE]", "\n")
+	text = strings.ReplaceAll(text, "[ITEM]", "- ")
+	text = strings.ReplaceAll(text, "[EOF]", "")
+	return text
+}
+
 func normalizeEnglishQuoteCharacters(text string) string {
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
@@ -181,6 +236,130 @@ func containsHan(text string) bool {
 	return false
 }
 
+func normalizeClawBotMarkdownListMarkers(text string) string {
+	lines := strings.Split(text, "\n")
+	out := make([]string, 0, len(lines))
+	inFence := false
+
+	for _, line := range lines {
+		trimmedLeft := strings.TrimLeft(line, " \t")
+		indent := line[:len(line)-len(trimmedLeft)]
+		if strings.HasPrefix(trimmedLeft, "```") {
+			out = append(out, line)
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			out = append(out, line)
+			continue
+		}
+		if strings.HasPrefix(trimmedLeft, "• ") {
+			out = append(out, indent+"- "+strings.TrimSpace(strings.TrimPrefix(trimmedLeft, "• ")))
+			continue
+		}
+		if strings.ContainsRune(line, '•') {
+			out = append(out, splitInlineMarkdownBulletLine(line)...)
+			continue
+		}
+		out = append(out, line)
+	}
+
+	return strings.Join(out, "\n")
+}
+
+func splitInlineMarkdownBulletLine(line string) []string {
+	parts := strings.Split(line, "•")
+	out := make([]string, 0, len(parts))
+	if prefix := strings.TrimRight(parts[0], " \t"); strings.TrimSpace(prefix) != "" {
+		out = append(out, prefix)
+	}
+	for _, part := range parts[1:] {
+		item := strings.TrimSpace(part)
+		if item == "" {
+			continue
+		}
+		out = append(out, "- "+item)
+	}
+	if len(out) == 0 {
+		return []string{line}
+	}
+	return out
+}
+
+func cleanupMarkdownSpacing(text string) string {
+	lines := strings.Split(text, "\n")
+	out := make([]string, 0, len(lines))
+	blankCount := 0
+	for _, line := range lines {
+		line = strings.TrimRight(line, " \t")
+		if strings.TrimSpace(line) == "" {
+			blankCount++
+			if blankCount <= 1 {
+				out = append(out, "")
+			}
+			continue
+		}
+		blankCount = 0
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
+}
+
+func ensureBalancedCodeFence(text string) string {
+	count := 0
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+			count++
+		}
+	}
+	if count%2 == 1 {
+		return strings.TrimRight(text, "\n") + "\n```"
+	}
+	return text
+}
+
+func splitMarkdownBlocks(text string) []string {
+	lines := strings.Split(text, "\n")
+	blocks := make([]string, 0)
+	current := make([]string, 0, len(lines))
+	inFence := false
+
+	flush := func() {
+		block := strings.TrimSpace(strings.Join(current, "\n"))
+		if block != "" {
+			blocks = append(blocks, block)
+		}
+		current = current[:0]
+	}
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") {
+			current = append(current, line)
+			inFence = !inFence
+			continue
+		}
+		if !inFence && trimmed == "" {
+			flush()
+			continue
+		}
+		current = append(current, line)
+	}
+	flush()
+	return blocks
+}
+
+func isMarkdownListBlock(text string) bool {
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		return isBulletLikeLine(trimmed) || isNumberedListLikeLine(trimmed)
+	}
+	return false
+}
+
 func isListBlock(text string) bool {
 	lines := strings.Split(text, "\n")
 	for _, line := range lines {
@@ -188,7 +367,7 @@ func isListBlock(text string) bool {
 		if trimmed == "" {
 			continue
 		}
-		if strings.HasPrefix(trimmed, "• ") {
+		if isBulletLikeLine(trimmed) {
 			return true
 		}
 		dot := strings.Index(trimmed, ". ")

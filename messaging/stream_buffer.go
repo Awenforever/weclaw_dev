@@ -255,7 +255,7 @@ func (b *assistantTextStreamBuffer) flushBySize(maxChunkChars int) []string {
 }
 
 func (b *assistantTextStreamBuffer) emitMarkdownChunks(markdown string, final bool) []string {
-	chunks := PlainTextReplyChunks(markdown)
+	chunks := ClawBotMarkdownReplyChunks(markdown)
 	if len(chunks) == 0 {
 		if final {
 			return b.flushPending()

@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - p0.1.5a41-clawbot-markdown-first-formatting
+
+- Scope: WeChat ClawBot output formatting.
+- Change: switched outbound text from upstream-style Markdown-to-plain-text downgrade to Markdown-first normalization for ClawBot rich rendering.
+- Details: preserved headings, lists, code fences, tables, blockquotes, links, inline code and emphasis in outbound text, while keeping the plain-text converter for internal classification and progress heuristics.
+- Validation: focused messaging tests and full `go test ./...` are expected before commit.
+- Notes or lessons: README wording inherited from upstream FastClaw/WeClaw must not be treated as the target behavior when WeClaw Dev is intentionally optimizing for ClawBot rich Markdown rendering.
+
+
 ## 2026-05-14 - p0.1.5a40-delete-legacy-v-internal-tags
 
 - Deleted the remaining legacy `v0.1p...` internal tags after verifying every one had a normalized `p0.1.*` mirror tag at the same commit.

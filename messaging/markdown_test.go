@@ -1,6 +1,9 @@
 package messaging
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestMarkdownToPlainTextPreservesParagraphBreaks(t *testing.T) {
 	input := "First paragraph.\n\nSecond paragraph.\n\n\n\nThird paragraph."
@@ -124,4 +127,56 @@ func assertChunks(t *testing.T, got, want []string) {
 			t.Fatalf("chunks[%d] = %q, want %q (all chunks %#v)", i, got[i], want[i], got)
 		}
 	}
+}
+
+func TestMarkdownForClawBotPreservesRichMarkdownSyntax(t *testing.T) {
+	input := "# Title\n\n**Bold** and `code`.\n\n> quoted\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n```go\nfmt.Println(\"hi\")\n```"
+	got := MarkdownForClawBot(input)
+
+	for _, want := range []string{
+		"# Title",
+		"**Bold**",
+		"`code`",
+		"> quoted",
+		"| A | B |",
+		"|---|---|",
+		"```go",
+		"fmt.Println(\"hi\")",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("MarkdownForClawBot() = %q, want to contain %q", got, want)
+		}
+	}
+}
+
+func TestMarkdownForClawBotConvertsLocalMarkersToMarkdownLists(t *testing.T) {
+	input := "Intro[NEW LINE]Next[PARAGRAPH][ITEM]First[NEW LINE][ITEM]Second[EOF][PARAGRAPH][ITEM]"
+	want := "Intro\nNext\n\n- First\n- Second"
+
+	if got := MarkdownForClawBot(input); got != want {
+		t.Fatalf("MarkdownForClawBot() = %q, want %q", got, want)
+	}
+}
+
+func TestMarkdownForClawBotNormalizesInlineBulletsForMarkdown(t *testing.T) {
+	input := "Intro: • item one • item two"
+	want := "Intro:\n- item one\n- item two"
+
+	if got := MarkdownForClawBot(input); got != want {
+		t.Fatalf("MarkdownForClawBot() = %q, want %q", got, want)
+	}
+}
+
+func TestClawBotMarkdownReplyChunksPreservesCodeFenceAsOneChunk(t *testing.T) {
+	input := "Before.\n\n```go\nfmt.Println(\"hi\")\n\nfmt.Println(\"bye\")\n```\n\nAfter."
+	want := []string{"Before.", "```go\nfmt.Println(\"hi\")\n\nfmt.Println(\"bye\")\n```", "After."}
+
+	assertChunks(t, ClawBotMarkdownReplyChunks(input), want)
+}
+
+func TestClawBotMarkdownReplyChunksKeepsIntroWithMarkdownList(t *testing.T) {
+	input := "Intro:\n\n- item one\n- item two"
+	want := []string{"Intro:\n- item one\n- item two"}
+
+	assertChunks(t, ClawBotMarkdownReplyChunks(input), want)
 }
