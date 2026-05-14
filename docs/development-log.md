@@ -15,17 +15,27 @@ Each entry should use:
 - Notes or lessons
 - Follow-up
 
+## 2026-05-14 · v0.1p5a29-release-note-devlog-sync
+
+- Date: 2026-05-14
+- Version or tag: `v0.1p5a29-release-note-devlog-sync`
+- Commit: pending at patch time
+- Scope: release note and development log synchronization
+- Change: updated the `v0.1.7-alpha` GitHub Release body to include p5a28 stop semantics, commit `31fa432`, and VM stop-semantics validation. Updated this development log so p5a28 no longer has a pending commit marker.
+- Validation: `git diff --check`, `bash -n install.sh`, GitHub Release body verification after edit, and release tag verification.
+- Notes or lessons: if a Release tag is rebuilt after a feature-line extension, the Release body must be explicitly audited and updated. Asset rebuild alone is not enough.
+- Follow-up: final read-only audit should verify that the Release body mentions `weclaw stop`, `Stopped PIDs`, `Verified: no managed weclaw process remains`, `p5a28`, and `31fa432`.
 ## 2026-05-14 · v0.1p5a28-stop-semantics
 
 - Date: 2026-05-14
 - Version or tag: `v0.1p5a28-stop-semantics`
-- Commit: pending at patch time
+- Commit: `31fa432`
 - Scope: stop command semantics
 - Change: made `weclaw stop` output explicit and verifiable, targeted every detected managed WeClaw process, included live WeClaw pid-file targets that do not match the managed foreground pattern, cleared stale PID state, and rechecked that no managed WeClaw process remains.
-- Validation: focused command tests, `git diff --check`, `bash -n install.sh`, and full `go test ./...`.
+- Validation: focused command tests, `git diff --check`, `bash -n install.sh`, `go test ./cmd`, and full `go test ./...`.
+- VM validation: after installing old `v0.1.6-alpha` in an isolated VM path and intentionally leaving a managed `start -f` process alive, the new `v0.1.7-alpha | 31fa432` asset stopped the old PID, printed `Stopped PIDs: ...`, verified `no managed weclaw process remains`, and then reported `weclaw was not running` on a second stop.
 - Notes or lessons: stop semantics must be user-visible and confirmable. A generic `weclaw stopped` message is insufficient when `start` may later detect residual managed processes.
-- Follow-up: VM runtime validation should confirm that repeated `weclaw stop && weclaw start deepseek-thinking` behaves predictably.
-
+- Follow-up: keep future stop/start/status runtime-state changes covered by both unit tests and VM process-level validation.
 ## 2026-05-14 · v0.1p5a27-readme-cn-upgrade-polish
 
 - Date: 2026-05-14
