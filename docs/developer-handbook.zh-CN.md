@@ -92,6 +92,7 @@
 - 每次Release前确认开发机和当前`main` commit保持同步。
 
 - 保持微信ClawBot回复Markdown优先。纯文本转换只用于内部分类或保守fallback逻辑，不作为主要出站路径。
+- p0.1.5a42将微信端slash command统一改为Markdown精排版，包括表格、章节标题和context window进度条。
 
 ## 7. 最近一个大版本上下文
 

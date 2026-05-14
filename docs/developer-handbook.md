@@ -9,7 +9,7 @@ This is the canonical English handoff for starting a new AI development conversa
 - Main branch: `main`
 - Current public Release: `v0.1.7-alpha`
 - Current public Release commit: `31fa432`
-- Current internal development tag: `p0.1.5a41-clawbot-markdown-first-formatting`
+- Current internal development tag: `p0.1.5a42-slash-command-markdown-formatting`
 - Current `main` and `origin/main`: same commit as `p0.1.5a40-delete-legacy-v-internal-tags` after merge
 - Current Release asset/code line: `p0.1.5a28-stop-semantics` at `31fa432`
 - p5a29 synchronized documentation and Release notes, p5a30 removed obsolete documentation entry points, p5a31 fixed final documentation entry references, p5a32 synchronized the handoff with the current `main` line, p0.1.5a33 established the normalized internal version/tag format, p0.1.5a34 added guard tests, p0.1.5a35 created normalized mirror tags for the 42 auto-mappable pre-normalization internal tags, and p0.1.5a36 removed the 13 legacy alpha-work temporary pre-releases/tags that had verified normalized mirrors, and p0.1.5a37 disabled CI auto pre-release publishing and removed the remaining CI-generated alpha/beta pre-release noise, and p0.1.5a38 archived the final special `v0.1d/e/f...` legacy tags as normalized `p0.1.0a*` tags before removing the old refs, and p0.1.5a39 cleaned final audit false positives around GitHub Release `targetCommitish` metadata and future-facing handbook wording, and p0.1.5a40 removed the remaining pre-normalization internal `v`-prefixed refs after verifying normalized mirror coverage, and p0.1.5a41 switched WeChat ClawBot output to Markdown-first formatting instead of upstream plain-text downgrade. None of these documentation-only, tag-mirror, or formatting commits should be confused with the Release asset commit.
@@ -123,6 +123,7 @@ Key user-visible changes:
 - After p0.1.5a39, internal tag hygiene is complete: use normalized `p*.*.*` internal tags, CI no longer auto-publishes branch/tag pre-releases, and public Releases must go through the manual `release.yml` workflow. GitHub Release `targetCommitish` may display `main`, so the tag target is the source of truth for Release commit verification. All pre-normalization internal `v`-prefixed refs have been removed after verified normalized mirror coverage.
 - Keep README structure user-oriented.
 - Keep WeChat ClawBot reply formatting Markdown-first. Plain-text conversion is only for internal classification or conservative fallback logic, not the primary outbound path.
+- p0.1.5a42 formats WeChat slash command replies as Markdown cards, tables, headings and context-window progress bars.
 - Keep this handoff concise.
 - Continue moving detailed history into `docs/development-log.md`.
 - If dsproxy later exposes token attribution, WeClaw should consume it in `/status` and degrade gracefully when the endpoint is absent.

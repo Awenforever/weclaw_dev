@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+## 2026-05-14 - p0.1.5a42-slash-command-markdown-formatting
+
+- Scope: WeChat slash command output formatting.
+- Change: formatted slash command replies as Markdown cards with headings, normalized lists, tables, and context-window progress bars.
+- Details: improved `/help`, `/status`, `/balance`, `/now`, `/cancel`, `/model`, `/effort`, `/profile`, `/restart`, `/info`, `/cwd`, and unknown slash command presentation through the common command-card path.
+- Validation: focused messaging tests and full `go test ./...` are expected before commit.
+- Notes or lessons: ClawBot Markdown rendering was verified in the real WeChat ClawBot conversation before broadening command formatting.
+
+
 ## 2026-05-14 - p0.1.5a41-clawbot-markdown-first-formatting
 
 - Scope: WeChat ClawBot output formatting.

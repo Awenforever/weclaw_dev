@@ -427,6 +427,8 @@ ACP and CLI agents require their binaries inside the container. HTTP mode works 
 
 ## Message formatting
 
+- Slash command replies use Markdown cards, tables and progress bars where the data benefits from structure.
+
 WeChat is not a terminal. This fork therefore emphasizes readable mobile output:
 
 - Markdown is preserved and normalized for WeChat ClawBot rich rendering

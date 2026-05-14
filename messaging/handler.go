@@ -282,12 +282,12 @@ func (h *Handler) cancelRunningTurn(userID string) string {
 	}
 	value, ok := h.runningTurns.Load(userID)
 	if !ok {
-		return commandCard("ℹ️ No running task", "• action: nothing to cancel")
+		return commandCard("ℹ️ No running task", "- action: nothing to cancel")
 	}
 	state, ok := value.(*runningTurnState)
 	if !ok {
 		h.runningTurns.Delete(userID)
-		return commandCard("ℹ️ No running task", "• action: nothing to cancel")
+		return commandCard("ℹ️ No running task", "- action: nothing to cancel")
 	}
 	snap := state.snapshot()
 	state.requestCancel()
@@ -295,7 +295,7 @@ func (h *Handler) cancelRunningTurn(userID string) string {
 		"🛑 Cancel requested",
 		"• profile: "+snap.agentName,
 		"• running: "+formatTurnDuration(time.Since(snap.startedAt)),
-		"• session: preserved",
+		"- session: preserved",
 	)
 }
 
@@ -929,7 +929,7 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 	switch fields[0] {
 	case "/status":
 		if len(fields) != 1 {
-			return "Usage: /status", true
+			return commandCard("ℹ️ Usage", "- command: /status"), true
 		}
 		return h.buildStatusDiagnostics(ctx, userID), true
 
@@ -943,13 +943,13 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 
 	case "/now":
 		if len(fields) != 1 {
-			return "Usage: /now", true
+			return commandCard("ℹ️ Usage", "- command: /now"), true
 		}
 		return h.buildNowStatus(ctx, userID), true
 
 	case "/cancel":
 		if len(fields) != 1 {
-			return "Usage: /cancel", true
+			return commandCard("ℹ️ Usage", "- command: /cancel"), true
 		}
 		return h.cancelRunningTurn(userID), true
 
@@ -1030,7 +1030,7 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 
 	case "/profile":
 		if len(fields) != 2 {
-			return "Usage: /profile deepseek|deepseek-thinking", true
+			return commandCard("ℹ️ Usage", "- command: /profile deepseek|deepseek-thinking"), true
 		}
 		switch fields[1] {
 		case "deepseek", "deepseek-thinking":
@@ -1041,7 +1041,7 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 
 	case "/restart":
 		if len(fields) != 1 {
-			return "Usage: /restart", true
+			return commandCard("ℹ️ Usage", "- command: /restart"), true
 		}
 		return h.restartCurrentDefaultAgent(ctx, userID), true
 	}
@@ -1263,14 +1263,118 @@ func persistDeepSeekRuntimeModel(name, model string) error {
 }
 
 func commandCard(title string, lines ...string) string {
-	parts := []string{title}
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			parts = append(parts, line)
+	title = strings.TrimSpace(title)
+	parts := make([]string, 0, len(lines)+4)
+	if title != "" {
+		if strings.HasPrefix(title, "#") {
+			parts = append(parts, title)
+		} else {
+			parts = append(parts, "## "+title)
 		}
 	}
-	return strings.Join(parts, "\n")
+
+	body := markdownCommandLines(lines...)
+	if len(body) > 0 {
+		if len(parts) > 0 {
+			parts = append(parts, "")
+		}
+		parts = append(parts, body...)
+	}
+	return strings.TrimSpace(strings.Join(parts, "\\n"))
+}
+
+func markdownCommandLines(lines ...string) []string {
+	out := make([]string, 0, len(lines))
+	lastBlank := false
+	inFence := false
+
+	for _, line := range lines {
+		line = strings.TrimRight(strings.TrimSpace(line), " 	")
+		if line == "" {
+			if len(out) > 0 && !lastBlank {
+				out = append(out, "")
+				lastBlank = true
+			}
+			continue
+		}
+
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") {
+			inFence = !inFence
+			out = append(out, trimmed)
+			lastBlank = false
+			continue
+		}
+		if inFence {
+			out = append(out, line)
+			lastBlank = false
+			continue
+		}
+
+		switch {
+		case strings.HasPrefix(trimmed, "## "),
+			strings.HasPrefix(trimmed, "### "),
+			strings.HasPrefix(trimmed, "|"),
+			strings.HasPrefix(trimmed, "---"),
+			strings.HasPrefix(trimmed, ">"),
+			strings.HasPrefix(trimmed, "- "):
+			out = append(out, trimmed)
+		case strings.HasPrefix(trimmed, "• "):
+			out = append(out, "- "+strings.TrimSpace(strings.TrimPrefix(trimmed, "• ")))
+		case commandSectionLine(trimmed):
+			out = append(out, "### "+trimmed)
+		default:
+			out = append(out, trimmed)
+		}
+		lastBlank = false
+	}
+
+	for len(out) > 0 && out[len(out)-1] == "" {
+		out = out[:len(out)-1]
+	}
+	return out
+}
+
+func commandSectionLine(line string) bool {
+	if line == "" || strings.Contains(line, ":") || strings.HasPrefix(line, "/") || strings.HasPrefix(line, "`") {
+		return false
+	}
+	for _, r := range line {
+		return r > 127
+	}
+	return false
+}
+
+func markdownTableCell(value string) string {
+	value = strings.TrimSpace(strings.ReplaceAll(value, "\\n", " "))
+	value = strings.ReplaceAll(value, "|", `\|`)
+	if value == "" {
+		return "--"
+	}
+	return value
+}
+
+func formatCommandProgressBar(used, window int64, width int) string {
+	if width <= 0 {
+		width = 20
+	}
+	if used < 0 {
+		used = 0
+	}
+	if window <= 0 {
+		return strings.Repeat("░", width)
+	}
+	if used > window {
+		used = window
+	}
+	filled := int((used*int64(width) + window/2) / window)
+	if filled < 0 {
+		filled = 0
+	}
+	if filled > width {
+		filled = width
+	}
+	return strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
 }
 
 func compactCommandOutput(text string, limit int) string {
@@ -1312,15 +1416,15 @@ type dsproxyBalanceResponse struct {
 func formatBalanceReply(text string) string {
 	trimmed := strings.TrimSpace(text)
 	if trimmed == "" {
-		return commandCard("💰 Balance", "• status: empty response")
+		return commandCard("💰 Balance", "- status: empty response")
 	}
 
 	var payload dsproxyBalanceResponse
 	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
 		return commandCard(
 			"💰 Balance",
-			"• status: "+commandStatusFromOutput(trimmed),
-			"• detail: "+compactCommandOutput(trimmed, 360),
+			"- status: "+commandStatusFromOutput(trimmed),
+			"- detail: "+compactCommandOutput(trimmed, 360),
 		)
 	}
 
@@ -1335,14 +1439,40 @@ func formatBalanceReply(text string) string {
 	}
 
 	lines := []string{
-		"• status: " + status,
-		"• available: " + available,
+		"- status: " + status,
+		"- available: " + available,
+		"",
 	}
 
 	if len(payload.Balance.BalanceInfos) == 0 {
-		lines = append(lines, "• balance: none")
+		lines = append(lines,
+			"| Field | Value |",
+			"| --- | --- |",
+			"| Balance | none |",
+			"",
+			"- balance: none",
+		)
 		return commandCard("💰 Balance", lines...)
 	}
+
+	lines = append(lines,
+		"| Currency | Total | Granted | Topped-up |",
+		"| --- | ---: | ---: | ---: |",
+	)
+	for _, info := range payload.Balance.BalanceInfos {
+		currency := info.Currency
+		if currency == "" {
+			currency = "unknown"
+		}
+		lines = append(lines, fmt.Sprintf(
+			"| %s | %s | %s | %s |",
+			markdownTableCell(currency),
+			markdownTableCell(valueOrUnknown(info.TotalBalance)),
+			markdownTableCell(valueOrUnknown(info.GrantedBalance)),
+			markdownTableCell(valueOrUnknown(info.ToppedUpBalance)),
+		))
+	}
+	lines = append(lines, "")
 
 	for _, info := range payload.Balance.BalanceInfos {
 		currency := info.Currency
@@ -1350,9 +1480,9 @@ func formatBalanceReply(text string) string {
 			currency = "unknown"
 		}
 		lines = append(lines,
-			fmt.Sprintf("• %s total: %s", currency, valueOrUnknown(info.TotalBalance)),
-			fmt.Sprintf("• %s granted: %s", currency, valueOrUnknown(info.GrantedBalance)),
-			fmt.Sprintf("• %s topped-up: %s", currency, valueOrUnknown(info.ToppedUpBalance)),
+			fmt.Sprintf("- %s total: %s", currency, valueOrUnknown(info.TotalBalance)),
+			fmt.Sprintf("- %s granted: %s", currency, valueOrUnknown(info.GrantedBalance)),
+			fmt.Sprintf("- %s topped-up: %s", currency, valueOrUnknown(info.ToppedUpBalance)),
 		)
 	}
 
@@ -2104,7 +2234,7 @@ func (h *Handler) switchDefault(ctx context.Context, name string) string {
 	ag, err := h.getAgent(ctx, name)
 	if err != nil {
 		log.Printf("[handler] failed to switch default to %q: %v", name, err)
-		return fmt.Sprintf("Failed to switch to %q: %v", name, err)
+		return commandCard("⚠️ Profile switch failed", fmt.Sprintf("- profile: %s", name), fmt.Sprintf("- error: %v", err))
 	}
 
 	h.mu.Lock()
@@ -2142,7 +2272,7 @@ func (h *Handler) resetDefaultSession(ctx context.Context, userID string) string
 	sessionID, err := ag.ResetSession(ctx, userID)
 	if err != nil {
 		log.Printf("[handler] reset session failed for %s: %v", userID, err)
-		return fmt.Sprintf("Failed to reset session: %v", err)
+		return commandCard("⚠️ Session", fmt.Sprintf("- error: Failed to reset session: %v", err))
 	}
 	if sessionID != "" {
 		return commandCard("🧵 Session", fmt.Sprintf("• action: Created a new %s session: %s", name, sessionID))
@@ -2179,16 +2309,23 @@ func friendlyAgentName(name string) string {
 func (h *Handler) handleCwd(trimmed string) string {
 	arg := strings.TrimSpace(strings.TrimPrefix(trimmed, "/cwd"))
 	if arg == "" {
-		// No path provided — show current cwd of default agent
 		ag := h.getDefaultAgent()
 		if ag == nil {
-			return "No agent running."
+			return commandCard("📁 Workspace", "- status: No agent running.")
 		}
 		info := ag.Info()
-		return fmt.Sprintf("cwd: (check agent config)\nagent: %s", info.Name)
+		return commandCard(
+			"📁 Workspace",
+			"| Field | Value |",
+			"| --- | --- |",
+			"| cwd | check agent config |",
+			"| agent | "+markdownTableCell(info.Name)+" |",
+			"",
+			"- cwd: check agent config",
+			"- agent: "+info.Name,
+		)
 	}
 
-	// Expand ~ to home directory
 	if arg == "~" {
 		home, err := os.UserHomeDir()
 		if err == nil {
@@ -2201,22 +2338,19 @@ func (h *Handler) handleCwd(trimmed string) string {
 		}
 	}
 
-	// Resolve to absolute path
 	absPath, err := filepath.Abs(arg)
 	if err != nil {
-		return fmt.Sprintf("Invalid path: %v", err)
+		return commandCard("⚠️ Workspace", fmt.Sprintf("- error: Invalid path: %v", err))
 	}
 
-	// Verify directory exists
 	info, err := os.Stat(absPath)
 	if err != nil {
-		return fmt.Sprintf("Path not found: %s", absPath)
+		return commandCard("⚠️ Workspace", "- error: Path not found", "- path: "+absPath)
 	}
 	if !info.IsDir() {
-		return fmt.Sprintf("Not a directory: %s", absPath)
+		return commandCard("⚠️ Workspace", "- error: Not a directory", "- path: "+absPath)
 	}
 
-	// Update cwd on all running agents
 	h.mu.RLock()
 	agents := make(map[string]agent.Agent, len(h.agents))
 	for name, ag := range h.agents {
@@ -2235,7 +2369,14 @@ func (h *Handler) handleCwd(trimmed string) string {
 	}
 	h.mu.Unlock()
 
-	return fmt.Sprintf("cwd: %s", absPath)
+	return commandCard(
+		"📁 Workspace",
+		"| Field | Value |",
+		"| --- | --- |",
+		"| cwd | "+markdownTableCell(absPath)+" |",
+		"",
+		"- cwd: "+absPath,
+	)
 }
 
 // buildStatus returns a short status string showing the current default agent.
@@ -2244,47 +2385,70 @@ func (h *Handler) buildStatus() string {
 	defer h.mu.RUnlock()
 
 	if h.defaultName == "" {
-		return "agent: none (echo mode)"
+		return commandCard("🧩 Agent", "- agent: none", "- mode: echo")
 	}
 
 	ag, ok := h.agents[h.defaultName]
 	if !ok {
-		return fmt.Sprintf("agent: %s (not started)", h.defaultName)
+		return commandCard("🧩 Agent", "- agent: "+h.defaultName, "- status: not started")
 	}
 
 	info := ag.Info()
-	return fmt.Sprintf("agent: %s\ntype: %s\nmodel: %s", h.defaultName, info.Type, info.Model)
+	return commandCard(
+		"🧩 Agent",
+		"| Field | Value |",
+		"| --- | --- |",
+		"| Agent | "+markdownTableCell(h.defaultName)+" |",
+		"| Type | "+markdownTableCell(info.Type)+" |",
+		"| Model | "+markdownTableCell(info.Model)+" |",
+		"",
+		"- agent: "+h.defaultName,
+		"- type: "+info.Type,
+		"- model: "+info.Model,
+	)
 }
 
 func buildHelpText() string {
-	return `📖 WeClaw commands
+	return `## 📖 WeClaw commands
 
-🧩 Agent
-• /profile deepseek|deepseek-thinking - Switch DeepSeek profile
-• /restart - Start a new session for the current profile
-• /now - Show current task progress
-• /cancel - Cancel the current running task
-• /status - Show compact runtime diagnostics
-• /info - Show current agent info
-• /help - Show this help message
-• unknown /xxx - Blocked locally, not sent to agent
+### 🧩 Agent
 
-⚙️ DeepSeek runtime
-• /model deepseek-v4-pro|deepseek-v4-flash - Change DeepSeek model without resetting session
-• /effort high|max - Change DeepSeek effort without resetting session
-• /balance - Show DeepSeek account balance
+| Command | Action |
+| --- | --- |
+| /profile deepseek\|deepseek-thinking | Switch DeepSeek profile |
+| /restart | Start a new session for the current profile |
+| /now | Show current task progress |
+| /cancel | Cancel the current running task |
+| /status | Show runtime diagnostics |
+| /info | Show current agent info |
+| /help | Show this help message |
+| unknown /xxx | Blocked locally, not sent to agent |
 
-💬 Chat routing
-• @agent or /agent - Switch default agent
-• @agent msg or /agent msg - Send to a specific agent
-• @a @b msg - Broadcast to multiple agents
-• /new or /clear - Start a new session
-• /cwd /path - Switch workspace directory
+### ⚙️ DeepSeek runtime
 
-Aliases:
-• /cc(claude) /cx(codex) /cs(cursor) /km(kimi) /gm(gemini)
-• /oc(openclaw) /ocd(opencode) /pi(pi) /cp(copilot)
-• /dr(droid) /if(iflow) /kr(kiro) /qw(qwen)`
+| Command | Action |
+| --- | --- |
+| /model deepseek-v4-pro\|deepseek-v4-flash | Change DeepSeek model without resetting session |
+| /effort high\|max | Change DeepSeek effort without resetting session |
+| /balance | Show DeepSeek account balance |
+
+### 💬 Chat routing
+
+| Command | Action |
+| --- | --- |
+| @agent or /agent | Switch default agent |
+| @agent msg or /agent msg | Send to a specific agent |
+| @a @b msg | Broadcast to multiple agents |
+| /new or /clear | Start a new session |
+| /cwd /path | Switch workspace directory |
+
+### Aliases
+
+| Alias group | Agents |
+| --- | --- |
+| /cc /cx /cs /km /gm | claude, codex, cursor, kimi, gemini |
+| /oc /ocd /pi /cp | openclaw, opencode, pi, copilot |
+| /dr /if /kr /qw | droid, iflow, kiro, qwen |`
 }
 
 func extractText(msg ilink.WeixinMessage) string {
@@ -2406,7 +2570,7 @@ func detectImageExt(data []byte) string {
 func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWindow int64, windowSource string) []string {
 	lines := []string{
 		"📊 Context window",
-		"• session: " + valueOrUnknown(sessionID),
+		"- session: " + valueOrUnknown(sessionID),
 	}
 
 	var snapshot agent.TokenUsageSnapshot
@@ -2434,7 +2598,7 @@ func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWi
 		used = snapshot.Total.TotalTokens
 	}
 	lines = append(lines, formatContextWindowLines(window, used)...)
-	lines = append(lines, "• source: "+windowSource)
+	lines = append(lines, "- source: "+windowSource)
 	lines = append(lines, "", "📈 Token usage")
 
 	if !hasSnapshot {
@@ -2443,33 +2607,55 @@ func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWi
 
 	total := snapshot.Total
 	lines = append(lines,
-		"• total: "+formatTokenCount(total.TotalTokens),
-		"• input: "+formatTokenCount(total.InputTokens),
-		"• cached input: "+formatTokenCount(total.CachedInputTokens),
-		"• output: "+formatTokenCount(total.OutputTokens),
-		"• reasoning output: "+formatTokenCount(total.ReasoningOutputTokens),
-		"• tools: --",
-		"• other: --",
-		"• source: codex_token_usage_event",
+		"| Metric | Tokens |",
+		"| --- | ---: |",
+		fmt.Sprintf("| total | %s |", markdownTableCell(formatTokenCount(total.TotalTokens))),
+		fmt.Sprintf("| input | %s |", markdownTableCell(formatTokenCount(total.InputTokens))),
+		fmt.Sprintf("| cached input | %s |", markdownTableCell(formatTokenCount(total.CachedInputTokens))),
+		fmt.Sprintf("| output | %s |", markdownTableCell(formatTokenCount(total.OutputTokens))),
+		fmt.Sprintf("| reasoning output | %s |", markdownTableCell(formatTokenCount(total.ReasoningOutputTokens))),
+		"| tools | -- |",
+		"| other | -- |",
+		"",
+		"- total: "+formatTokenCount(total.TotalTokens),
+		"- input: "+formatTokenCount(total.InputTokens),
+		"- cached input: "+formatTokenCount(total.CachedInputTokens),
+		"- output: "+formatTokenCount(total.OutputTokens),
+		"- reasoning output: "+formatTokenCount(total.ReasoningOutputTokens),
+		"- tools: --",
+		"- other: --",
+		"- source: codex_token_usage_event",
 	)
 	if snapshot.Last.TotalTokens > 0 {
-		lines = append(lines, fmt.Sprintf("• last turn: %s total, %s input, %s output",
+		lines = append(lines, fmt.Sprintf("- last turn: %s total, %s input, %s output",
 			formatTokenCount(snapshot.Last.TotalTokens),
 			formatTokenCount(snapshot.Last.InputTokens),
 			formatTokenCount(snapshot.Last.OutputTokens),
 		))
 	}
 	if snapshot.TurnID != "" {
-		lines = append(lines, "• last turn id: "+snapshot.TurnID)
+		lines = append(lines, "- last turn id: "+snapshot.TurnID)
 	}
 	return lines
 }
 
 func formatContextWindowLines(window, used int64) []string {
+	percent := formatTokenPercent(used, window)
+	bar := formatCommandProgressBar(used, window, 20)
 	return []string{
-		"• limit: " + formatContextLimit(window),
-		"• used: " + formatContextUsageValue(used, window),
-		"• left: " + formatContextLeftValue(used, window),
+		"- limit: " + formatContextLimit(window),
+		"- used: " + formatContextUsageValue(used, window),
+		"- left: " + formatContextLeftValue(used, window),
+		"",
+		"```text",
+		"Context [" + bar + "] " + percent,
+		"```",
+		"",
+		"| Metric | Value |",
+		"| --- | ---: |",
+		"| Limit | " + markdownTableCell(formatContextLimit(window)) + " |",
+		"| Used | " + markdownTableCell(formatContextUsageValue(used, window)) + " |",
+		"| Left | " + markdownTableCell(formatContextLeftValue(used, window)) + " |",
 	}
 }
 
@@ -2506,14 +2692,24 @@ func zeroTokenUsageLines(source string) []string {
 		source = "unavailable"
 	}
 	return []string{
-		"• total: 0",
-		"• input: 0",
-		"• cached input: 0",
-		"• output: 0",
-		"• reasoning output: 0",
-		"• tools: --",
-		"• other: --",
-		"• source: " + source,
+		"| Metric | Tokens |",
+		"| --- | ---: |",
+		"| total | 0 |",
+		"| input | 0 |",
+		"| cached input | 0 |",
+		"| output | 0 |",
+		"| reasoning output | 0 |",
+		"| tools | -- |",
+		"| other | -- |",
+		"",
+		"- total: 0",
+		"- input: 0",
+		"- cached input: 0",
+		"- output: 0",
+		"- reasoning output: 0",
+		"- tools: --",
+		"- other: --",
+		"- source: " + source,
 	}
 }
 

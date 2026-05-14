@@ -421,6 +421,8 @@ ACP和CLI Agent需要容器内存在对应二进制文件。HTTP模式只需要�
 
 ## 消息格式化
 
+- 微信端slash command回复会优先使用Markdown卡片、表格和进度条。
+
 微信不是终端。这个分支更强调手机端可读性：
 
 - 保留并规范化Markdown回复，优先面向微信ClawBot富文本渲染

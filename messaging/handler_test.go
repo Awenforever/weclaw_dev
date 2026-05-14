@@ -154,9 +154,13 @@ func TestResetDefaultSessionUsesConfiguredAgentName(t *testing.T) {
 	})
 
 	got := h.resetDefaultSession(context.Background(), "user-1")
-	want := "🧵 Session\n• action: Created a new codex session: session-123"
-	if got != want {
-		t.Fatalf("resetDefaultSession() = %q, want %q", got, want)
+	for _, want := range []string{
+		"## 🧵 Session",
+		"action: Created a new codex session: session-123",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("resetDefaultSession() = %q, want %q", got, want)
+		}
 	}
 }
 
@@ -167,11 +171,16 @@ func TestSwitchDefaultUsesEnglishReply(t *testing.T) {
 		}
 		return &fakeAgent{info: agent.AgentInfo{Name: "/usr/local/bin/codex", Type: "acp"}}
 	}, nil)
+	h.SetAgentMetas([]AgentMeta{{Name: "codex", Type: "acp", Command: "/usr/local/bin/codex"}})
 
 	got := h.switchDefault(context.Background(), "codex")
-	want := "🔁 Profile switched\n• action: Switched default agent to codex."
-	if got != want {
-		t.Fatalf("switchDefault() = %q, want %q", got, want)
+	for _, want := range []string{
+		"## 🔁 Profile switched",
+		"action: Switched default agent to codex",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("switchDefault() = %q, want %q", got, want)
+		}
 	}
 }
 

@@ -764,3 +764,50 @@ func TestRuntimeControlStatusFallsBackToSnapshotWindowWhenConfigMissing(t *testi
 		t.Fatalf("status reply = %q, should not contain unknown context usage", reply)
 	}
 }
+
+func TestCommandCardUsesMarkdownLayout(t *testing.T) {
+	got := commandCard("🧩 Agent", "• profile: deepseek-thinking", "📊 Context window", "| Metric | Value |", "| --- | --- |", "| Used | 4.4% |")
+	for _, want := range []string{
+		"## 🧩 Agent",
+		"- profile: deepseek-thinking",
+		"### 📊 Context window",
+		"| Metric | Value |",
+		"| Used | 4.4% |",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("commandCard() = %q, want %q", got, want)
+		}
+	}
+}
+
+func TestFormatContextWindowLinesIncludesProgressBarAndTable(t *testing.T) {
+	got := strings.Join(formatContextWindowLines(258400, 12920), "\n")
+	for _, want := range []string{
+		"limit: 258.4k",
+		"used: 12.9k (5.0%)",
+		"left: 245.5k (95.0%)",
+		"```text",
+		"Context [█",
+		"| Metric | Value |",
+		"| Used | 12.9k (5.0%) |",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("formatContextWindowLines = %q, want %q", got, want)
+		}
+	}
+}
+
+func TestBuildHelpTextUsesMarkdownTables(t *testing.T) {
+	text := buildHelpText()
+	for _, want := range []string{
+		"## 📖 WeClaw commands",
+		"| Command | Action |",
+		"/status",
+		"/balance",
+		"| Alias group | Agents |",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("buildHelpText() = %q, want %q", text, want)
+		}
+	}
+}
