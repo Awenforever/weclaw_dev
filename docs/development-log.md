@@ -1,5 +1,18 @@
 # WeClaw Dev Development Log
 
+## 2026-05-15 - p0.1.5a48-docs-sync
+
+- Scope: canonical documentation synchronization after slash command mobile polish.
+- Change: synchronized README, README_CN, English handbook, Chinese handbook and development log with the p0.1.5a47 slash command behavior.
+- Change: recorded the lesson that small follow-up fixes should avoid long Python heredoc patchers after repeated paste-truncation failures.
+- Validation: documentation diff checks, shell syntax check and full test suite are expected before merge.
+
+## 2026-05-15 - p0.1.5a47-slash-status-balance-spacing
+
+- Scope: follow-up slash command visual polish after mobile testing.
+- Change: `/status` now renders agent type without the `@` marker, restores the context bar length, and shows CNY balance as `￥...` with normal inline spacing on the Cost row.
+- Validation: focused messaging tests, broader package tests and full `go test ./...` passed before merge.
+
 ## 2026-05-15 - p0.1.5a46-slash-field-polish
 
 - Scope: follow-up WeChat slash command field polish after mobile testing.

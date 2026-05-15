@@ -78,7 +78,7 @@ weclaw start -f
 | v0.1.7-alpha | Managed start | Starting an already running managed WeClaw process could be confusing. | `weclaw start ...` is idempotent and reports the existing managed process instead of replacing it. |
 | v0.1.7-alpha | Alpha upgrade | Rebuilt assets under the same public tag could be missed by public-version-only checks. | `weclaw upgrade --alpha` compares build metadata and can migrate a running managed process when the same public tag points to a newer commit. |
 | Unreleased main | Stop command | `weclaw stop` printed a generic stopped message and could leave users unsure whether stale runtime state or extra managed processes were cleared. | `weclaw stop` reports whether it stopped PIDs or found nothing, clears stale PID state, and verifies that no managed WeClaw process remains. |
-| Unreleased main | WeChat slash commands | Command replies mixed languages and some outputs repeated fields or used verbose tables. | Slash command replies are English, compact and Markdown-first; `/status`, `/now`, `/balance`, runtime switches, restart, cancel and unknown-command cards use mobile-oriented panels. |
+| Unreleased main | WeChat slash commands | Command replies mixed languages and some outputs repeated fields or used verbose tables. | Slash command replies are English, compact and Markdown-first. `/status` shows profile, model, session, context, tokens, cost placeholder and current balance. `/balance` uses a fixed-width Total-only panel. `/info` shows WeClaw and dsproxy versions plus uptime. |
 
 <!-- WECLAW_DOCS_RESTRUCTURE:END:user_changes -->
 
