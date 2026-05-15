@@ -133,3 +133,4 @@ Key user-visible changes:
 - p0.1.5a47 removes the `/status` agent-type `@` marker, restores the context bar width, and renders CNY balance compactly as `￥...` on the Cost row.
 - Avoid long Python heredoc patchers for small follow-up fixes. Prefer short shell commands, focused one-line scripts, or first request exact source snippets when a patch target is uncertain.
 - p0.1.5a49 adds dynamic Markdown fence safety: generated outer fences must be longer than any nested backtick run, and chunk splitting must not close a longer outer fence on a shorter nested fence.
+- p0.1.5a50 adds opt-in outbound Markdown capture via `WECLAW_CAPTURE_OUTBOUND_MARKDOWN_DIR`; use it to compare the exact `TextItem.Text` sent to ClawBot against the rendered WeChat result.

@@ -44,6 +44,7 @@ func SendTextReply(ctx context.Context, client *ilink.Client, toUserID, text, co
 
 	// Preserve and normalize Markdown for ClawBot rich rendering.
 	outText := MarkdownForClawBot(text)
+	captureOutboundMarkdownForDebug(toUserID, clientID, outText)
 
 	req := &ilink.SendMessageRequest{
 		Msg: ilink.SendMsg{

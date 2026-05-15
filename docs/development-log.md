@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## 2026-05-15 - p0.1.5a50-outbound-markdown-capture
+
+- Scope: outbound Markdown observability for ClawBot rendering diagnostics.
+- Change: added opt-in `WECLAW_CAPTURE_OUTBOUND_MARKDOWN_DIR` capture of the exact Markdown text sent through `TextItem.Text` after `MarkdownForClawBot`.
+- Purpose: distinguish WeClaw chunking or normalization bugs from ClawBot renderer limitations when testing nested code fences.
+- Validation: focused outbound capture tests, messaging tests and full `go test ./...` are expected before merge.
+
 ## 2026-05-15 - p0.1.5a49-markdown-fence-safety
 
 - Scope: Markdown fence safety for ClawBot rich rendering plus refreshed README screenshots.
