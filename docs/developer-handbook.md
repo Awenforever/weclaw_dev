@@ -10,9 +10,9 @@ This is the canonical English handoff for starting a new AI development conversa
 - Current public Release: `v0.1.8-alpha`
 - Current public Release commit: `05cb93c`
 - Current Release internal marker: `p0.1.5a50-outbound-markdown-capture` at `05cb93c`
-- Current internal development tag: `p0.1.5a54-local-build-ldflags-docs`
+- Current internal development tag: `p0.1.5a55-cross-project-profile-boundary-docs`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a51-vm-proxy-docs=6988001`
-- Current active development line: `p0.1.5a54-local-build-ldflags-docs`. Resolve its exact commit from Git instead of trusting a copied static hash.
+- Current active development line: `p0.1.5a55-cross-project-profile-boundary-docs`. Resolve its exact commit from Git instead of trusting a copied static hash.
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
 - Expected Release assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
@@ -169,3 +169,38 @@ weclaw internal version: p0.1.5a54-local-build-ldflags-docs | <current-commit>
 Before replacing `/usr/local/bin/weclaw` or any other real runtime binary, the generated candidate binary must be checked with `weclaw version`. After replacement, the installed binary must be checked again. A result containing `dev | unknown` is a failed installation, even if the binary itself runs.
 
 Keep the public Release tag and commit separate from the internal development tag and commit. A local development build may intentionally show the latest public Release on the public line and the current internal tag on the internal line.
+
+## Cross-project profile ownership boundary
+
+WeClaw must treat CoDeepSeedeX / `dsproxy` as the authority for Codex profile files and DeepSeek runtime configuration. WeClaw may express user intent, such as `/effort max`, but it should not directly edit `~/.codex/config.toml` to compensate for a `dsproxy` profile-write bug.
+
+The 2026-05-15 effort debugging found this concrete failure mode:
+
+```text
+dsproxy config set-effort max
+```
+
+In the affected CoDeepSeedeX build, that command wrote the Codex profile field as:
+
+```toml
+model_reasoning_effort = "max"
+```
+
+Codex rejects that value while parsing the whole `~/.codex/config.toml` file. Codex accepts `none`, `minimal`, `low`, `medium`, `high`, and `xhigh`, while DeepSeek-facing effort semantics are `high` and `max`. Therefore the correct ownership model is:
+
+```text
+WeClaw user intent: /effort max
+dsproxy DeepSeek/env state: DEEPSEEK_REASONING_EFFORT=max
+dsproxy Codex profile state: model_reasoning_effort="xhigh"
+```
+
+Do not broaden WeClaw into a generic Codex profile repair layer. If a profile-bound value is wrong, fix the CoDeepSeedeX contract and then update WeClaw to consume that contract. This applies to effort, model, profile status, context-window metadata, token telemetry, cost, pricing, balance, and compaction status.
+
+For future WeClaw work:
+
+- do not parse `~/.codex/config.toml` as the source of truth when `dsproxy` can expose a structured contract
+- do not maintain model pricing or balance logic in WeClaw
+- do not infer user/tool/environment/history token categories inside WeClaw
+- do not read `.debug/` reports as a stable public API
+- request a machine-readable `dsproxy` CLI or HTTP JSON interface, then format that result for WeChat
+- keep WeClaw responsible for messaging, routing, session UX, and Markdown presentation only

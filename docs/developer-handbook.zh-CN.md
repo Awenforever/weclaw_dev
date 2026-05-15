@@ -10,9 +10,9 @@
 - 当前公开Release：`v0.1.8-alpha`
 - 当前公开Release commit：`05cb93c`
 - 当前Release对应内部标记：`p0.1.5a50-outbound-markdown-capture`，位于`05cb93c`
-- 当前内部开发标签：`p0.1.5a54-local-build-ldflags-docs`
+- 当前内部开发标签：`p0.1.5a55-cross-project-profile-boundary-docs`
 - 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a51-vm-proxy-docs=6988001`
-- 当前活动开发线：`p0.1.5a54-local-build-ldflags-docs`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
+- 当前活动开发线：`p0.1.5a55-cross-project-profile-boundary-docs`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
 - 预期Release资产：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64和Windows amd64。
@@ -172,3 +172,38 @@ weclaw internal version: p0.1.5a54-local-build-ldflags-docs | <current-commit>
 替换`/usr/local/bin/weclaw`或其他真实运行时二进制之前，必须先对候选二进制执行`weclaw version`。替换后必须再次检查已安装二进制的版本输出。只要出现`dev | unknown`，就视为安装失败，即使该二进制本身可以运行。
 
 公开Release tag和commit必须与内部开发tag和commit分离。本地开发构建可以在public行显示当前公开Release，同时在internal行显示当前内部tag。
+
+## 跨项目profile所有权边界
+
+WeClaw必须把CoDeepSeedeX / `dsproxy`视为Codex profile文件和DeepSeek运行配置的权威维护者。WeClaw可以表达用户意图，例如`/effort max`，但不应直接编辑`~/.codex/config.toml`来补偿`dsproxy`的profile写入缺陷。
+
+2026-05-15的effort调试确认了一个具体失败模式：
+
+```text
+dsproxy config set-effort max
+```
+
+在受影响的CoDeepSeedeX版本中，该命令会把Codex profile字段写成：
+
+```toml
+model_reasoning_effort = "max"
+```
+
+Codex在解析整个`~/.codex/config.toml`文件时会拒绝该值。Codex接受`none`、`minimal`、`low`、`medium`、`high`和`xhigh`，而DeepSeek侧effort语义是`high`和`max`。因此正确的所有权模型是：
+
+```text
+WeClaw用户意图：/effort max
+dsproxy DeepSeek/env状态：DEEPSEEK_REASONING_EFFORT=max
+dsproxy Codex profile状态：model_reasoning_effort="xhigh"
+```
+
+不要把WeClaw扩展成通用Codex profile修复层。如果某个profile绑定值错误，应修复CoDeepSeedeX契约，然后让WeClaw消费该契约。该原则适用于effort、model、profile状态、context窗口元数据、token遥测、cost、pricing、balance和compaction状态。
+
+后续WeClaw开发应遵循：
+
+- 不把`~/.codex/config.toml`作为权威数据源来解析，除非`dsproxy`尚未提供契约且任务明确要求临时审计
+- 不在WeClaw维护模型价格或余额逻辑
+- 不在WeClaw内部推断user/tool/environment/history token分类
+- 不把`.debug/`报告当成稳定公共API读取
+- 要求`dsproxy`提供机器可读的CLI或HTTP JSON接口，然后由WeClaw负责微信端展示
+- WeClaw只负责消息入口、路由、会话UX和Markdown排版
