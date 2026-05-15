@@ -633,7 +633,7 @@ func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
 	}
 	for _, want := range []string{
 		"## 🧩 Status",
-		"Profile:** `deepseek-thinking` @ACP",
+		"Profile:** `deepseek-thinking` @`ACP`",
 		"Model:** `deepseek-v4-pro`",
 		"Session:** `thread-usage-1`",
 		"Context  [",

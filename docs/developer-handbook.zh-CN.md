@@ -9,7 +9,7 @@
 - 主分支：`main`
 - 当前公开Release：`v0.1.7-alpha`
 - 当前公开Release commit：`31fa432`
-- 当前内部开发标签：`p0.1.5a45-english-compact-slash-renderer`
+- 当前内部开发标签：`p0.1.5a46-slash-field-polish`
 - 当前`main`和`origin/main`：合并后与`p0.1.5a40-delete-legacy-v-internal-tags`指向同一提交
 - 当前Release资产/代码线：规范tag `p0.1.5a28-stop-semantics`指向`31fa432`
 - p5a29同步文档和Release note，p5a30删除过时文档入口，p5a31修复最终文档入口引用，p5a32同步手册到当前main线，p0.1.5a33确立规范化内部版本/tag格式，p0.1.5a34增加防回流测试，p0.1.5a35为42个可自动映射的预规范化内部tag创建规范镜像tag，p0.1.5a36删除了13个已验证存在规范镜像的历史alpha-work临时pre-release/tag，p0.1.5a37禁用CI自动发布pre-release并删除剩余CI生成的alpha/beta pre-release噪声，p0.1.5a38将最后的特殊历史`v0.1d/e/f...`tag归档为规范`p0.1.0a*`tag后删除旧ref，p0.1.5a39清理最终审计中关于GitHub Release `targetCommitish`元数据和面向未来手册措辞的误报，p0.1.5a40在确认规范镜像覆盖后删除剩余预规范化内部`v`前缀ref。p0.1.5a41将微信ClawBot输出切换为Markdown优先格式化，避免沿用上游纯文本降级策略。这些文档类、tag镜像或格式化提交都不应与Release资产提交混淆。
@@ -132,3 +132,4 @@
 - p0.1.5a43将Markdown语法作为视觉表达工具使用：引用块可作为提示条，代码围栏可作为状态面板，表格用于紧凑结构化数据，移动端帮助优先使用列表。
 
 - p0.1.5a45保持微信端slash command英文、紧凑、Markdown优先；`/info`作为隐藏兼容入口，`/status`没有可靠数据源时不得伪造session费用。
+- p0.1.5a46将`/balance`保持为固定宽度且仅显示Total的面板，在`/status`中显示当前账户余额但不伪造session cost，并让`/info`显示运行时版本和uptime。

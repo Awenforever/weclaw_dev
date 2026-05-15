@@ -1233,6 +1233,7 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 
 	dsproxyStatus := runDsproxyCommand(ctx, dsproxyStatusArgsForProfile(defaultName)...)
 	dsproxyConfig := runDsproxyCommand(ctx, "config", "show")
+	balanceReply := runDsproxyCommand(ctx, "balance")
 
 	proxyState := "unknown"
 	statusLower := strings.ToLower(dsproxyStatus)
@@ -1252,10 +1253,10 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 	}
 
 	contextWindow, _ := fallbackContextWindow(defaultName, agentModel, proxyModel, dsproxyConfig)
-	panelLines := buildCompactStatusPanel(ag, userID, contextWindow, proxyRoute, proxyEndpoint, proxyState)
+	panelLines := buildCompactStatusPanel(ag, userID, contextWindow, proxyRoute, proxyEndpoint, proxyState, compactBalanceSummaryFromText(balanceReply))
 
 	lines := []string{
-		slashBoldField("Profile", slashInlineCode(valueOrUnknown(defaultName))+" @"+slashAgentTypeBadge(agentType)),
+		slashBoldField("Profile", slashInlineCode(valueOrUnknown(defaultName))+" @"+slashInlineCode(slashAgentTypeBadge(agentType))),
 		slashBoldField("Model", slashInlineCode(slashModelDisplay(agentModel, proxyModel))+" "+slashInlineCode(slashEffortDisplay(proxyEffort))),
 		slashBoldField("Session", slashInlineCode(valueOrUnknown(sessionID))),
 		"",
@@ -1521,7 +1522,7 @@ func slashModelDisplay(agentModel, proxyModel string) string {
 	return "unknown"
 }
 
-func buildCompactStatusPanel(ag agent.Agent, userID string, fallbackWindow int64, proxyRoute, proxyEndpoint, proxyState string) []string {
+func buildCompactStatusPanel(ag agent.Agent, userID string, fallbackWindow int64, proxyRoute, proxyEndpoint, proxyState, balanceSummary string) []string {
 	var snapshot agent.TokenUsageSnapshot
 	hasSnapshot := false
 	if ag != nil {
@@ -1545,7 +1546,7 @@ func buildCompactStatusPanel(ag agent.Agent, userID string, fallbackWindow int64
 
 	contextLine := fmt.Sprintf(
 		"Context  [%s]  %s  %s/%s",
-		formatCommandProgressBar(used, window, 20),
+		formatCommandProgressBar(used, window, 14),
 		formatTokenPercent(used, window),
 		formatTokenCount(maxInt64(used, 0)),
 		formatContextLimit(window),
@@ -1568,10 +1569,16 @@ func buildCompactStatusPanel(ag agent.Agent, userID string, fallbackWindow int64
 		}
 	}
 
+	balanceSummary = strings.TrimSpace(balanceSummary)
+	if balanceSummary == "" {
+		balanceSummary = "balance n/a"
+	}
+	costLine := fmt.Sprintf("%-42s %s", "Cost     session n/a  last n/a", balanceSummary)
+
 	lines := []string{
 		contextLine,
 		tokenLine,
-		"Cost     session n/a  last n/a",
+		costLine,
 	}
 
 	if strings.TrimSpace(proxyRoute) != "" || strings.TrimSpace(proxyEndpoint) != "" || strings.TrimSpace(proxyState) != "" {
@@ -1603,6 +1610,134 @@ func boolText(value bool) string {
 		return "yes"
 	}
 	return "no"
+}
+
+func compactBalanceSummaryFromText(text string) string {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return "balance n/a"
+	}
+
+	var payload dsproxyBalanceResponse
+	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
+		return "balance n/a"
+	}
+	for _, info := range payload.Balance.BalanceInfos {
+		total := strings.TrimSpace(info.TotalBalance)
+		if balanceFieldHasData(total) {
+			currency := strings.TrimSpace(info.Currency)
+			if currency == "" {
+				currency = "unknown"
+			}
+			return fmt.Sprintf("balance %s %s", currency, total)
+		}
+	}
+	if len(payload.Balance.BalanceInfos) == 0 {
+		return "balance none"
+	}
+	return "balance n/a"
+}
+
+func balancePanelRows(payload dsproxyBalanceResponse) []string {
+	if len(payload.Balance.BalanceInfos) == 0 {
+		return []string{"Balance  none"}
+	}
+
+	currencyWidth := len("Currency")
+	for _, info := range payload.Balance.BalanceInfos {
+		currency := strings.TrimSpace(info.Currency)
+		if currency == "" {
+			currency = "unknown"
+		}
+		if len(currency) > currencyWidth {
+			currencyWidth = len(currency)
+		}
+	}
+
+	rows := []string{fmt.Sprintf("%-*s  %s", currencyWidth, "Currency", "Total")}
+	for _, info := range payload.Balance.BalanceInfos {
+		currency := strings.TrimSpace(info.Currency)
+		if currency == "" {
+			currency = "unknown"
+		}
+		rows = append(rows, fmt.Sprintf("%-*s  %s", currencyWidth, currency, valueOrUnknown(info.TotalBalance)))
+	}
+	return rows
+}
+
+func dsproxyUptimeFromStatus(text string) string {
+	var payload struct {
+		UptimeSeconds float64 `json:"uptime_seconds"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(text)), &payload); err != nil {
+		return "unknown"
+	}
+	if payload.UptimeSeconds <= 0 {
+		return "unknown"
+	}
+	return formatTurnDuration(time.Duration(payload.UptimeSeconds) * time.Second)
+}
+
+func runtimeVersionLines(text, publicPrefix, internalPrefix string) (string, string) {
+	publicLine := "unknown"
+	internalLine := "unknown"
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		lower := strings.ToLower(trimmed)
+		switch {
+		case strings.HasPrefix(lower, strings.ToLower(publicPrefix)):
+			publicLine = strings.TrimSpace(trimmed[len(publicPrefix):])
+		case strings.HasPrefix(lower, strings.ToLower(internalPrefix)):
+			internalLine = strings.TrimSpace(trimmed[len(internalPrefix):])
+		}
+	}
+	return publicLine, internalLine
+}
+
+func runCurrentExecutableCommand(ctx context.Context, args ...string) string {
+	runCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	exe, err := os.Executable()
+	if err != nil || strings.TrimSpace(exe) == "" {
+		exe = "weclaw"
+	}
+	cmd := exec.CommandContext(runCtx, exe, args...)
+	out, err := cmd.CombinedOutput()
+	text := strings.TrimSpace(string(out))
+
+	if runCtx.Err() == context.DeadlineExceeded {
+		if text != "" {
+			return fmt.Sprintf("weclaw %s timed out.\n%s", strings.Join(args, " "), text)
+		}
+		return fmt.Sprintf("weclaw %s timed out.", strings.Join(args, " "))
+	}
+	if err != nil {
+		if text != "" {
+			return fmt.Sprintf("weclaw %s failed: %v\n%s", strings.Join(args, " "), err, text)
+		}
+		return fmt.Sprintf("weclaw %s failed: %v", strings.Join(args, " "), err)
+	}
+	if text == "" {
+		return fmt.Sprintf("weclaw %s completed.", strings.Join(args, " "))
+	}
+	return text
+}
+
+func currentProcessUptime() string {
+	out, err := exec.Command("ps", "-p", strconv.Itoa(os.Getpid()), "-o", "etimes=").Output()
+	if err != nil {
+		return "unknown"
+	}
+	secondsText := strings.TrimSpace(string(out))
+	seconds, err := strconv.ParseInt(secondsText, 10, 64)
+	if err != nil || seconds < 0 {
+		if secondsText == "" {
+			return "unknown"
+		}
+		return secondsText + "s"
+	}
+	return formatTurnDuration(time.Duration(seconds) * time.Second)
 }
 
 func formatCommandProgressBar(used, window int64, width int) string {
@@ -1694,58 +1829,10 @@ func formatBalanceReply(text string) string {
 		slashBoldField("Status", slashInlineCode(status)),
 		slashBoldField("Available", slashInlineCode(boolText(payload.Balance.IsAvailable))),
 		"",
+		"```text",
 	}
-
-	if len(payload.Balance.BalanceInfos) == 0 {
-		lines = append(lines,
-			"```text",
-			"Balance  none",
-			"```",
-		)
-		return commandCard("💰 Balance", lines...)
-	}
-
-	hasGranted := false
-	hasToppedUp := false
-	for _, info := range payload.Balance.BalanceInfos {
-		if balanceFieldHasData(info.GrantedBalance) {
-			hasGranted = true
-		}
-		if balanceFieldHasData(info.ToppedUpBalance) {
-			hasToppedUp = true
-		}
-	}
-
-	header := "| Currency | Total |"
-	align := "| --- | ---: |"
-	if hasGranted {
-		header += " Granted |"
-		align += " ---: |"
-	}
-	if hasToppedUp {
-		header += " Topped-up |"
-		align += " ---: |"
-	}
-
-	lines = append(lines, header, align)
-	for _, info := range payload.Balance.BalanceInfos {
-		currency := info.Currency
-		if currency == "" {
-			currency = "unknown"
-		}
-		row := fmt.Sprintf(
-			"| %s | %s |",
-			markdownTableCell(currency),
-			markdownTableCell(valueOrUnknown(info.TotalBalance)),
-		)
-		if hasGranted {
-			row = strings.TrimSuffix(row, "|") + fmt.Sprintf(" %s |", markdownTableCell(info.GrantedBalance))
-		}
-		if hasToppedUp {
-			row = strings.TrimSuffix(row, "|") + fmt.Sprintf(" %s |", markdownTableCell(info.ToppedUpBalance))
-		}
-		lines = append(lines, row)
-	}
+	lines = append(lines, balancePanelRows(payload)...)
+	lines = append(lines, "```")
 
 	return commandCard("💰 Balance", lines...)
 }
@@ -2686,9 +2773,31 @@ func (h *Handler) handleCwd(trimmed string) string {
 
 // buildStatus returns a short status string showing the current default agent.
 func (h *Handler) buildStatus() string {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	h.mu.RLock()
+	defaultName := h.defaultName
+	h.mu.RUnlock()
+
+	dsproxyStatusArgs := dsproxyStatusArgsForProfile(defaultName)
+	dsproxyStatus := runDsproxyCommand(ctx, dsproxyStatusArgs...)
+	dsproxyVersionText := runDsproxyCommand(ctx, "--version")
+	weclawVersionText := runCurrentExecutableCommand(ctx, "version")
+
+	weclawPublic, weclawInternal := runtimeVersionLines(weclawVersionText, "weclaw public version:", "weclaw internal version:")
+	dsproxyPublic, dsproxyInternal := runtimeVersionLines(dsproxyVersionText, "public version:", "internal version:")
+
 	return commandCard(
 		"ℹ️ Info",
-		"> `/info` is kept for compatibility. Use `/status` for the compact runtime dashboard.",
+		"```text",
+		"WeClaw   public   "+weclawPublic,
+		"         internal "+weclawInternal,
+		"         uptime   "+currentProcessUptime(),
+		"dsproxy  public   "+dsproxyPublic,
+		"         internal "+dsproxyInternal,
+		"         uptime   "+dsproxyUptimeFromStatus(dsproxyStatus),
+		"```",
 	)
 }
 
@@ -2857,7 +2966,7 @@ func detectImageExt(data []byte) string {
 func buildContextUsageLines(ag agent.Agent, userID, sessionID string, fallbackWindow int64, windowSource string) []string {
 	_ = sessionID
 	_ = windowSource
-	panel := buildCompactStatusPanel(ag, userID, fallbackWindow, "", "", "")
+	panel := buildCompactStatusPanel(ag, userID, fallbackWindow, "", "", "", "balance n/a")
 	return visualCommandFence("", panel...)
 }
 
@@ -2866,7 +2975,7 @@ func formatContextWindowLines(window, used int64) []string {
 		"",
 		fmt.Sprintf(
 			"Context  [%s]  %s  %s/%s",
-			formatCommandProgressBar(used, window, 20),
+			formatCommandProgressBar(used, window, 14),
 			formatTokenPercent(used, window),
 			formatTokenCount(maxInt64(used, 0)),
 			formatContextLimit(window),

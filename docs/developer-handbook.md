@@ -9,7 +9,7 @@ This is the canonical English handoff for starting a new AI development conversa
 - Main branch: `main`
 - Current public Release: `v0.1.7-alpha`
 - Current public Release commit: `31fa432`
-- Current internal development tag: `p0.1.5a45-english-compact-slash-renderer`
+- Current internal development tag: `p0.1.5a46-slash-field-polish`
 - Current `main` and `origin/main`: same commit as `p0.1.5a40-delete-legacy-v-internal-tags` after merge
 - Current Release asset/code line: `p0.1.5a28-stop-semantics` at `31fa432`
 - p5a29 synchronized documentation and Release notes, p5a30 removed obsolete documentation entry points, p5a31 fixed final documentation entry references, p5a32 synchronized the handoff with the current `main` line, p0.1.5a33 established the normalized internal version/tag format, p0.1.5a34 added guard tests, p0.1.5a35 created normalized mirror tags for the 42 auto-mappable pre-normalization internal tags, and p0.1.5a36 removed the 13 legacy alpha-work temporary pre-releases/tags that had verified normalized mirrors, and p0.1.5a37 disabled CI auto pre-release publishing and removed the remaining CI-generated alpha/beta pre-release noise, and p0.1.5a38 archived the final special `v0.1d/e/f...` legacy tags as normalized `p0.1.0a*` tags before removing the old refs, and p0.1.5a39 cleaned final audit false positives around GitHub Release `targetCommitish` metadata and future-facing handbook wording, and p0.1.5a40 removed the remaining pre-normalization internal `v`-prefixed refs after verifying normalized mirror coverage, and p0.1.5a41 switched WeChat ClawBot output to Markdown-first formatting instead of upstream plain-text downgrade. None of these documentation-only, tag-mirror, or formatting commits should be confused with the Release asset commit.
@@ -129,3 +129,4 @@ Key user-visible changes:
 - If dsproxy later exposes token attribution, WeClaw should consume it in `/status` and degrade gracefully when the endpoint is absent.
 - p0.1.5a43 treats Markdown syntax as visual affordances: blockquotes may be callouts, fenced text may be status panels, tables are reserved for compact structured data, and lists are preferred for mobile help.
 - p0.1.5a45 keeps WeChat slash command replies English, compact and Markdown-first; `/info` is hidden compatibility and `/status` must not invent session cost without a reliable data source.
+- p0.1.5a46 keeps `/balance` as a fixed-width Total-only panel, shows current account balance on `/status` without fabricating session cost, and makes `/info` show runtime versions and uptime.

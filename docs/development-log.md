@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## 2026-05-15 - p0.1.5a46-slash-field-polish
+
+- Scope: follow-up WeChat slash command field polish after mobile testing.
+- Change: `/balance` now uses a fixed-width fenced text panel with only Currency and Total, hiding Granted and Topped-up fields to avoid noisy account details and WeChat table misalignment.
+- Change: `/status` renders agent type as inline code, shortens the context progress bar, and appends the current account balance summary to the cost line without pretending to know session cost.
+- Change: `/info` now displays WeClaw and dsproxy public/internal runtime versions plus each process uptime.
+- Validation: focused messaging tests, broader package tests and full `go test ./...` are expected before merge.
+
 ## 2026-05-14 - p0.1.5a45-english-compact-slash-renderer
 
 - Scope: WeChat slash command output design.
