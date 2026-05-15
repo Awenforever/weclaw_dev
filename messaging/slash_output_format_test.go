@@ -47,13 +47,13 @@ func TestUnknownSlashCommandCardIsCompactAndSuggestsCancel(t *testing.T) {
 }
 
 func TestCompactContextPanelDoesNotExposeSourceOrMetricTable(t *testing.T) {
-	got := strings.Join(buildCompactStatusPanel(nil, "user-1", 1000000, "thinking", "127.0.0.1:8001", "reachable", "balance CNY 12.34"), "\n")
+	got := strings.Join(buildCompactStatusPanel(nil, "user-1", 1000000, "thinking", "127.0.0.1:8001", "reachable", "￥12.34"), "\n")
 	for _, forbidden := range []string{"source:", "Metric", "Limit", "Used", "Left", "tools", "other", "Granted"} {
 		if strings.Contains(got, forbidden) {
 			t.Fatalf("compact status panel contains old verbose token %q in:\n%s", forbidden, got)
 		}
 	}
-	for _, want := range []string{"Context", "Tokens", "Cost     session n/a  last n/a", "balance CNY 12.34", "Proxy    thinking · 127.0.0.1:8001 · reachable"} {
+	for _, want := range []string{"Context", "Tokens", "Cost     session n/a  last n/a", "￥12.34", "Proxy    thinking · 127.0.0.1:8001 · reachable"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("compact status panel missing %q in:\n%s", want, got)
 		}
@@ -83,7 +83,7 @@ func TestSlashCommandOutputPreviewSnapshot(t *testing.T) {
 		buildHelpText(),
 		"",
 		"## /status panel core",
-		strings.Join(append([]string{"## 🧩 Status", "- **Profile:** `deepseek-thinking` @`ACP`", "- **Model:** `deepseek-v4-flash` `high`", "- **Session:** `thread-preview`", ""}, visualCommandFence("", buildCompactStatusPanel(nil, "user-1", 1000000, "thinking", "127.0.0.1:8001", "reachable", "balance CNY 12.34")...)...), "\n"),
+		strings.Join(append([]string{"## 🧩 Status", "- **Profile:** `deepseek-thinking` `ACP`", "- **Model:** `deepseek-v4-flash` `high`", "- **Session:** `thread-preview`", ""}, visualCommandFence("", buildCompactStatusPanel(nil, "user-1", 1000000, "thinking", "127.0.0.1:8001", "reachable", "￥12.34")...)...), "\n"),
 		"",
 		"## /balance",
 		formatBalanceReply(`{"status":"ok","balance":{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"12.34","granted_balance":"","topped_up_balance":""}]}}`),
@@ -112,14 +112,14 @@ func TestCompactStatusPanelUsesShorterProgressBar(t *testing.T) {
 		t.Fatalf("progress bar not found in:\n%s", got)
 	}
 	bar := got[start+1 : end]
-	if gotLen := len([]rune(bar)); gotLen != 14 {
-		t.Fatalf("progress bar length = %d, want 14 in:\n%s", gotLen, got)
+	if gotLen := len([]rune(bar)); gotLen != 20 {
+		t.Fatalf("progress bar length = %d, want 20 in:\n%s", gotLen, got)
 	}
 }
 
 func TestCompactBalanceSummaryFromText(t *testing.T) {
 	got := compactBalanceSummaryFromText(`{"status":"ok","balance":{"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"12.34","granted_balance":"99.99","topped_up_balance":"88.88"}]}}`)
-	if got != "balance CNY 12.34" {
-		t.Fatalf("compactBalanceSummaryFromText() = %q, want balance CNY 12.34", got)
+	if got != "￥12.34" {
+		t.Fatalf("compactBalanceSummaryFromText() = %q, want ￥12.34", got)
 	}
 }

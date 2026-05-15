@@ -1256,7 +1256,7 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 	panelLines := buildCompactStatusPanel(ag, userID, contextWindow, proxyRoute, proxyEndpoint, proxyState, compactBalanceSummaryFromText(balanceReply))
 
 	lines := []string{
-		slashBoldField("Profile", slashInlineCode(valueOrUnknown(defaultName))+" @"+slashInlineCode(slashAgentTypeBadge(agentType))),
+		slashBoldField("Profile", slashInlineCode(valueOrUnknown(defaultName))+" "+slashInlineCode(slashAgentTypeBadge(agentType))),
 		slashBoldField("Model", slashInlineCode(slashModelDisplay(agentModel, proxyModel))+" "+slashInlineCode(slashEffortDisplay(proxyEffort))),
 		slashBoldField("Session", slashInlineCode(valueOrUnknown(sessionID))),
 		"",
@@ -1546,7 +1546,7 @@ func buildCompactStatusPanel(ag agent.Agent, userID string, fallbackWindow int64
 
 	contextLine := fmt.Sprintf(
 		"Context  [%s]  %s  %s/%s",
-		formatCommandProgressBar(used, window, 14),
+		formatCommandProgressBar(used, window, 20),
 		formatTokenPercent(used, window),
 		formatTokenCount(maxInt64(used, 0)),
 		formatContextLimit(window),
@@ -1573,7 +1573,7 @@ func buildCompactStatusPanel(ag agent.Agent, userID string, fallbackWindow int64
 	if balanceSummary == "" {
 		balanceSummary = "balance n/a"
 	}
-	costLine := fmt.Sprintf("%-42s %s", "Cost     session n/a  last n/a", balanceSummary)
+	costLine := fmt.Sprintf("%s  %s", "Cost     session n/a  last n/a", balanceSummary)
 
 	lines := []string{
 		contextLine,
@@ -1629,7 +1629,14 @@ func compactBalanceSummaryFromText(text string) string {
 			if currency == "" {
 				currency = "unknown"
 			}
-			return fmt.Sprintf("balance %s %s", currency, total)
+			switch strings.ToUpper(currency) {
+			case "CNY", "RMB", "CNH":
+				return "￥" + total
+			case "USD":
+				return "$" + total
+			default:
+				return currency + " " + total
+			}
 		}
 	}
 	if len(payload.Balance.BalanceInfos) == 0 {
@@ -2975,7 +2982,7 @@ func formatContextWindowLines(window, used int64) []string {
 		"",
 		fmt.Sprintf(
 			"Context  [%s]  %s  %s/%s",
-			formatCommandProgressBar(used, window, 14),
+			formatCommandProgressBar(used, window, 20),
 			formatTokenPercent(used, window),
 			formatTokenCount(maxInt64(used, 0)),
 			formatContextLimit(window),
