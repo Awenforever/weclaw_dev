@@ -306,14 +306,22 @@ func cleanupMarkdownSpacing(text string) string {
 }
 
 func ensureBalancedCodeFence(text string) string {
-	count := 0
+	openFence := markdownFenceSpec{}
 	for _, line := range strings.Split(text, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "```") {
-			count++
+		spec, ok := markdownFenceLineSpec(line)
+		if !ok {
+			continue
 		}
+		if openFence.valid {
+			if markdownFenceCanClose(spec, openFence) {
+				openFence = markdownFenceSpec{}
+			}
+			continue
+		}
+		openFence = spec
 	}
-	if count%2 == 1 {
-		return strings.TrimRight(text, "\n") + "\n```"
+	if openFence.valid {
+		return strings.TrimRight(text, "\n") + "\n" + markdownFenceText(openFence)
 	}
 	return text
 }
@@ -321,8 +329,8 @@ func ensureBalancedCodeFence(text string) string {
 func splitMarkdownBlocks(text string) []string {
 	lines := strings.Split(text, "\n")
 	blocks := make([]string, 0)
-	current := make([]string, 0, len(lines))
-	inFence := false
+	current := make([]string, 0)
+	openFence := markdownFenceSpec{}
 
 	flush := func() {
 		block := strings.TrimSpace(strings.Join(current, "\n"))
@@ -334,16 +342,26 @@ func splitMarkdownBlocks(text string) []string {
 
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "```") {
-			current = append(current, line)
-			inFence = !inFence
-			continue
-		}
-		if !inFence && trimmed == "" {
-			flush()
-			continue
-		}
 		current = append(current, line)
+
+		if spec, ok := markdownFenceLineSpec(trimmed); ok {
+			if openFence.valid {
+				if markdownFenceCanClose(spec, openFence) {
+					openFence = markdownFenceSpec{}
+				}
+			} else {
+				openFence = spec
+			}
+			continue
+		}
+
+		if openFence.valid {
+			continue
+		}
+
+		if trimmed == "" {
+			flush()
+		}
 	}
 	flush()
 	return blocks

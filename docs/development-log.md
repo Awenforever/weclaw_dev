@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## 2026-05-15 - p0.1.5a49-markdown-fence-safety
+
+- Scope: Markdown fence safety for ClawBot rich rendering plus refreshed README screenshots.
+- Change: added dynamic fenced-code delimiter selection so wrapper fences are always longer than the longest backtick run inside the content.
+- Change: updated command-card fences, code-fence balancing, inline-code wrapping and Markdown block splitting so nested shorter fences do not close outer longer fences.
+- Change: accepted refreshed README image assets and renamed the profile/balance screenshot label to Runtime settings.
+- Validation: focused Markdown and messaging tests plus full `go test ./...` are expected before merge.
+
 ## 2026-05-15 - p0.1.5a48-docs-sync
 
 - Scope: canonical documentation synchronization after slash command mobile polish.

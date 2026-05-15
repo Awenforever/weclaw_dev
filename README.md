@@ -37,9 +37,9 @@ This fork focuses on practical agent operation from WeChat:
 | --- | --- |
 | <img src="assets/readme/weclaw-dev-formatted-status.jpg" width="420" alt="WeClaw Dev formatted status command" /> | <img src="assets/readme/weclaw-dev-codex-session.jpg" width="420" alt="Long-form Codex response formatting in WeChat" /> |
 
-| Typing keepalive | Profile and balance |
+| Typing keepalive | Runtime settings |
 | --- | --- |
-| <img src="assets/readme/weclaw-dev-typing-keepalive.jpg" width="420" alt="Typing keepalive during long replies" /> | <img src="assets/readme/weclaw-dev-profile-balance.jpg" width="420" alt="Profile and balance command examples" /> |
+| <img src="assets/readme/weclaw-dev-typing-keepalive.jpg" width="420" alt="Typing keepalive during long replies" /> | <img src="assets/readme/weclaw-dev-profile-balance.jpg" width="420" alt="Runtime settings command examples" /> |
 
 ---
 

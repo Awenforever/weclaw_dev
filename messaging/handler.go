@@ -1392,7 +1392,7 @@ func commandCard(title string, lines ...string) string {
 func markdownCommandLines(lines ...string) []string {
 	out := make([]string, 0, len(lines))
 	lastBlank := false
-	inFence := false
+	openFence := markdownFenceSpec{}
 
 	for _, rawLine := range lines {
 		lineForFence := strings.TrimRight(rawLine, " \t")
@@ -1406,14 +1406,20 @@ func markdownCommandLines(lines ...string) []string {
 			continue
 		}
 
-		if strings.HasPrefix(trimmed, "```") {
+		if spec, ok := markdownFenceLineSpec(trimmed); ok {
 			out = append(out, trimmed)
-			inFence = !inFence
+			if openFence.valid {
+				if markdownFenceCanClose(spec, openFence) {
+					openFence = markdownFenceSpec{}
+				}
+			} else {
+				openFence = spec
+			}
 			lastBlank = false
 			continue
 		}
 
-		if inFence {
+		if openFence.valid {
 			out = append(out, lineForFence)
 			lastBlank = false
 			continue
@@ -1421,7 +1427,6 @@ func markdownCommandLines(lines ...string) []string {
 
 		switch {
 		case strings.HasPrefix(trimmed, "#"),
-			strings.HasPrefix(trimmed, "```"),
 			strings.HasPrefix(trimmed, "|"),
 			strings.HasPrefix(trimmed, "---"),
 			strings.HasPrefix(trimmed, ">"),
@@ -1454,12 +1459,16 @@ func commandSectionLine(line string) bool {
 }
 
 func visualCommandFence(title string, lines ...string) []string {
-	out := []string{"```text"}
+	body := make([]string, 0, len(lines)+1)
 	if strings.TrimSpace(title) != "" {
-		out = append(out, title)
+		body = append(body, title)
 	}
-	out = append(out, lines...)
-	out = append(out, "```")
+	body = append(body, lines...)
+
+	fence := markdownFenceForLines(body...)
+	out := []string{fence + "text"}
+	out = append(out, body...)
+	out = append(out, fence)
 	return out
 }
 
@@ -1473,9 +1482,7 @@ func markdownTableCell(value string) string {
 }
 
 func slashInlineCode(value string) string {
-	value = valueOrUnknown(strings.TrimSpace(value))
-	value = strings.ReplaceAll(value, "`", "'")
-	return "`" + value + "`"
+	return markdownInlineCode(valueOrUnknown(strings.TrimSpace(value)))
 }
 
 func slashBoldField(label, value string) string {

@@ -132,3 +132,4 @@ Key user-visible changes:
 - p0.1.5a46 keeps `/balance` as a fixed-width Total-only panel, shows current account balance on `/status` without fabricating session cost, and makes `/info` show runtime versions and uptime.
 - p0.1.5a47 removes the `/status` agent-type `@` marker, restores the context bar width, and renders CNY balance compactly as `￥...` on the Cost row.
 - Avoid long Python heredoc patchers for small follow-up fixes. Prefer short shell commands, focused one-line scripts, or first request exact source snippets when a patch target is uncertain.
+- p0.1.5a49 adds dynamic Markdown fence safety: generated outer fences must be longer than any nested backtick run, and chunk splitting must not close a longer outer fence on a shorter nested fence.
