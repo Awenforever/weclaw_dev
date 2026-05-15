@@ -10,9 +10,9 @@
 - 当前公开Release：`v0.1.8-alpha`
 - 当前公开Release commit：`05cb93c`
 - 当前Release对应内部标记：`p0.1.5a50-outbound-markdown-capture`，位于`05cb93c`
-- 当前内部开发标签：`p0.1.5a53-effort-profile-slash-polish`
+- 当前内部开发标签：`p0.1.5a54-local-build-ldflags-docs`
 - 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a51-vm-proxy-docs=6988001`
-- 当前活动开发线：`p0.1.5a53-effort-profile-slash-polish`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
+- 当前活动开发线：`p0.1.5a54-local-build-ldflags-docs`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
 - 预期Release资产：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64和Windows amd64。
@@ -148,3 +148,27 @@
 - 小型后续修复避免继续使用长Python heredoc补丁。优先使用短shell命令、单行脚本，或在补丁目标不确定时先索取精确源码片段。
 - p0.1.5a49增加动态Markdown围栏安全：生成的外层围栏必须长于内容中任意连续反引号，分块时不能让较短的内部围栏关闭较长的外部围栏。
 - p0.1.5a50增加通过`WECLAW_CAPTURE_OUTBOUND_MARKDOWN_DIR`启用的outbound Markdown捕获，用于对比实际发给ClawBot的`TextItem.Text`和微信端渲染结果。
+
+## 本地运行时重构建版本元数据规则
+
+从源码checkout替换真实本机`weclaw`运行时时，不要安装普通`go build`产物。普通本地构建会显示`dev | unknown`，这会让运行时诊断和开发移交状态变得不可信。
+
+本地运行时替换必须通过ldflags注入版本元数据，当前使用以下符号：
+
+```text
+github.com/fastclaw-ai/weclaw/cmd.Version
+github.com/fastclaw-ai/weclaw/cmd.PublicCommit
+github.com/fastclaw-ai/weclaw/cmd.InternalVersion
+github.com/fastclaw-ai/weclaw/cmd.InternalCommit
+```
+
+本地开发构建的期望版本格式为：
+
+```text
+weclaw public version: v0.1.8-alpha | 05cb93c
+weclaw internal version: p0.1.5a54-local-build-ldflags-docs | <current-commit>
+```
+
+替换`/usr/local/bin/weclaw`或其他真实运行时二进制之前，必须先对候选二进制执行`weclaw version`。替换后必须再次检查已安装二进制的版本输出。只要出现`dev | unknown`，就视为安装失败，即使该二进制本身可以运行。
+
+公开Release tag和commit必须与内部开发tag和commit分离。本地开发构建可以在public行显示当前公开Release，同时在internal行显示当前内部tag。

@@ -10,9 +10,9 @@ This is the canonical English handoff for starting a new AI development conversa
 - Current public Release: `v0.1.8-alpha`
 - Current public Release commit: `05cb93c`
 - Current Release internal marker: `p0.1.5a50-outbound-markdown-capture` at `05cb93c`
-- Current internal development tag: `p0.1.5a53-effort-profile-slash-polish`
+- Current internal development tag: `p0.1.5a54-local-build-ldflags-docs`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a51-vm-proxy-docs=6988001`
-- Current active development line: `p0.1.5a53-effort-profile-slash-polish`. Resolve its exact commit from Git instead of trusting a copied static hash.
+- Current active development line: `p0.1.5a54-local-build-ldflags-docs`. Resolve its exact commit from Git instead of trusting a copied static hash.
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
 - Expected Release assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
@@ -145,3 +145,27 @@ Key user-visible changes:
 - Avoid long Python heredoc patchers for small follow-up fixes. Prefer short shell commands, focused one-line scripts, or first request exact source snippets when a patch target is uncertain.
 - p0.1.5a49 adds dynamic Markdown fence safety: generated outer fences must be longer than any nested backtick run, and chunk splitting must not close a longer outer fence on a shorter nested fence.
 - p0.1.5a50 adds opt-in outbound Markdown capture via `WECLAW_CAPTURE_OUTBOUND_MARKDOWN_DIR`; use it to compare the exact `TextItem.Text` sent to ClawBot against the rendered WeChat result.
+
+## Local runtime rebuild version-metadata rule
+
+When replacing the real local `weclaw` runtime from a source checkout, do not install a plain `go build` artifact. A plain local build reports `dev | unknown`, which makes runtime diagnosis and handoff state ambiguous.
+
+For local runtime replacement, the build must inject version metadata with these ldflags symbols:
+
+```text
+github.com/fastclaw-ai/weclaw/cmd.Version
+github.com/fastclaw-ai/weclaw/cmd.PublicCommit
+github.com/fastclaw-ai/weclaw/cmd.InternalVersion
+github.com/fastclaw-ai/weclaw/cmd.InternalCommit
+```
+
+The expected local-development version shape is:
+
+```text
+weclaw public version: v0.1.8-alpha | 05cb93c
+weclaw internal version: p0.1.5a54-local-build-ldflags-docs | <current-commit>
+```
+
+Before replacing `/usr/local/bin/weclaw` or any other real runtime binary, the generated candidate binary must be checked with `weclaw version`. After replacement, the installed binary must be checked again. A result containing `dev | unknown` is a failed installation, even if the binary itself runs.
+
+Keep the public Release tag and commit separate from the internal development tag and commit. A local development build may intentionally show the latest public Release on the public line and the current internal tag on the internal line.
