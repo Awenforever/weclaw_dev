@@ -7,9 +7,9 @@
 - 项目路径：`~/projects/weclaw-streaming`
 - GitHub仓库：`Awenforever/weclaw_dev`
 - 主分支：`main`
-- 当前公开Release：`v0.1.7-alpha`
+- 当前公开Release：`v0.1.8-alpha`
 - 当前公开Release commit：`31fa432`
-- 当前内部开发标签：`p0.1.5a47-slash-status-balance-spacing`
+- 当前内部开发标签：`p0.1.5a51-vm-proxy-docs`
 - 当前`main`和`origin/main`：`aa62bfd`，与`p0.1.5a47-slash-status-balance-spacing`指向同一提交
 - 当前Release资产/代码线：规范tag `p0.1.5a28-stop-semantics`指向`31fa432`
 - p5a29同步文档和Release note，p5a30删除过时文档入口，p5a31修复最终文档入口引用，p5a32同步手册到当前main线，p0.1.5a33确立规范化内部版本/tag格式，p0.1.5a34增加防回流测试，p0.1.5a35为42个可自动映射的预规范化内部tag创建规范镜像tag，p0.1.5a36删除了13个已验证存在规范镜像的历史alpha-work临时pre-release/tag，p0.1.5a37禁用CI自动发布pre-release并删除剩余CI生成的alpha/beta pre-release噪声，p0.1.5a38将最后的特殊历史`v0.1d/e/f...`tag归档为规范`p0.1.0a*`tag后删除旧ref，p0.1.5a39清理最终审计中关于GitHub Release `targetCommitish`元数据和面向未来手册措辞的误报，p0.1.5a40在确认规范镜像覆盖后删除剩余预规范化内部`v`前缀ref。p0.1.5a41将微信ClawBot输出切换为Markdown优先格式化，避免沿用上游纯文本降级策略。这些文档类、tag镜像或格式化提交都不应与Release资产提交混淆。
@@ -76,6 +76,15 @@
 - 如果只是Release note正文有问题，只编辑Release正文，不重建tag和资产。
 - Release note应描述用户可见行为和验证状态。
 - 除非解释用户可见变化或已知风险，否则不要堆实现细节。
+
+## VM中通过宿主机代理下载GitHub Release资产
+
+- 根因模式：VM可以访问`github.com`、`api.github.com`、`codeload.github.com`和jsDelivr，但GitHub Release资产会跳转到`release-assets.githubusercontent.com`，该链路在VM网络中可能超时。
+- `weclaw upgrade`是Go HTTP客户端。它读取`HTTP_PROXY`、`HTTPS_PROXY`、`http_proxy`和`https_proxy`，不会读取`git config http.*.proxy`。
+- 已验证的VMware NAT环境中，Windows宿主机可通过`192.168.231.1`访问，正确代理为`http://192.168.231.1:7892`。
+- VM中残留的`192.168.231.1:7896`Git代理配置是不充分且容易误导的，因为它只影响Git，不影响`weclaw upgrade`。
+- 推荐VM修复方式：持久化用户级`~/.weclaw/proxy.env`，从`~/.profile`和`~/.bashrc`加载，并将Git代理同步更新到同一个可达宿主机代理。
+- 持久化后验证命令：直接运行`weclaw upgrade`，应能正常报告`Already up to date`或升级到当前公开Release。
 
 ## 6. 文档维护规则
 

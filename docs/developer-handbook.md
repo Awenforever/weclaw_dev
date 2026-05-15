@@ -7,9 +7,9 @@ This is the canonical English handoff for starting a new AI development conversa
 - Project path: `~/projects/weclaw-streaming`
 - GitHub repository: `Awenforever/weclaw_dev`
 - Main branch: `main`
-- Current public Release: `v0.1.7-alpha`
+- Current public Release: `v0.1.8-alpha`
 - Current public Release commit: `31fa432`
-- Current internal development tag: `p0.1.5a47-slash-status-balance-spacing`
+- Current internal development tag: `p0.1.5a51-vm-proxy-docs`
 - Current `main` and `origin/main`: `aa62bfd`, same commit as `p0.1.5a47-slash-status-balance-spacing`
 - Current Release asset/code line: `p0.1.5a28-stop-semantics` at `31fa432`
 - p5a29 synchronized documentation and Release notes, p5a30 removed obsolete documentation entry points, p5a31 fixed final documentation entry references, p5a32 synchronized the handoff with the current `main` line, p0.1.5a33 established the normalized internal version/tag format, p0.1.5a34 added guard tests, p0.1.5a35 created normalized mirror tags for the 42 auto-mappable pre-normalization internal tags, and p0.1.5a36 removed the 13 legacy alpha-work temporary pre-releases/tags that had verified normalized mirrors, and p0.1.5a37 disabled CI auto pre-release publishing and removed the remaining CI-generated alpha/beta pre-release noise, and p0.1.5a38 archived the final special `v0.1d/e/f...` legacy tags as normalized `p0.1.0a*` tags before removing the old refs, and p0.1.5a39 cleaned final audit false positives around GitHub Release `targetCommitish` metadata and future-facing handbook wording, and p0.1.5a40 removed the remaining pre-normalization internal `v`-prefixed refs after verifying normalized mirror coverage, and p0.1.5a41 switched WeChat ClawBot output to Markdown-first formatting instead of upstream plain-text downgrade. None of these documentation-only, tag-mirror, or formatting commits should be confused with the Release asset commit.
@@ -76,6 +76,15 @@ This is the canonical English handoff for starting a new AI development conversa
 - If only the Release note body is wrong, edit the Release body only. Do not rebuild tags or assets.
 - Release notes must describe user-visible behavior and validation status.
 - Avoid implementation-only details unless they explain a user-visible change or a known operational risk.
+
+## VM GitHub Release download through host proxy
+
+- Root cause pattern: the VM can reach `github.com`, `api.github.com`, `codeload.github.com`, and jsDelivr, but GitHub Release assets redirect to `release-assets.githubusercontent.com`, which may time out from the VM network.
+- `weclaw upgrade` is a Go HTTP client. It reads `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy`, and `https_proxy`; it does not read `git config http.*.proxy`.
+- In the verified VMware NAT setup, the Windows host is reachable at `192.168.231.1` and the working proxy is `http://192.168.231.1:7892`.
+- A stale VM Git proxy such as `192.168.231.1:7896` is insufficient and can be misleading, especially because it affects Git only and not `weclaw upgrade`.
+- Preferred VM fix: persist a user-level `~/.weclaw/proxy.env`, source it from `~/.profile` and `~/.bashrc`, and update Git proxy settings to the same reachable host proxy.
+- Verification command after persistence: `weclaw upgrade` should run without explicit proxy variables and report either `Already up to date` or upgrade to the current public Release.
 
 ## 6. Documentation maintenance rules
 

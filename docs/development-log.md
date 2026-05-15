@@ -1,5 +1,20 @@
 # WeClaw Dev Development Log
 
+## 2026-05-15 - p0.1.5a51-vm-proxy-docs
+
+- Scope: VM GitHub Release asset download diagnostics and documentation.
+- Finding: the VM could reach GitHub API and codeload directly, but Release asset downloads failed after redirecting to `release-assets.githubusercontent.com`.
+- Root cause: `weclaw upgrade` uses Go HTTP proxy environment variables and does not read Git proxy settings. The VM had stale Git-only proxy settings pointing to `192.168.231.1:7896`, while the working Windows host proxy was `http://192.168.231.1:7892`.
+- Change: documented the durable VM fix in the English and Chinese developer handbooks.
+
+## 2026-05-15 - v0.1.8-alpha / p0.1.5a50
+
+- Scope: public Release after WeChat ClawBot Markdown and slash-command polish.
+- Release: `v0.1.8-alpha` was published at commit `05cb93c` with five uploaded assets.
+- Internal marker: `p0.1.5a50-outbound-markdown-capture`.
+- Highlights: Markdown-first rendering, compact English slash-command replies, dynamic Markdown fence safety, outbound Markdown capture, refreshed README screenshots, and Runtime settings screenshot wording.
+- Validation: `git diff --check`, `bash -n install.sh`, and `go test ./... -count=1` passed before Release.
+
 ## 2026-05-15 - p0.1.5a50-outbound-markdown-capture
 
 - Scope: outbound Markdown observability for ClawBot rendering diagnostics.
