@@ -10,9 +10,9 @@ This is the canonical English handoff for starting a new AI development conversa
 - Current public Release: `v0.1.8-alpha`
 - Current public Release commit: `05cb93c`
 - Current Release internal marker: `p0.1.5a50-outbound-markdown-capture` at `05cb93c`
-- Current internal development tag: `p0.1.5a52-handbook-current-state-sync`
+- Current internal development tag: `p0.1.5a53-effort-profile-slash-polish`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a51-vm-proxy-docs=6988001`
-- Current documentation sync line: `p0.1.5a52-handbook-current-state-sync`. Resolve its exact commit from Git instead of trusting a copied static hash.
+- Current active development line: `p0.1.5a53-effort-profile-slash-polish`. Resolve its exact commit from Git instead of trusting a copied static hash.
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
 - Expected Release assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.

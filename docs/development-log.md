@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+## 2026-05-15 - p0.1.5a53-effort-profile-slash-polish
+
+- Scope: WeChat slash command semantics and output polish, excluding context-window display changes.
+- Fix: `/effort max` sends the DeepSeek-facing semantic value `max` to `dsproxy config set-effort`, while repairing the active Codex profile to the Codex-compatible `xhigh` value so later natural-language turns do not fail config parsing.
+- Change: `/effort` replies no longer expose the internal Codex `xhigh` spelling to WeChat users.
+- Change: `/profile deepseek` and `/profile deepseek-thinking` return one compact profile card instead of appending a second session card with repeated session and restart hints.
+- Change: `/cwd` replies no longer duplicate the same data as both table rows and bullet rows.
+- Validation: focused messaging tests and full `go test ./...` are required before merge.
+
 ## 2026-05-15 - p0.1.5a51-vm-proxy-docs
 
 - Scope: VM GitHub Release asset download diagnostics and documentation.

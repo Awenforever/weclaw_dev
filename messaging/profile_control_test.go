@@ -162,13 +162,16 @@ func TestRuntimeControlProfileSwitchDoesNotChat(t *testing.T) {
 	for _, want := range []string{
 		"## 🔁 Profile updated",
 		"Profile:** `deepseek`",
-		"Session  preserved when available",
-		"## 🧵 Session",
+		"Session:** preserved when available",
 		"Thinking:** disabled",
-		"Restart  use /restart only when you want a new session",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("reply = %q, want %q", reply, want)
+		}
+	}
+	for _, old := range []string{"## 🧵 Session", "Next     send a message", "Restart  use /restart"} {
+		if strings.Contains(reply, old) {
+			t.Fatalf("reply = %q, should not contain noisy token %q", reply, old)
 		}
 	}
 	if factoryCalls != 1 {
@@ -209,13 +212,16 @@ func TestRuntimeControlProfileSwitchThinkingEnabled(t *testing.T) {
 	for _, want := range []string{
 		"## 🔁 Profile updated",
 		"Profile:** `deepseek-thinking`",
-		"Session  preserved when available",
-		"## 🧵 Session",
+		"Session:** preserved when available",
 		"Thinking:** enabled",
-		"Restart  use /restart only when you want a new session",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("reply = %q, want %q", reply, want)
+		}
+	}
+	for _, old := range []string{"## 🧵 Session", "Next     send a message", "Restart  use /restart"} {
+		if strings.Contains(reply, old) {
+			t.Fatalf("reply = %q, should not contain noisy token %q", reply, old)
 		}
 	}
 	if factoryCalls != 1 {
@@ -429,6 +435,56 @@ func TestRuntimeControlKnownSlashAgentCommandStillRoutes(t *testing.T) {
 	_, ok := h.handleRuntimeControl(context.Background(), "/deepseek hello", "user-1")
 	if ok {
 		t.Fatal("known slash agent command should not be intercepted by runtime control")
+	}
+}
+
+func TestCodexProfileReasoningEffortMapsDeepSeekSemantics(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		want  string
+	}{
+		{input: "high", want: "high"},
+		{input: "max", want: "xhigh"},
+	} {
+		got, ok := codexProfileReasoningEffort(tc.input)
+		if !ok {
+			t.Fatalf("codexProfileReasoningEffort(%q) ok=false", tc.input)
+		}
+		if got != tc.want {
+			t.Fatalf("codexProfileReasoningEffort(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+	if _, ok := codexProfileReasoningEffort("medium"); ok {
+		t.Fatal("medium should not be a WeClaw-facing DeepSeek effort")
+	}
+}
+
+func TestRepairCodexProfileReasoningEffortWritesCodexCompatibleMax(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(home+"/.codex", 0o755); err != nil {
+		t.Fatalf("create codex dir: %v", err)
+	}
+	path := home + "/.codex/config.toml"
+	initial := "[profiles.deepseek-thinking]\nmodel = \"deepseek-v4-pro\"\nmodel_reasoning_effort = \"max\"\n\n[profiles.other]\nmodel_reasoning_effort = \"max\"\n"
+	if err := os.WriteFile(path, []byte(initial), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	status := repairCodexProfileReasoningEffort("deepseek-thinking", "max")
+	if status != "updated" {
+		t.Fatalf("repair status = %q, want updated", status)
+	}
+	text, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read codex config: %v", err)
+	}
+	got := string(text)
+	if !strings.Contains(got, "[profiles.deepseek-thinking]\nmodel = \"deepseek-v4-pro\"\nmodel_reasoning_effort = \"xhigh\"") {
+		t.Fatalf("deepseek-thinking profile was not repaired correctly:\n%s", got)
+	}
+	if !strings.Contains(got, "[profiles.other]\nmodel_reasoning_effort = \"max\"") {
+		t.Fatalf("unrelated profile was modified:\n%s", got)
 	}
 }
 

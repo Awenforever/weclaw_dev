@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/fastclaw-ai/weclaw/agent"
 )
 
 func TestSlashHelpIsEnglishCompactAndHidesInfo(t *testing.T) {
@@ -114,6 +116,23 @@ func TestCompactStatusPanelUsesShorterProgressBar(t *testing.T) {
 	bar := got[start+1 : end]
 	if gotLen := len([]rune(bar)); gotLen != 20 {
 		t.Fatalf("progress bar length = %d, want 20 in:\n%s", gotLen, got)
+	}
+}
+
+func TestWorkspaceReplyDoesNotDuplicateCwdRows(t *testing.T) {
+	h := NewHandler(nil, nil)
+	h.SetDefaultAgent("deepseek", &runtimeControlTestAgent{info: agent.AgentInfo{Name: "deepseek", Type: "acp"}})
+
+	got := h.handleCwd("/cwd")
+	for _, forbidden := range []string{"| Field | Value |", "- cwd:", "- agent:"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("workspace reply contains duplicate token %q in:\n%s", forbidden, got)
+		}
+	}
+	for _, want := range []string{"## 📁 Workspace", "Agent:** `deepseek`", "Cwd:** check agent config"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("workspace reply missing %q in:\n%s", want, got)
+		}
 	}
 }
 

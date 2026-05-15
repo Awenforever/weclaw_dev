@@ -1080,7 +1080,7 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 			), true
 		}
 
-		requestedEffort := fields[1]
+		requestedEffort := strings.ToLower(fields[1])
 		dsproxyEffort := ""
 		displayEffort := ""
 		switch requestedEffort {
@@ -1088,7 +1088,7 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 			dsproxyEffort = "high"
 			displayEffort = "high"
 		case "max":
-			dsproxyEffort = "xhigh"
+			dsproxyEffort = "max"
 			displayEffort = "max"
 		default:
 			return commandCard(
@@ -1112,17 +1112,20 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 		}
 
 		dsproxyReply := runDsproxyCommand(ctx, "config", "set-effort", dsproxyEffort)
-		return commandCard(
-			"✅ Effort updated",
+		codexProfileStatus := repairCodexProfileReasoningEffort(defaultName, displayEffort)
+		lines := []string{
 			slashBoldField("Profile", slashInlineCode(defaultName)),
 			slashBoldField("Effort", slashInlineCode(displayEffort)),
 			slashBoldField("Session", "preserved"),
-			"",
-			"```text",
-			"Codex    "+dsproxyEffort,
-			"dsproxy  "+commandStatusFromOutput(dsproxyReply),
-			"```",
-		), true
+			"> Applied to the local proxy and Codex profile.",
+		}
+		if status := commandStatusFromOutput(dsproxyReply); commandStatusNeedsAttention(status) {
+			lines = append(lines, slashBoldField("Proxy", status))
+		}
+		if commandStatusNeedsAttention(codexProfileStatus) {
+			lines = append(lines, slashBoldField("Codex profile", codexProfileStatus))
+		}
+		return commandCard("✅ Effort updated", lines...), true
 
 	case "/profile":
 		if len(fields) != 2 {
@@ -1515,6 +1518,94 @@ func slashEffortDisplay(value string) string {
 	default:
 		return strings.TrimSpace(value)
 	}
+}
+
+func commandStatusNeedsAttention(status string) bool {
+	status = strings.ToLower(strings.TrimSpace(status))
+	if status == "" || status == "ok" || status == "updated" || status == "unchanged" || status == "skipped" {
+		return false
+	}
+	return strings.Contains(status, "fail") || strings.Contains(status, "warning") || strings.Contains(status, "error") || strings.Contains(status, "timeout")
+}
+
+func codexProfileReasoningEffort(deepseekEffort string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(deepseekEffort)) {
+	case "high":
+		return "high", true
+	case "max":
+		return "xhigh", true
+	default:
+		return "", false
+	}
+}
+
+func repairCodexProfileReasoningEffort(profile, deepseekEffort string) string {
+	codexEffort, ok := codexProfileReasoningEffort(deepseekEffort)
+	if !ok {
+		return "skipped"
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || strings.TrimSpace(home) == "" {
+		return "warning: home unavailable"
+	}
+	path := filepath.Join(home, ".codex", "config.toml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "warning: " + err.Error()
+	}
+	section := "[profiles." + strings.TrimSpace(profile) + "]"
+	lines := strings.Split(string(data), "\n")
+	out := make([]string, 0, len(lines)+1)
+	inSection := false
+	seenSection := false
+	setEffort := false
+	changed := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			if inSection && !setEffort {
+				out = append(out, "model_reasoning_effort = "+strconv.Quote(codexEffort))
+				setEffort = true
+				changed = true
+			}
+			inSection = trimmed == section
+			if inSection {
+				seenSection = true
+			}
+		}
+		if inSection {
+			name, _, hasValue := strings.Cut(trimmed, "=")
+			if hasValue && strings.TrimSpace(name) == "model_reasoning_effort" {
+				replacement := "model_reasoning_effort = " + strconv.Quote(codexEffort)
+				if trimmed != replacement {
+					changed = true
+				}
+				out = append(out, replacement)
+				setEffort = true
+				continue
+			}
+		}
+		out = append(out, line)
+	}
+	if inSection && !setEffort {
+		out = append(out, "model_reasoning_effort = "+strconv.Quote(codexEffort))
+		changed = true
+	}
+	if !seenSection {
+		return "skipped"
+	}
+	if !changed {
+		return "unchanged"
+	}
+	mode := os.FileMode(0o600)
+	if info, statErr := os.Stat(path); statErr == nil {
+		mode = info.Mode().Perm()
+	}
+	if err := os.WriteFile(path, []byte(strings.Join(out, "\n")), mode); err != nil {
+		return "warning: " + err.Error()
+	}
+	return "updated"
 }
 
 func slashModelDisplay(agentModel, proxyModel string) string {
@@ -1931,14 +2022,11 @@ func (h *Handler) restartProfileAgent(ctx context.Context, name, userID string) 
 		return reply
 	}
 
-	return reply + "\n\n" + commandCard(
-		"🧵 Session",
+	return commandCard(
+		"🔁 Profile updated",
+		slashBoldField("Profile", slashInlineCode(name)),
 		slashBoldField("Session", "preserved when available"),
 		slashBoldField("Thinking", strings.TrimPrefix(profileThinkingLine(name), "• thinking: ")),
-		"",
-		"```text",
-		"Restart  use /restart only when you want a new session",
-		"```",
 	)
 }
 
@@ -2722,13 +2810,8 @@ func (h *Handler) handleCwd(trimmed string) string {
 		info := ag.Info()
 		return commandCard(
 			"📁 Workspace",
-			"| Field | Value |",
-			"| --- | --- |",
-			"| cwd | check agent config |",
-			"| agent | "+markdownTableCell(info.Name)+" |",
-			"",
-			"- cwd: check agent config",
-			"- agent: "+info.Name,
+			slashBoldField("Agent", slashInlineCode(info.Name)),
+			slashBoldField("Cwd", "check agent config"),
 		)
 	}
 
@@ -2777,11 +2860,7 @@ func (h *Handler) handleCwd(trimmed string) string {
 
 	return commandCard(
 		"📁 Workspace",
-		"| Field | Value |",
-		"| --- | --- |",
-		"| cwd | "+markdownTableCell(absPath)+" |",
-		"",
-		"- cwd: "+absPath,
+		slashBoldField("Cwd", slashInlineCode(absPath)),
 	)
 }
 
