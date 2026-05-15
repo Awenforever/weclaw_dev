@@ -8,14 +8,16 @@
 - GitHub仓库：`Awenforever/weclaw_dev`
 - 主分支：`main`
 - 当前公开Release：`v0.1.8-alpha`
-- 当前公开Release commit：`31fa432`
-- 当前内部开发标签：`p0.1.5a51-vm-proxy-docs`
-- 当前`main`和`origin/main`：`aa62bfd`，与`p0.1.5a47-slash-status-balance-spacing`指向同一提交
-- 当前Release资产/代码线：规范tag `p0.1.5a28-stop-semantics`指向`31fa432`
-- p5a29同步文档和Release note，p5a30删除过时文档入口，p5a31修复最终文档入口引用，p5a32同步手册到当前main线，p0.1.5a33确立规范化内部版本/tag格式，p0.1.5a34增加防回流测试，p0.1.5a35为42个可自动映射的预规范化内部tag创建规范镜像tag，p0.1.5a36删除了13个已验证存在规范镜像的历史alpha-work临时pre-release/tag，p0.1.5a37禁用CI自动发布pre-release并删除剩余CI生成的alpha/beta pre-release噪声，p0.1.5a38将最后的特殊历史`v0.1d/e/f...`tag归档为规范`p0.1.0a*`tag后删除旧ref，p0.1.5a39清理最终审计中关于GitHub Release `targetCommitish`元数据和面向未来手册措辞的误报，p0.1.5a40在确认规范镜像覆盖后删除剩余预规范化内部`v`前缀ref。p0.1.5a41将微信ClawBot输出切换为Markdown优先格式化，避免沿用上游纯文本降级策略。这些文档类、tag镜像或格式化提交都不应与Release资产提交混淆。
-- 旧公开Release `v0.1.6-alpha`保持在`bbb2f28`，不得移动。
-- `v0.1.7-alpha`已经发布为Latest，不再是pre-release。
-- Release资产应覆盖五个平台：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64、Windows amd64。
+- 当前公开Release commit：`05cb93c`
+- 当前Release对应内部标记：`p0.1.5a50-outbound-markdown-capture`，位于`05cb93c`
+- 当前内部开发标签：`p0.1.5a52-handbook-current-state-sync`
+- 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a51-vm-proxy-docs=6988001`
+- 当前文档同步线：`p0.1.5a52-handbook-current-state-sync`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
+- 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
+- `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
+- 预期Release资产：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64和Windows amd64。
+- p0.1.5a51只记录VM中GitHub Release资产下载失败和宿主机代理修复方案，不移动公开Release。
+- 后续每个新任务都先做只读审计，确认`main`、`origin/main`、当前内部tag、公开Release tag、工作区干净状态以及开发手册和开发日志头部。
 
 ## 2. 文件地图
 

@@ -8,14 +8,16 @@ This is the canonical English handoff for starting a new AI development conversa
 - GitHub repository: `Awenforever/weclaw_dev`
 - Main branch: `main`
 - Current public Release: `v0.1.8-alpha`
-- Current public Release commit: `31fa432`
-- Current internal development tag: `p0.1.5a51-vm-proxy-docs`
-- Current `main` and `origin/main`: `aa62bfd`, same commit as `p0.1.5a47-slash-status-balance-spacing`
-- Current Release asset/code line: `p0.1.5a28-stop-semantics` at `31fa432`
-- p5a29 synchronized documentation and Release notes, p5a30 removed obsolete documentation entry points, p5a31 fixed final documentation entry references, p5a32 synchronized the handoff with the current `main` line, p0.1.5a33 established the normalized internal version/tag format, p0.1.5a34 added guard tests, p0.1.5a35 created normalized mirror tags for the 42 auto-mappable pre-normalization internal tags, and p0.1.5a36 removed the 13 legacy alpha-work temporary pre-releases/tags that had verified normalized mirrors, and p0.1.5a37 disabled CI auto pre-release publishing and removed the remaining CI-generated alpha/beta pre-release noise, and p0.1.5a38 archived the final special `v0.1d/e/f...` legacy tags as normalized `p0.1.0a*` tags before removing the old refs, and p0.1.5a39 cleaned final audit false positives around GitHub Release `targetCommitish` metadata and future-facing handbook wording, and p0.1.5a40 removed the remaining pre-normalization internal `v`-prefixed refs after verifying normalized mirror coverage, and p0.1.5a41 switched WeChat ClawBot output to Markdown-first formatting instead of upstream plain-text downgrade. None of these documentation-only, tag-mirror, or formatting commits should be confused with the Release asset commit.
-- Previous public Release `v0.1.6-alpha` remains at `bbb2f28` and must not be moved.
-- `v0.1.7-alpha` has been published as Latest and is no longer marked as pre-release.
-- Release assets expected for five platforms: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
+- Current public Release commit: `05cb93c`
+- Current Release internal marker: `p0.1.5a50-outbound-markdown-capture` at `05cb93c`
+- Current internal development tag: `p0.1.5a52-handbook-current-state-sync`
+- Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a51-vm-proxy-docs=6988001`
+- Current documentation sync line: `p0.1.5a52-handbook-current-state-sync`. Resolve its exact commit from Git instead of trusting a copied static hash.
+- Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
+- `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
+- Expected Release assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
+- p0.1.5a51 only documented the VM GitHub Release asset download failure and host-proxy fix. It did not move the public Release.
+- Start every future task with a read-only audit of `main`, `origin/main`, the active internal tag, public Release tags, clean worktree state, and the handbook/log heads.
 
 ## 2. File map
 
