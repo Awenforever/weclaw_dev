@@ -50,7 +50,7 @@ func TestUnknownSlashCommandCardIsCompactAndSuggestsCancel(t *testing.T) {
 
 func TestCompactContextPanelDoesNotExposeSourceOrMetricTable(t *testing.T) {
 	got := strings.Join(buildCompactStatusPanel(nil, "user-1", 1000000, "thinking", "127.0.0.1:8001", "reachable", "￥12.34"), "\n")
-	for _, forbidden := range []string{"source:", "Metric", "Limit", "Used", "Left", "tools", "other", "Granted"} {
+	for _, forbidden := range []string{"source:", "Metric", "Limit", "Used", "Left", "tools", "other", "Granted", "Paths"} {
 		if strings.Contains(got, forbidden) {
 			t.Fatalf("compact status panel contains old verbose token %q in:\n%s", forbidden, got)
 		}

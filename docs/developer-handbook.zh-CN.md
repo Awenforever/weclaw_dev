@@ -10,9 +10,9 @@
 - 当前公开Release：`v0.1.8-alpha`
 - 当前公开Release commit：`05cb93c`
 - 当前Release对应内部标记：`p0.1.5a50-outbound-markdown-capture`，位于`05cb93c`
-- 当前内部开发标签：`p0.1.5a57-dsproxy-telemetry-contract`
-- 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a56a1-devlog-heading-order=2e39351`
-- 当前活动开发线：`p0.1.5a57-dsproxy-telemetry-contract`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
+- 当前内部开发标签：`p0.1.5a58-status-telemetry-polish`
+- 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a57-dsproxy-telemetry-contract=a3c53bc`
+- 当前活动开发线：`p0.1.5a58-status-telemetry-polish`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
 - 预期Release资产：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64和Windows amd64。
@@ -30,8 +30,8 @@
 | Full telemetry契约基线 | 本机`dsproxy`已为`deepseek`和`deepseek-thinking`提供profile status和WeClaw status JSON，并包含`model`、`effort`、`context_window`、`tokens`、`pricing`、`cost`、`balance`和`compaction`。 | CoDeepSeedeX `p2.10a48-weclaw-full-telemetry-contract`，WeClaw `p0.1.5a56`前审计 | verified | 2026-05-16 | 接受为第一版工程基线。第一轮WeClaw集成已在`p0.1.5a57-dsproxy-telemetry-contract`中实现。 |
 | WeClaw责任边界 | 当`dsproxy`已提供结构化契约时，WeClaw在常规`/effort`、`/model`、`/status`或telemetry路径中不直接编辑Codex profile文件。 | WeClaw `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | `/effort`路径中的profile修复逻辑已在`p0.1.5a57-dsproxy-telemetry-contract`中移除。 |
 | `/effort`集成 | `/effort max`调用权威`dsproxy profile set-effort <profile> max --json`契约，并展示`effort.user_facing`或`effort.deepseek_reasoning_effort`。 | WeClaw `p0.1.5a57-dsproxy-telemetry-contract` | verified | 2026-05-16 | 该路径不再由WeClaw直接编辑Codex profile文件。 |
-| `/status`契约集成 | `/status`读取`dsproxy status <route> --weclaw-json`，并对缺失或不可用字段明确降级。 | WeClaw `p0.1.5a57-dsproxy-telemetry-contract` | in_progress | 2026-05-16 | 第一轮集成已实现。仍需真实微信运行验证和第二轮CoDeepSeedeX反馈。 |
-| Telemetry展示质量 | 微信移动端输出保持紧凑、Markdown优先，并从`dsproxy`展示model、effort、context window、token usage、estimated cost、balance和compaction。 | WeClaw待实现项 | planned | 2026-05-16 | WeClaw不维护模型价格、余额逻辑，也不估算prompt内部子类token。 |
+| `/status`契约集成 | `/status`读取`dsproxy status <route> --weclaw-json`，并对缺失或不可用字段明确降级。 | WeClaw `p0.1.5a58-status-telemetry-polish` | in_progress | 2026-05-16 | 展示优化已实现。token usage、cost attribution和provider balance仍依赖dsproxy运行时数据可用性。 |
+| Telemetry展示质量 | 微信移动端输出保持紧凑、Markdown优先，并从`dsproxy`展示model、effort、context window、token usage、estimated cost、balance和compaction。 | WeClaw `p0.1.5a58-status-telemetry-polish` | in_progress | 2026-05-16 | 紧凑`/status`隐藏context来源、model conflict诊断、路径和missing reason内部细节。 |
 | 证据优先审计纪律 | 源码和文档改动必须基于完整源码文件、完整主文档或完整函数/模块块级上下文，而不是孤立grep片段。 | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | grep/rg只能用于定位符号或验证标记，不能作为补丁设计的充分证据。 |
 | 跨项目反馈闭环 | 每轮WeClaw集成后，根据缺失字段、语义歧义或契约不稳定点，生成精确的CoDeepSeedeX后续需求prompt。 | 第一轮WeClaw集成后执行 | planned | 2026-05-16 | prompt必须基于实际WeClaw实现结果和运行日志。 |
 | Release准备 | README、开发手册、开发日志、focused tests、full tests和本地运行时版本元数据在公开Release决策前保持一致。 | 当前公开Release仍为`v0.1.8-alpha`，位于`05cb93c` | planned | 2026-05-16 | 内部追踪表更新不得移动公开Release tag，不重建Release资产。 |
@@ -185,7 +185,7 @@ github.com/fastclaw-ai/weclaw/cmd.InternalCommit
 
 ```text
 weclaw public version: v0.1.8-alpha | 05cb93c
-weclaw internal version: p0.1.5a57-dsproxy-telemetry-contract | <current-commit>
+weclaw internal version: p0.1.5a58-status-telemetry-polish | <current-commit>
 ```
 
 替换`/usr/local/bin/weclaw`或其他真实运行时二进制之前，必须先对候选二进制执行`weclaw version`。替换后必须再次检查已安装二进制的版本输出。只要出现`dev | unknown`，就视为安装失败，即使该二进制本身可以运行。

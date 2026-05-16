@@ -730,20 +730,21 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 		"Profile:** `deepseek-thinking` `ACP`",
 		"Model:** `deepseek-v4-flash` `max`",
 		"Session:** `thread-telemetry-1`",
-		"0/750k",
+		"n/a/750k",
 		"Tokens   last n/a  session n/a  aux n/a",
-		"Cost     session n/a  last n/a  aux n/a  est",
-		"Balance  n/a · balance_client_unavailable",
-		"Compact chars 58/1.2M  not_triggered",
-		"Trim     chars 219/1.5M  removed 0",
-		"Model    codex glm-5.1 conflict",
+		"Cost     n/a",
+		"Balance  n/a",
+		"Compact [",
+		"58/1.2M chars · not_triggered",
+		"Trim    [",
+		"219/1.5M chars · removed 0",
 		"Proxy    thinking · 127.0.0.1:8001 · reachable",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
 		}
 	}
-	for _, forbidden := range []string{"stale-agent-model", "source:", "tools:", "other:", "last turn id:"} {
+	for _, forbidden := range []string{"stale-agent-model", "source:", "tools:", "other:", "last turn id:", "Model    codex", "codex_profile.model_auto_compact_token_limit", "missing usage_attribution", "balance_client_unavailable", "Paths    cfg"} {
 		if strings.Contains(reply, forbidden) {
 			t.Fatalf("status reply = %q, should not contain %q", reply, forbidden)
 		}

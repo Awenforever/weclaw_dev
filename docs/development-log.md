@@ -1,5 +1,15 @@
 # WeClaw Dev Development Log
 
+## 2026-05-16 - p0.1.5a58-status-telemetry-polish
+
+- Scope: compact `/status` display quality after the first dsproxy telemetry integration.
+- Change: hide context source, model-conflict diagnostic details, local path rows, cost missing reasons, and balance missing reasons from compact `/status`.
+- Change: show token-level context as unavailable instead of `0/limit` when dsproxy has no session token usage.
+- Change: show runtime compaction and trimming as separate char-level progress bars.
+- Change: keep token-level context and char-level compaction/trimming visually separated.
+- Validation: `gofmt`, `git diff --check`, `bash -n install.sh`, focused package tests, and full `go test ./...` are required before merge.
+- Notes or lessons: missing dsproxy token/cost/balance data must degrade as `n/a`; WeClaw must not fabricate usage, cost, or balance values.
+
 ## 2026-05-16 - p0.1.5a57-dsproxy-telemetry-contract
 
 - Scope: first WeClaw integration against the dsproxy full telemetry contract.

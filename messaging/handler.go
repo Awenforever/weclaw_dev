@@ -1478,20 +1478,11 @@ func buildDsproxyTelemetryPanel(payload map[string]any, proxyRoute, proxyEndpoin
 	}
 	lines = append(lines, formatDsproxyCompactionLines(payload)...)
 
-	if nestedBoolDefault(payload, false, "model", "model_conflict") {
-		codexModel := nestedStringDefault(payload, "unknown", "model", "codex_model")
-		lines = append(lines, "Model    codex "+valueOrUnknown(codexModel)+" conflict")
-	}
-
 	proxyState := "reachable"
 	if status := nestedStringDefault(payload, "", "status"); status != "" && status != "ok" {
 		proxyState = status
 	}
-	lines = append(lines,
-		fmt.Sprintf("Proxy    %s · %s · %s", valueOrUnknown(proxyRoute), valueOrUnknown(proxyEndpoint), proxyState),
-		"Paths    cfg ~/.weclaw/config.json",
-		"         log ~/.weclaw/weclaw.log",
-	)
+	lines = append(lines, fmt.Sprintf("Proxy    %s · %s · %s", valueOrUnknown(proxyRoute), valueOrUnknown(proxyEndpoint), proxyState))
 	return lines
 }
 
@@ -1500,34 +1491,48 @@ func formatDsproxyContextLine(payload map[string]any) string {
 	if limit <= 0 {
 		limit = nestedInt64Default(payload, 0, "context_window", "display_limit_tokens")
 	}
-	used := dsproxySessionTotalTokens(payload)
-	source := nestedStringDefault(payload, "unknown", "context_window", "source")
-	if nestedBoolDefault(payload, false, "context_window", "is_estimated") {
-		source += " estimated"
+	used, ok := dsproxySessionTotalTokens(payload)
+	if !ok {
+		return fmt.Sprintf(
+			"Context  [%s]  n/a  n/a/%s",
+			formatCommandProgressBar(0, limit, 20),
+			formatContextLimit(limit),
+		)
 	}
 	return fmt.Sprintf(
-		"Context  [%s]  %s  %s/%s  tokens",
+		"Context  [%s]  %s  %s/%s",
 		formatCommandProgressBar(used, limit, 20),
 		formatTokenPercent(used, limit),
 		formatTokenCount(maxInt64(used, 0)),
 		formatContextLimit(limit),
-	) + " · " + compactCommandOutput(source, 48)
+	)
 }
 
-func dsproxySessionTotalTokens(payload map[string]any) int64 {
+func dsproxySessionTotalTokens(payload map[string]any) (int64, bool) {
 	session, ok := nestedMap(payload, "tokens", "session_total")
 	if !ok || !nestedBoolDefault(session, false, "available") {
-		return 0
+		return 0, false
+	}
+	return tokenBucketTotal(session)
+}
+
+func tokenBucketTotal(bucket map[string]any) (int64, bool) {
+	if bucket == nil {
+		return 0, false
 	}
 	for _, key := range []string{"total_tokens", "total", "tokens", "provider_total_tokens"} {
-		if value := nestedInt64Default(session, -1, key); value >= 0 {
-			return value
+		if value := nestedInt64Default(bucket, -1, key); value >= 0 {
+			return value, true
 		}
 	}
-	input := nestedInt64Default(session, 0, "input_tokens")
-	output := nestedInt64Default(session, 0, "output_tokens")
-	reasoning := nestedInt64Default(session, 0, "reasoning_tokens")
-	return input + output + reasoning
+	input := nestedInt64Default(bucket, 0, "input_tokens")
+	output := nestedInt64Default(bucket, 0, "output_tokens")
+	reasoning := nestedInt64Default(bucket, 0, "reasoning_tokens")
+	total := input + output + reasoning
+	if total > 0 {
+		return total, true
+	}
+	return 0, false
 }
 
 func formatDsproxyTokensLine(payload map[string]any) string {
@@ -1574,15 +1579,11 @@ func formatTokenBucket(label string, bucket map[string]any) string {
 func formatDsproxyCostLine(payload map[string]any) string {
 	cost, ok := nestedMap(payload, "cost")
 	if !ok {
-		return "Cost     unavailable"
+		return "Cost     n/a"
 	}
 	currency := nestedStringDefault(cost, "USD", "currency")
 	if !nestedBoolDefault(cost, false, "available") {
-		missing := strings.Join(nestedStringList(cost, "missing"), ",")
-		if missing != "" {
-			return "Cost     session n/a  last n/a  aux n/a  est · missing " + compactCommandOutput(missing, 42)
-		}
-		return "Cost     session n/a  last n/a  aux n/a  est"
+		return "Cost     n/a"
 	}
 	session := nestedFloat64Default(cost, 0, "session_estimated_cost")
 	last := nestedFloat64Default(cost, 0, "last_turn_estimated_cost")
@@ -1616,12 +1617,11 @@ func formatDsproxyBalanceLine(payload map[string]any) string {
 		if costBalance, ok := nestedMap(payload, "cost", "balance"); ok {
 			balance = costBalance
 		} else {
-			return "Balance  unavailable"
+			return "Balance  n/a"
 		}
 	}
 	if !nestedBoolDefault(balance, false, "available") {
-		reason := nestedStringDefault(balance, "unavailable", "reason")
-		return "Balance  n/a · " + compactCommandOutput(reason, 52)
+		return "Balance  n/a"
 	}
 	if text := nestedStringDefault(balance, "", "display"); text != "" {
 		return "Balance  " + compactCommandOutput(text, 64)
@@ -1635,7 +1635,7 @@ func formatDsproxyBalanceLine(payload map[string]any) string {
 func formatDsproxyCompactionLines(payload map[string]any) []string {
 	compaction, ok := nestedMap(payload, "compaction")
 	if !ok || !nestedBoolDefault(compaction, false, "available") {
-		return []string{"Compact  unavailable"}
+		return []string{"Compact n/a"}
 	}
 	unit := nestedStringDefault(compaction, "chars", "unit")
 	before := nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "before_chars")
@@ -1648,8 +1648,24 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 	trimMax := nestedInt64Default(compaction, 0, "runtime_context", "trimming", "last_report", "max_context_chars")
 	removed := nestedInt64Default(compaction, 0, "runtime_context", "trimming", "last_report", "chars_removed")
 	return []string{
-		fmt.Sprintf("Compact %s %s/%s  %s", unit, formatTokenCount(before), formatContextLimit(trigger), compactCommandOutput(reason, 36)),
-		fmt.Sprintf("Trim     %s %s/%s  removed %s", unit, formatTokenCount(trimBefore), formatContextLimit(trimMax), formatTokenCount(removed)),
+		fmt.Sprintf(
+			"Compact [%s]  %s  %s/%s %s · %s",
+			formatCommandProgressBar(before, trigger, 20),
+			formatTokenPercent(before, trigger),
+			formatTokenCount(before),
+			formatContextLimit(trigger),
+			unit,
+			compactCommandOutput(reason, 36),
+		),
+		fmt.Sprintf(
+			"Trim    [%s]  %s  %s/%s %s · removed %s",
+			formatCommandProgressBar(trimBefore, trimMax, 20),
+			formatTokenPercent(trimBefore, trimMax),
+			formatTokenCount(trimBefore),
+			formatContextLimit(trimMax),
+			unit,
+			formatTokenCount(removed),
+		),
 	}
 }
 
@@ -1984,11 +2000,7 @@ func buildCompactStatusPanel(ag agent.Agent, userID string, fallbackWindow int64
 	}
 
 	if strings.TrimSpace(proxyRoute) != "" || strings.TrimSpace(proxyEndpoint) != "" || strings.TrimSpace(proxyState) != "" {
-		lines = append(lines,
-			fmt.Sprintf("Proxy    %s · %s · %s", valueOrUnknown(proxyRoute), valueOrUnknown(proxyEndpoint), valueOrUnknown(proxyState)),
-			"Paths    cfg ~/.weclaw/config.json",
-			"         log ~/.weclaw/weclaw.log",
-		)
+		lines = append(lines, fmt.Sprintf("Proxy    %s · %s · %s", valueOrUnknown(proxyRoute), valueOrUnknown(proxyEndpoint), valueOrUnknown(proxyState)))
 	}
 
 	return lines
