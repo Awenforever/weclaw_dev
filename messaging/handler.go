@@ -1482,7 +1482,10 @@ func buildDsproxyTelemetryPanel(payload map[string]any, proxyRoute, proxyEndpoin
 	if status := nestedStringDefault(payload, "", "status"); status != "" && status != "ok" {
 		proxyState = status
 	}
-	lines = append(lines, fmt.Sprintf("Proxy    %s · %s · %s", valueOrUnknown(proxyRoute), valueOrUnknown(proxyEndpoint), proxyState))
+	lines = append(lines,
+		fmt.Sprintf("Proxy    %s · %s · %s", valueOrUnknown(proxyRoute), valueOrUnknown(proxyEndpoint), proxyState),
+		"Paths    cfg ~/.weclaw/config.json · log ~/.weclaw/weclaw.log",
+	)
 	return lines
 }
 
@@ -2000,7 +2003,10 @@ func buildCompactStatusPanel(ag agent.Agent, userID string, fallbackWindow int64
 	}
 
 	if strings.TrimSpace(proxyRoute) != "" || strings.TrimSpace(proxyEndpoint) != "" || strings.TrimSpace(proxyState) != "" {
-		lines = append(lines, fmt.Sprintf("Proxy    %s · %s · %s", valueOrUnknown(proxyRoute), valueOrUnknown(proxyEndpoint), valueOrUnknown(proxyState)))
+		lines = append(lines,
+			fmt.Sprintf("Proxy    %s · %s · %s", valueOrUnknown(proxyRoute), valueOrUnknown(proxyEndpoint), valueOrUnknown(proxyState)),
+			"Paths    cfg ~/.weclaw/config.json · log ~/.weclaw/weclaw.log",
+		)
 	}
 
 	return lines

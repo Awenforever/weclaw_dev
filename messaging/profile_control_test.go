@@ -739,12 +739,13 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 		"Trim    [",
 		"219/1.5M chars · removed 0",
 		"Proxy    thinking · 127.0.0.1:8001 · reachable",
+		"Paths    cfg ~/.weclaw/config.json · log ~/.weclaw/weclaw.log",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
 		}
 	}
-	for _, forbidden := range []string{"stale-agent-model", "source:", "tools:", "other:", "last turn id:", "Model    codex", "codex_profile.model_auto_compact_token_limit", "missing usage_attribution", "balance_client_unavailable", "Paths    cfg"} {
+	for _, forbidden := range []string{"stale-agent-model", "source:", "tools:", "other:", "last turn id:", "Model    codex", "codex_profile.model_auto_compact_token_limit", "missing usage_attribution", "balance_client_unavailable"} {
 		if strings.Contains(reply, forbidden) {
 			t.Fatalf("status reply = %q, should not contain %q", reply, forbidden)
 		}

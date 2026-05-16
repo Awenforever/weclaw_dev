@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## 2026-05-16 - p0.1.5a59-status-paths-restore
+
+- Scope: compact `/status` path visibility after p0.1.5a58 display polish.
+- Change: restored a single-line paths row: `Paths    cfg ~/.weclaw/config.json · log ~/.weclaw/weclaw.log`.
+- Change: kept the code-block status layout, Context progress bar behavior, and natural-language output compliance behavior unchanged.
+- Validation: `gofmt`, `git diff --check`, `bash -n install.sh`, focused package tests, and full `go test ./...` are required before merge.
+- Notes or lessons: compact `/status` should hide internal dsproxy diagnostic reasons but keep the user-useful config/log paths during active debugging.
+
 ## 2026-05-16 - p0.1.5a58-status-telemetry-polish
 
 - Scope: compact `/status` display quality after the first dsproxy telemetry integration.

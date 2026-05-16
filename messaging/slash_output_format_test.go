@@ -50,12 +50,12 @@ func TestUnknownSlashCommandCardIsCompactAndSuggestsCancel(t *testing.T) {
 
 func TestCompactContextPanelDoesNotExposeSourceOrMetricTable(t *testing.T) {
 	got := strings.Join(buildCompactStatusPanel(nil, "user-1", 1000000, "thinking", "127.0.0.1:8001", "reachable", "￥12.34"), "\n")
-	for _, forbidden := range []string{"source:", "Metric", "Limit", "Used", "Left", "tools", "other", "Granted", "Paths"} {
+	for _, forbidden := range []string{"source:", "Metric", "Limit", "Used", "Left", "tools", "other", "Granted"} {
 		if strings.Contains(got, forbidden) {
 			t.Fatalf("compact status panel contains old verbose token %q in:\n%s", forbidden, got)
 		}
 	}
-	for _, want := range []string{"Context", "Tokens", "Cost     session n/a  last n/a", "￥12.34", "Proxy    thinking · 127.0.0.1:8001 · reachable"} {
+	for _, want := range []string{"Context", "Tokens", "Cost     session n/a  last n/a", "￥12.34", "Proxy    thinking · 127.0.0.1:8001 · reachable", "Paths    cfg ~/.weclaw/config.json · log ~/.weclaw/weclaw.log"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("compact status panel missing %q in:\n%s", want, got)
 		}
