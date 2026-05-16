@@ -66,6 +66,78 @@ func (a *runtimeControlTestAgent) Stop() {
 	a.stopped = true
 }
 
+func withDsproxyCommandRunner(t *testing.T, runner func(context.Context, ...string) string) {
+	t.Helper()
+	oldRunner := dsproxyCommandRunner
+	oldAllow := dsproxyCommandRunnerAllowExternalInTests
+	dsproxyCommandRunner = runner
+	dsproxyCommandRunnerAllowExternalInTests = true
+	t.Cleanup(func() {
+		dsproxyCommandRunner = oldRunner
+		dsproxyCommandRunnerAllowExternalInTests = oldAllow
+	})
+}
+
+func sampleWeClawTelemetryJSON() string {
+	return `{
+  "status": "ok",
+  "profile": "deepseek-thinking",
+  "model": {
+    "effective_model": "deepseek-v4-flash",
+    "codex_model": "glm-5.1",
+    "model_conflict": true
+  },
+  "effort": {
+    "user_facing": "max",
+    "deepseek_reasoning_effort": "max",
+    "codex_model_reasoning_effort": "xhigh"
+  },
+  "context_window": {
+    "effective_safe_window_tokens": 750000,
+    "source": "codex_profile.model_auto_compact_token_limit",
+    "is_estimated": false
+  },
+  "tokens": {
+    "last_turn": {"available": false, "missing": ["usage_ledger_events"]},
+    "session_total": {"available": false, "missing": ["usage_ledger_events"]},
+    "auxiliary_model_calls": {"available": false, "missing": ["usage_ledger_events"]}
+  },
+  "cost": {
+    "available": false,
+    "currency": "USD",
+    "is_estimated": true,
+    "last_turn_estimated_cost": 0.0,
+    "session_estimated_cost": 0.0,
+    "auxiliary_estimated_cost": 0.0,
+    "missing": ["usage_attribution"]
+  },
+  "balance": {
+    "available": false,
+    "reason": "balance_client_unavailable"
+  },
+  "compaction": {
+    "available": true,
+    "unit": "chars",
+    "runtime_context": {
+      "compaction": {
+        "last_report": {
+          "before_chars": 58,
+          "effective_trigger_chars": 1250000,
+          "reason": "not_triggered"
+        }
+      },
+      "trimming": {
+        "last_report": {
+          "before_chars": 219,
+          "max_context_chars": 1500000,
+          "chars_removed": 0
+        }
+      }
+    }
+  }
+}`
+}
+
 func TestRuntimeControlRejectsInvalidModelAndEffort(t *testing.T) {
 	h := NewHandler(nil, nil)
 
@@ -114,8 +186,7 @@ func TestRuntimeControlStatusReturnsDiagnostics(t *testing.T) {
 		"Tokens",
 		"Cost     session n/a  last n/a",
 		"Proxy    default · 127.0.0.1:8000",
-		"Paths    cfg ~/.weclaw/config.json",
-		"         log ~/.weclaw/weclaw.log",
+		"Contract unavailable",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
@@ -438,53 +509,38 @@ func TestRuntimeControlKnownSlashAgentCommandStillRoutes(t *testing.T) {
 	}
 }
 
-func TestCodexProfileReasoningEffortMapsDeepSeekSemantics(t *testing.T) {
-	for _, tc := range []struct {
-		input string
-		want  string
-	}{
-		{input: "high", want: "high"},
-		{input: "max", want: "xhigh"},
+func TestRuntimeControlEffortUsesDsproxyProfileContract(t *testing.T) {
+	var gotArgs []string
+	withDsproxyCommandRunner(t, func(ctx context.Context, args ...string) string {
+		gotArgs = append([]string(nil), args...)
+		return `{"status":"ok","effort":{"user_facing":"max","deepseek_reasoning_effort":"max","codex_model_reasoning_effort":"xhigh"}}`
+	})
+
+	h := NewHandler(nil, nil)
+	h.defaultName = "deepseek-thinking"
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/effort max", "user-1")
+	if !ok {
+		t.Fatal("/effort should be intercepted")
+	}
+	wantArgs := []string{"profile", "set-effort", "deepseek-thinking", "max", "--json"}
+	if strings.Join(gotArgs, " ") != strings.Join(wantArgs, " ") {
+		t.Fatalf("dsproxy args = %#v, want %#v", gotArgs, wantArgs)
+	}
+	for _, want := range []string{
+		"## ✅ Effort updated",
+		"Profile:** `deepseek-thinking`",
+		"Effort:** `max`",
+		"Applied through dsproxy profile contract",
 	} {
-		got, ok := codexProfileReasoningEffort(tc.input)
-		if !ok {
-			t.Fatalf("codexProfileReasoningEffort(%q) ok=false", tc.input)
-		}
-		if got != tc.want {
-			t.Fatalf("codexProfileReasoningEffort(%q) = %q, want %q", tc.input, got, tc.want)
+		if !strings.Contains(reply, want) {
+			t.Fatalf("reply = %q, want %q", reply, want)
 		}
 	}
-	if _, ok := codexProfileReasoningEffort("medium"); ok {
-		t.Fatal("medium should not be a WeClaw-facing DeepSeek effort")
-	}
-}
-
-func TestRepairCodexProfileReasoningEffortWritesCodexCompatibleMax(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	if err := os.MkdirAll(home+"/.codex", 0o755); err != nil {
-		t.Fatalf("create codex dir: %v", err)
-	}
-	path := home + "/.codex/config.toml"
-	initial := "[profiles.deepseek-thinking]\nmodel = \"deepseek-v4-pro\"\nmodel_reasoning_effort = \"max\"\n\n[profiles.other]\nmodel_reasoning_effort = \"max\"\n"
-	if err := os.WriteFile(path, []byte(initial), 0o600); err != nil {
-		t.Fatalf("write codex config: %v", err)
-	}
-
-	status := repairCodexProfileReasoningEffort("deepseek-thinking", "max")
-	if status != "updated" {
-		t.Fatalf("repair status = %q, want updated", status)
-	}
-	text, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read codex config: %v", err)
-	}
-	got := string(text)
-	if !strings.Contains(got, "[profiles.deepseek-thinking]\nmodel = \"deepseek-v4-pro\"\nmodel_reasoning_effort = \"xhigh\"") {
-		t.Fatalf("deepseek-thinking profile was not repaired correctly:\n%s", got)
-	}
-	if !strings.Contains(got, "[profiles.other]\nmodel_reasoning_effort = \"max\"") {
-		t.Fatalf("unrelated profile was modified:\n%s", got)
+	for _, forbidden := range []string{"Codex profile", ".codex", "xhigh"} {
+		if strings.Contains(reply, forbidden) {
+			t.Fatalf("reply = %q, should not contain %q", reply, forbidden)
+		}
 	}
 }
 
@@ -649,15 +705,52 @@ func TestRuntimeControlNowIdleEnsuresSessionID(t *testing.T) {
 	}
 }
 
+func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
+	withDsproxyCommandRunner(t, func(ctx context.Context, args ...string) string {
+		wantArgs := []string{"status", "thinking", "--weclaw-json"}
+		if strings.Join(args, " ") != strings.Join(wantArgs, " ") {
+			t.Fatalf("dsproxy args = %#v, want %#v", args, wantArgs)
+		}
+		return sampleWeClawTelemetryJSON()
+	})
+
+	ag := &runtimeControlTestAgent{
+		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "stale-agent-model"},
+		currentSessionID: "thread-telemetry-1",
+	}
+	h := NewHandler(nil, nil)
+	h.SetDefaultAgent("deepseek-thinking", ag)
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/status", "user-1")
+	if !ok {
+		t.Fatal("/status should be intercepted")
+	}
+	for _, want := range []string{
+		"## 🧩 Status",
+		"Profile:** `deepseek-thinking` `ACP`",
+		"Model:** `deepseek-v4-flash` `max`",
+		"Session:** `thread-telemetry-1`",
+		"0/750k",
+		"Tokens   last n/a  session n/a  aux n/a",
+		"Cost     session n/a  last n/a  aux n/a  est",
+		"Balance  n/a · balance_client_unavailable",
+		"Compact chars 58/1.2M  not_triggered",
+		"Trim     chars 219/1.5M  removed 0",
+		"Model    codex glm-5.1 conflict",
+		"Proxy    thinking · 127.0.0.1:8001 · reachable",
+	} {
+		if !strings.Contains(reply, want) {
+			t.Fatalf("status reply = %q, want %q", reply, want)
+		}
+	}
+	for _, forbidden := range []string{"stale-agent-model", "source:", "tools:", "other:", "last turn id:"} {
+		if strings.Contains(reply, forbidden) {
+			t.Fatalf("status reply = %q, should not contain %q", reply, forbidden)
+		}
+	}
+}
+
 func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	if err := os.MkdirAll(home+"/.codex", 0o755); err != nil {
-		t.Fatalf("create codex dir: %v", err)
-	}
-	if err := os.WriteFile(home+"/.codex/config.toml", []byte("[profiles.deepseek-thinking]\nmodel_context_window = 1000000\n"), 0o644); err != nil {
-		t.Fatalf("write codex config: %v", err)
-	}
 	ag := &runtimeControlTestAgent{
 		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-pro"},
 		currentSessionID: "thread-usage-1",
@@ -693,11 +786,11 @@ func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
 		"Model:** `deepseek-v4-pro`",
 		"Session:** `thread-usage-1`",
 		"Context  [",
-		"4.4%",
-		"43.6k/1M",
+		"16.9%",
+		"43.6k/258.4k",
 		"Tokens   in 43.2k  cached 1.2k  out 350  reason 17  last 22.3k",
 		"Cost     session n/a  last n/a",
-		"Proxy    thinking · 127.0.0.1:8001 ·",
+		"Contract unavailable",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
@@ -711,14 +804,6 @@ func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
 }
 
 func TestRuntimeControlStatusShowsFallbackContextWindowWhileUsageIsWaiting(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	if err := os.MkdirAll(home+"/.codex", 0o755); err != nil {
-		t.Fatalf("create codex dir: %v", err)
-	}
-	if err := os.WriteFile(home+"/.codex/config.toml", []byte("[profiles.deepseek-thinking]\nmodel_context_window = 1000000\n"), 0o644); err != nil {
-		t.Fatalf("write codex config: %v", err)
-	}
 	ag := &runtimeControlTestAgent{
 		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-flash"},
 		currentSessionID: "thread-waiting-1",
@@ -736,9 +821,10 @@ func TestRuntimeControlStatusShowsFallbackContextWindowWhileUsageIsWaiting(t *te
 		"Session:** `thread-waiting-1`",
 		"Context  [",
 		"0.0%",
-		"0/1M",
+		"0/--",
 		"Tokens   waiting for Codex usage event",
 		"Cost     session n/a  last n/a",
+		"Contract unavailable",
 	} {
 		if !strings.Contains(reply, want) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
@@ -778,31 +864,6 @@ func TestFormatContextWindowLines(t *testing.T) {
 		if strings.Contains(got, old) {
 			t.Fatalf("formatContextWindowLines = %q, should not contain old token %q", got, old)
 		}
-	}
-}
-
-func TestParseCodexProfileInt(t *testing.T) {
-	configText := `[profiles.deepseek]
-model_context_window = 1000000
-
-[profiles.deepseek-thinking]
-model_context_window = 750000
-`
-	if got := parseCodexProfileInt(configText, "deepseek", "model_context_window"); got != 1000000 {
-		t.Fatalf("deepseek model_context_window = %d, want 1000000", got)
-	}
-	if got := parseCodexProfileInt(configText, "deepseek-thinking", "model_context_window"); got != 750000 {
-		t.Fatalf("deepseek-thinking model_context_window = %d, want 750000", got)
-	}
-}
-
-func TestDsproxyConfigContextWindow(t *testing.T) {
-	text := `{
-  "DEEPSEEK_PROXY_MODEL": "deepseek-v4-pro",
-  "DEEPSEEK_PROXY_MODEL_CONTEXT_WINDOW": 950000
-}`
-	if got := dsproxyConfigContextWindow(text); got != 950000 {
-		t.Fatalf("dsproxyConfigContextWindow = %d, want 950000", got)
 	}
 }
 

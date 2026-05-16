@@ -1111,19 +1111,16 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 			), true
 		}
 
-		dsproxyReply := runDsproxyCommand(ctx, "config", "set-effort", dsproxyEffort)
-		codexProfileStatus := repairCodexProfileReasoningEffort(defaultName, displayEffort)
+		dsproxyReply := runDsproxyCommandForHandler(ctx, "profile", "set-effort", defaultName, dsproxyEffort, "--json")
+		displayEffort = effortDisplayFromProfileStatusJSON(dsproxyReply, displayEffort)
 		lines := []string{
 			slashBoldField("Profile", slashInlineCode(defaultName)),
 			slashBoldField("Effort", slashInlineCode(displayEffort)),
 			slashBoldField("Session", "preserved"),
-			"> Applied to the local proxy and Codex profile.",
+			"> Applied through dsproxy profile contract.",
 		}
 		if status := commandStatusFromOutput(dsproxyReply); commandStatusNeedsAttention(status) {
 			lines = append(lines, slashBoldField("Proxy", status))
-		}
-		if commandStatusNeedsAttention(codexProfileStatus) {
-			lines = append(lines, slashBoldField("Codex profile", codexProfileStatus))
 		}
 		return commandCard("✅ Effort updated", lines...), true
 
@@ -1234,39 +1231,426 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 		proxyEndpoint = "127.0.0.1:8001"
 	}
 
-	dsproxyStatus := runDsproxyCommand(ctx, dsproxyStatusArgsForProfile(defaultName)...)
-	dsproxyConfig := runDsproxyCommand(ctx, "config", "show")
-	balanceReply := runDsproxyCommand(ctx, "balance")
-
-	proxyState := "unknown"
-	statusLower := strings.ToLower(dsproxyStatus)
-	if strings.Contains(statusLower, "reachable") || strings.Contains(statusLower, "\"status\": \"ok\"") || strings.Contains(statusLower, "\"status\":\"ok\"") {
-		proxyState = "reachable"
-	} else if strings.TrimSpace(dsproxyStatus) != "" {
-		proxyState = compactCommandOutput(dsproxyStatus, 120)
+	if payload, _, ok := runDsproxyJSONCommand(ctx, dsproxyWeClawStatusArgsForProfile(defaultName)...); ok {
+		return h.buildStatusDiagnosticsFromDsproxyTelemetry(defaultName, agentType, agentModel, sessionID, proxyRoute, proxyEndpoint, payload)
 	}
 
-	proxyModel := extractCommandValue(dsproxyConfig, "DEEPSEEK_PROXY_MODEL")
-	if proxyModel == "" {
-		proxyModel = "unknown"
-	}
-	proxyEffort := extractCommandValue(dsproxyConfig, "DEEPSEEK_REASONING_EFFORT")
-	if proxyEffort == "" {
-		proxyEffort = "unknown"
-	}
-
-	contextWindow, _ := fallbackContextWindow(defaultName, agentModel, proxyModel, dsproxyConfig)
-	panelLines := buildCompactStatusPanel(ag, userID, contextWindow, proxyRoute, proxyEndpoint, proxyState, compactBalanceSummaryFromText(balanceReply))
+	panelLines := buildCompactStatusPanel(ag, userID, 0, proxyRoute, proxyEndpoint, "telemetry unavailable", "balance n/a")
+	panelLines = append(panelLines, "Contract unavailable")
 
 	lines := []string{
 		slashBoldField("Profile", slashInlineCode(valueOrUnknown(defaultName))+" "+slashInlineCode(slashAgentTypeBadge(agentType))),
-		slashBoldField("Model", slashInlineCode(slashModelDisplay(agentModel, proxyModel))+" "+slashInlineCode(slashEffortDisplay(proxyEffort))),
+		slashBoldField("Model", slashInlineCode(valueOrUnknown(agentModel))+" "+slashInlineCode("unknown")),
 		slashBoldField("Session", slashInlineCode(valueOrUnknown(sessionID))),
 		"",
 	}
 	lines = append(lines, visualCommandFence("", panelLines...)...)
-
 	return commandCard("🧩 Status", lines...)
+}
+
+func (h *Handler) buildStatusDiagnosticsFromDsproxyTelemetry(defaultName, agentType, agentModel, sessionID, proxyRoute, proxyEndpoint string, payload map[string]any) string {
+	model := nestedStringDefault(payload, "unknown", "model", "effective_model")
+	if model == "unknown" {
+		model = nestedStringDefault(payload, "unknown", "model", "weclaw_display_model")
+	}
+	if model == "unknown" {
+		model = nestedStringDefault(payload, agentModel, "model", "display_model")
+	}
+	effort := nestedStringDefault(payload, "unknown", "effort", "user_facing")
+	if effort == "unknown" {
+		effort = nestedStringDefault(payload, "unknown", "effort", "deepseek_reasoning_effort")
+	}
+
+	lines := []string{
+		slashBoldField("Profile", slashInlineCode(valueOrUnknown(defaultName))+" "+slashInlineCode(slashAgentTypeBadge(agentType))),
+		slashBoldField("Model", slashInlineCode(valueOrUnknown(model))+" "+slashInlineCode(slashEffortDisplay(effort))),
+		slashBoldField("Session", slashInlineCode(valueOrUnknown(sessionID))),
+		"",
+	}
+
+	panelLines := buildDsproxyTelemetryPanel(payload, proxyRoute, proxyEndpoint)
+	lines = append(lines, visualCommandFence("", panelLines...)...)
+	return commandCard("🧩 Status", lines...)
+}
+
+var dsproxyCommandRunner = runDsproxyCommand
+var dsproxyCommandRunnerAllowExternalInTests bool
+
+func runDsproxyCommandForHandler(ctx context.Context, args ...string) string {
+	if strings.HasSuffix(os.Args[0], ".test") && !dsproxyCommandRunnerAllowExternalInTests {
+		return fmt.Sprintf("dsproxy %s unavailable during tests", strings.Join(args, " "))
+	}
+	return dsproxyCommandRunner(ctx, args...)
+}
+
+func runDsproxyJSONCommand(ctx context.Context, args ...string) (map[string]any, string, bool) {
+	text := runDsproxyCommandForHandler(ctx, args...)
+	payload, ok := parseJSONMap(text)
+	return payload, text, ok
+}
+
+func parseJSONMap(text string) (map[string]any, bool) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil, false
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(text), &payload); err != nil {
+		return nil, false
+	}
+	return payload, true
+}
+
+func dsproxyWeClawStatusArgsForProfile(profile string) []string {
+	if profile == "deepseek-thinking" {
+		return []string{"status", "thinking", "--weclaw-json"}
+	}
+	return []string{"status", "--weclaw-json"}
+}
+
+func effortDisplayFromProfileStatusJSON(text, fallback string) string {
+	payload, ok := parseJSONMap(text)
+	if !ok {
+		return fallback
+	}
+	for _, keys := range [][]string{
+		{"effort", "user_facing"},
+		{"effort", "deepseek_reasoning_effort"},
+	} {
+		if value := nestedStringDefault(payload, "", keys...); value != "" {
+			return slashEffortDisplay(value)
+		}
+	}
+	return fallback
+}
+
+func nestedValue(root map[string]any, keys ...string) (any, bool) {
+	var cur any = root
+	for _, key := range keys {
+		obj, ok := cur.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		cur, ok = obj[key]
+		if !ok {
+			return nil, false
+		}
+	}
+	return cur, true
+}
+
+func nestedMap(root map[string]any, keys ...string) (map[string]any, bool) {
+	value, ok := nestedValue(root, keys...)
+	if !ok {
+		return nil, false
+	}
+	obj, ok := value.(map[string]any)
+	return obj, ok
+}
+
+func nestedStringDefault(root map[string]any, fallback string, keys ...string) string {
+	value, ok := nestedValue(root, keys...)
+	if !ok || value == nil {
+		return fallback
+	}
+	switch typed := value.(type) {
+	case string:
+		if strings.TrimSpace(typed) == "" {
+			return fallback
+		}
+		return strings.TrimSpace(typed)
+	case bool:
+		if typed {
+			return "true"
+		}
+		return "false"
+	case float64:
+		return trimFixedDecimal(typed)
+	default:
+		text := strings.TrimSpace(fmt.Sprint(typed))
+		if text == "" || text == "<nil>" {
+			return fallback
+		}
+		return text
+	}
+}
+
+func nestedBoolDefault(root map[string]any, fallback bool, keys ...string) bool {
+	value, ok := nestedValue(root, keys...)
+	if !ok {
+		return fallback
+	}
+	switch typed := value.(type) {
+	case bool:
+		return typed
+	case string:
+		switch strings.ToLower(strings.TrimSpace(typed)) {
+		case "true", "yes", "1":
+			return true
+		case "false", "no", "0":
+			return false
+		}
+	}
+	return fallback
+}
+
+func nestedInt64Default(root map[string]any, fallback int64, keys ...string) int64 {
+	value, ok := nestedValue(root, keys...)
+	if !ok || value == nil {
+		return fallback
+	}
+	switch typed := value.(type) {
+	case int:
+		return int64(typed)
+	case int64:
+		return typed
+	case float64:
+		return int64(typed)
+	case json.Number:
+		if parsed, err := typed.Int64(); err == nil {
+			return parsed
+		}
+	case string:
+		normalized := strings.NewReplacer("_", "", ",", "").Replace(strings.TrimSpace(typed))
+		if parsed, err := strconv.ParseInt(normalized, 10, 64); err == nil {
+			return parsed
+		}
+	}
+	return fallback
+}
+
+func nestedFloat64Default(root map[string]any, fallback float64, keys ...string) float64 {
+	value, ok := nestedValue(root, keys...)
+	if !ok || value == nil {
+		return fallback
+	}
+	switch typed := value.(type) {
+	case float64:
+		return typed
+	case int:
+		return float64(typed)
+	case int64:
+		return float64(typed)
+	case json.Number:
+		if parsed, err := typed.Float64(); err == nil {
+			return parsed
+		}
+	case string:
+		normalized := strings.NewReplacer("_", "", ",", "").Replace(strings.TrimSpace(typed))
+		if parsed, err := strconv.ParseFloat(normalized, 64); err == nil {
+			return parsed
+		}
+	}
+	return fallback
+}
+
+func nestedStringList(root map[string]any, keys ...string) []string {
+	value, ok := nestedValue(root, keys...)
+	if !ok || value == nil {
+		return nil
+	}
+	switch typed := value.(type) {
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			text := strings.TrimSpace(fmt.Sprint(item))
+			if text != "" && text != "<nil>" {
+				out = append(out, text)
+			}
+		}
+		return out
+	case []string:
+		return typed
+	case string:
+		if strings.TrimSpace(typed) != "" {
+			return []string{strings.TrimSpace(typed)}
+		}
+	}
+	return nil
+}
+
+func buildDsproxyTelemetryPanel(payload map[string]any, proxyRoute, proxyEndpoint string) []string {
+	lines := []string{
+		formatDsproxyContextLine(payload),
+		formatDsproxyTokensLine(payload),
+		formatDsproxyCostLine(payload),
+		formatDsproxyBalanceLine(payload),
+	}
+	lines = append(lines, formatDsproxyCompactionLines(payload)...)
+
+	if nestedBoolDefault(payload, false, "model", "model_conflict") {
+		codexModel := nestedStringDefault(payload, "unknown", "model", "codex_model")
+		lines = append(lines, "Model    codex "+valueOrUnknown(codexModel)+" conflict")
+	}
+
+	proxyState := "reachable"
+	if status := nestedStringDefault(payload, "", "status"); status != "" && status != "ok" {
+		proxyState = status
+	}
+	lines = append(lines,
+		fmt.Sprintf("Proxy    %s · %s · %s", valueOrUnknown(proxyRoute), valueOrUnknown(proxyEndpoint), proxyState),
+		"Paths    cfg ~/.weclaw/config.json",
+		"         log ~/.weclaw/weclaw.log",
+	)
+	return lines
+}
+
+func formatDsproxyContextLine(payload map[string]any) string {
+	limit := nestedInt64Default(payload, 0, "context_window", "effective_safe_window_tokens")
+	if limit <= 0 {
+		limit = nestedInt64Default(payload, 0, "context_window", "display_limit_tokens")
+	}
+	used := dsproxySessionTotalTokens(payload)
+	source := nestedStringDefault(payload, "unknown", "context_window", "source")
+	if nestedBoolDefault(payload, false, "context_window", "is_estimated") {
+		source += " estimated"
+	}
+	return fmt.Sprintf(
+		"Context  [%s]  %s  %s/%s  tokens",
+		formatCommandProgressBar(used, limit, 20),
+		formatTokenPercent(used, limit),
+		formatTokenCount(maxInt64(used, 0)),
+		formatContextLimit(limit),
+	) + " · " + compactCommandOutput(source, 48)
+}
+
+func dsproxySessionTotalTokens(payload map[string]any) int64 {
+	session, ok := nestedMap(payload, "tokens", "session_total")
+	if !ok || !nestedBoolDefault(session, false, "available") {
+		return 0
+	}
+	for _, key := range []string{"total_tokens", "total", "tokens", "provider_total_tokens"} {
+		if value := nestedInt64Default(session, -1, key); value >= 0 {
+			return value
+		}
+	}
+	input := nestedInt64Default(session, 0, "input_tokens")
+	output := nestedInt64Default(session, 0, "output_tokens")
+	reasoning := nestedInt64Default(session, 0, "reasoning_tokens")
+	return input + output + reasoning
+}
+
+func formatDsproxyTokensLine(payload map[string]any) string {
+	tokens, ok := nestedMap(payload, "tokens")
+	if !ok {
+		return "Tokens   unavailable"
+	}
+	last, _ := nestedMap(tokens, "last_turn")
+	session, _ := nestedMap(tokens, "session_total")
+	aux, _ := nestedMap(tokens, "auxiliary_model_calls")
+	return fmt.Sprintf(
+		"Tokens   %s  %s  %s",
+		formatTokenBucket("last", last),
+		formatTokenBucket("session", session),
+		formatTokenBucket("aux", aux),
+	)
+}
+
+func formatTokenBucket(label string, bucket map[string]any) string {
+	if bucket == nil {
+		return label + " n/a"
+	}
+	if !nestedBoolDefault(bucket, false, "available") {
+		if missing := nestedStringList(bucket, "missing"); len(missing) > 0 {
+			return label + " n/a"
+		}
+		return label + " n/a"
+	}
+	for _, key := range []string{"total_tokens", "total", "tokens", "provider_total_tokens"} {
+		if value := nestedInt64Default(bucket, -1, key); value >= 0 {
+			return label + " " + formatTokenCount(value)
+		}
+	}
+	input := nestedInt64Default(bucket, 0, "input_tokens")
+	output := nestedInt64Default(bucket, 0, "output_tokens")
+	reasoning := nestedInt64Default(bucket, 0, "reasoning_tokens")
+	total := input + output + reasoning
+	if total > 0 {
+		return label + " " + formatTokenCount(total)
+	}
+	return label + " n/a"
+}
+
+func formatDsproxyCostLine(payload map[string]any) string {
+	cost, ok := nestedMap(payload, "cost")
+	if !ok {
+		return "Cost     unavailable"
+	}
+	currency := nestedStringDefault(cost, "USD", "currency")
+	if !nestedBoolDefault(cost, false, "available") {
+		missing := strings.Join(nestedStringList(cost, "missing"), ",")
+		if missing != "" {
+			return "Cost     session n/a  last n/a  aux n/a  est · missing " + compactCommandOutput(missing, 42)
+		}
+		return "Cost     session n/a  last n/a  aux n/a  est"
+	}
+	session := nestedFloat64Default(cost, 0, "session_estimated_cost")
+	last := nestedFloat64Default(cost, 0, "last_turn_estimated_cost")
+	aux := nestedFloat64Default(cost, 0, "auxiliary_estimated_cost")
+	return fmt.Sprintf(
+		"Cost     session %s  last %s  aux %s  est",
+		formatMoney(session, currency),
+		formatMoney(last, currency),
+		formatMoney(aux, currency),
+	)
+}
+
+func formatMoney(value float64, currency string) string {
+	currency = strings.ToUpper(strings.TrimSpace(currency))
+	amount := trimFixedDecimal(value)
+	switch currency {
+	case "USD":
+		return "$" + amount
+	case "CNY", "RMB", "CNH":
+		return "￥" + amount
+	case "":
+		return amount
+	default:
+		return currency + " " + amount
+	}
+}
+
+func formatDsproxyBalanceLine(payload map[string]any) string {
+	balance, ok := nestedMap(payload, "balance")
+	if !ok {
+		if costBalance, ok := nestedMap(payload, "cost", "balance"); ok {
+			balance = costBalance
+		} else {
+			return "Balance  unavailable"
+		}
+	}
+	if !nestedBoolDefault(balance, false, "available") {
+		reason := nestedStringDefault(balance, "unavailable", "reason")
+		return "Balance  n/a · " + compactCommandOutput(reason, 52)
+	}
+	if text := nestedStringDefault(balance, "", "display"); text != "" {
+		return "Balance  " + compactCommandOutput(text, 64)
+	}
+	if value := nestedStringDefault(balance, "", "balance"); value != "" {
+		return "Balance  " + compactCommandOutput(value, 64)
+	}
+	return "Balance  available"
+}
+
+func formatDsproxyCompactionLines(payload map[string]any) []string {
+	compaction, ok := nestedMap(payload, "compaction")
+	if !ok || !nestedBoolDefault(compaction, false, "available") {
+		return []string{"Compact  unavailable"}
+	}
+	unit := nestedStringDefault(compaction, "chars", "unit")
+	before := nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "before_chars")
+	trigger := nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "effective_trigger_chars")
+	if trigger <= 0 {
+		trigger = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "trigger_chars")
+	}
+	reason := nestedStringDefault(compaction, "unknown", "runtime_context", "compaction", "last_report", "reason")
+	trimBefore := nestedInt64Default(compaction, 0, "runtime_context", "trimming", "last_report", "before_chars")
+	trimMax := nestedInt64Default(compaction, 0, "runtime_context", "trimming", "last_report", "max_context_chars")
+	removed := nestedInt64Default(compaction, 0, "runtime_context", "trimming", "last_report", "chars_removed")
+	return []string{
+		fmt.Sprintf("Compact %s %s/%s  %s", unit, formatTokenCount(before), formatContextLimit(trigger), compactCommandOutput(reason, 36)),
+		fmt.Sprintf("Trim     %s %s/%s  removed %s", unit, formatTokenCount(trimBefore), formatContextLimit(trimMax), formatTokenCount(removed)),
+	}
 }
 
 func resolveDsproxyBinary() string {
@@ -1526,86 +1910,6 @@ func commandStatusNeedsAttention(status string) bool {
 		return false
 	}
 	return strings.Contains(status, "fail") || strings.Contains(status, "warning") || strings.Contains(status, "error") || strings.Contains(status, "timeout")
-}
-
-func codexProfileReasoningEffort(deepseekEffort string) (string, bool) {
-	switch strings.ToLower(strings.TrimSpace(deepseekEffort)) {
-	case "high":
-		return "high", true
-	case "max":
-		return "xhigh", true
-	default:
-		return "", false
-	}
-}
-
-func repairCodexProfileReasoningEffort(profile, deepseekEffort string) string {
-	codexEffort, ok := codexProfileReasoningEffort(deepseekEffort)
-	if !ok {
-		return "skipped"
-	}
-	home, err := os.UserHomeDir()
-	if err != nil || strings.TrimSpace(home) == "" {
-		return "warning: home unavailable"
-	}
-	path := filepath.Join(home, ".codex", "config.toml")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "warning: " + err.Error()
-	}
-	section := "[profiles." + strings.TrimSpace(profile) + "]"
-	lines := strings.Split(string(data), "\n")
-	out := make([]string, 0, len(lines)+1)
-	inSection := false
-	seenSection := false
-	setEffort := false
-	changed := false
-
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
-			if inSection && !setEffort {
-				out = append(out, "model_reasoning_effort = "+strconv.Quote(codexEffort))
-				setEffort = true
-				changed = true
-			}
-			inSection = trimmed == section
-			if inSection {
-				seenSection = true
-			}
-		}
-		if inSection {
-			name, _, hasValue := strings.Cut(trimmed, "=")
-			if hasValue && strings.TrimSpace(name) == "model_reasoning_effort" {
-				replacement := "model_reasoning_effort = " + strconv.Quote(codexEffort)
-				if trimmed != replacement {
-					changed = true
-				}
-				out = append(out, replacement)
-				setEffort = true
-				continue
-			}
-		}
-		out = append(out, line)
-	}
-	if inSection && !setEffort {
-		out = append(out, "model_reasoning_effort = "+strconv.Quote(codexEffort))
-		changed = true
-	}
-	if !seenSection {
-		return "skipped"
-	}
-	if !changed {
-		return "unchanged"
-	}
-	mode := os.FileMode(0o600)
-	if info, statErr := os.Stat(path); statErr == nil {
-		mode = info.Mode().Perm()
-	}
-	if err := os.WriteFile(path, []byte(strings.Join(out, "\n")), mode); err != nil {
-		return "warning: " + err.Error()
-	}
-	return "updated"
 }
 
 func slashModelDisplay(agentModel, proxyModel string) string {
@@ -1887,6 +2191,13 @@ func commandStatusFromOutput(text string) string {
 	lower := strings.ToLower(trimmed)
 	if strings.Contains(lower, "failed") || strings.Contains(lower, "timed out") || strings.Contains(lower, "error") {
 		return compactCommandOutput(trimmed, 220)
+	}
+	if payload, ok := parseJSONMap(trimmed); ok {
+		status := nestedStringDefault(payload, "ok", "status")
+		if strings.EqualFold(status, "ok") || strings.EqualFold(status, "updated") || strings.EqualFold(status, "unchanged") {
+			return "ok"
+		}
+		return compactCommandOutput(status, 220)
 	}
 	return "ok"
 }
@@ -3170,18 +3481,6 @@ func dsproxyStatusArgsForProfile(profile string) []string {
 	return []string{"status"}
 }
 
-func fallbackContextWindow(profile, agentModel, proxyModel, dsproxyConfig string) (int64, string) {
-	_ = agentModel
-	_ = proxyModel
-	if window := codexProfileContextWindow(profile); window > 0 {
-		return window, "codex_profile_config"
-	}
-	if window := dsproxyConfigContextWindow(dsproxyConfig); window > 0 {
-		return window, "dsproxy_config"
-	}
-	return 0, "unconfigured"
-}
-
 func formatContextWindowLine(window int64) string {
 	return "• limit: " + formatContextLimit(window)
 }
@@ -3202,75 +3501,4 @@ func formatContextUsageLine(used, window int64, hasUsage bool) string {
 func trimFixedDecimal(value float64) string {
 	s := fmt.Sprintf("%.1f", value)
 	return strings.TrimSuffix(s, ".0")
-}
-
-func codexProfileContextWindow(profile string) int64 {
-	profile = strings.TrimSpace(profile)
-	if profile == "" {
-		return 0
-	}
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return 0
-	}
-	data, err := os.ReadFile(home + "/.codex/config.toml")
-	if err != nil {
-		return 0
-	}
-	return parseCodexProfileInt(string(data), profile, "model_context_window")
-}
-
-func dsproxyConfigContextWindow(configText string) int64 {
-	return extractCommandIntValue(configText,
-		"DEEPSEEK_PROXY_MODEL_CONTEXT_WINDOW",
-		"DEEPSEEK_PROXY_CONTEXT_WINDOW",
-		"MODEL_CONTEXT_WINDOW",
-		"CONTEXT_WINDOW",
-		"model_context_window",
-	)
-}
-
-func extractCommandIntValue(text string, keys ...string) int64 {
-	for _, key := range keys {
-		value := extractCommandValue(text, key)
-		if value == "" {
-			continue
-		}
-		value = strings.TrimSpace(strings.Trim(value, `"'`))
-		value = strings.NewReplacer("_", "", ",", "").Replace(value)
-		parsed, err := strconv.ParseInt(value, 10, 64)
-		if err == nil && parsed > 0 {
-			return parsed
-		}
-	}
-	return 0
-}
-
-func parseCodexProfileInt(configText, profile, key string) int64 {
-	section := "[profiles." + strings.TrimSpace(profile) + "]"
-	inSection := false
-	for _, raw := range strings.Split(configText, "\n") {
-		line := strings.TrimSpace(raw)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			inSection = line == section
-			continue
-		}
-		if !inSection {
-			continue
-		}
-		name, value, ok := strings.Cut(line, "=")
-		if !ok || strings.TrimSpace(name) != key {
-			continue
-		}
-		value = strings.TrimSpace(strings.SplitN(value, "#", 2)[0])
-		value = strings.Trim(value, `"'`)
-		parsed, err := strconv.ParseInt(value, 10, 64)
-		if err == nil && parsed > 0 {
-			return parsed
-		}
-	}
-	return 0
 }

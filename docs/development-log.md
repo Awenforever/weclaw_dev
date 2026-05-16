@@ -1,5 +1,15 @@
 # WeClaw Dev Development Log
 
+## 2026-05-16 - p0.1.5a57-dsproxy-telemetry-contract
+
+- Scope: first WeClaw integration against the dsproxy full telemetry contract.
+- Change: changed `/effort` to call `dsproxy profile set-effort <profile> <effort> --json` instead of the old `dsproxy config set-effort` path.
+- Change: removed WeClaw-side Codex profile repair from the `/effort` path. WeClaw no longer directly edits `~/.codex/config.toml` for this runtime-control flow.
+- Change: changed `/status` to prefer `dsproxy status <route> --weclaw-json` and render model, effort, token window, token buckets, estimated cost, balance and compaction from the dsproxy contract.
+- Change: kept explicit fallback when the dsproxy contract is unavailable, without parsing Codex profile files as a source of truth.
+- Validation: `gofmt`, `git diff --check`, `bash -n install.sh`, focused package tests, and full `go test ./...` are required before merge.
+- Notes or lessons: WeClaw should format dsproxy-owned state, not duplicate dsproxy config ownership. Token-level context window and char-level compaction are displayed as separate lines.
+
 ## 2026-05-16 - p0.1.5a56a1-devlog-heading-order
 
 - Scope: development-log structure cleanup after p0.1.5a56.

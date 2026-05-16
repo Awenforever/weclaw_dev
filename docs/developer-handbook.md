@@ -10,9 +10,9 @@ This is the canonical English handoff for starting a new AI development conversa
 - Current public Release: `v0.1.8-alpha`
 - Current public Release commit: `05cb93c`
 - Current Release internal marker: `p0.1.5a50-outbound-markdown-capture` at `05cb93c`
-- Current internal development tag: `p0.1.5a56a1-devlog-heading-order`
-- Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a56-mainline-tracker-audit-policy=882f9b3`
-- Current active development line: `p0.1.5a56a1-devlog-heading-order`. Resolve its exact commit from Git instead of trusting a copied static hash.
+- Current internal development tag: `p0.1.5a57-dsproxy-telemetry-contract`
+- Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a56a1-devlog-heading-order=2e39351`
+- Current active development line: `p0.1.5a57-dsproxy-telemetry-contract`. Resolve its exact commit from Git instead of trusting a copied static hash.
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
 - Expected Release assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
@@ -27,10 +27,10 @@ Status vocabulary: `planned`, `in_progress`, `verified`, `blocked`, `done`, `sup
 
 | Mainline item | Expected metric or acceptance condition | Current version or source | Current status | Last maintained | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Full telemetry contract baseline | Local `dsproxy` exposes profile status and WeClaw status JSON for `deepseek` and `deepseek-thinking`, including `model`, `effort`, `context_window`, `tokens`, `pricing`, `cost`, `balance`, and `compaction`. | CoDeepSeedeX `p2.10a48-weclaw-full-telemetry-contract`; WeClaw audit before `p0.1.5a56` | verified | 2026-05-16 | Contract is accepted as the first engineering baseline. WeClaw still needs integration work. |
-| WeClaw ownership boundary | WeClaw does not directly edit Codex profile files for normal `/effort`, `/model`, `/status`, or telemetry paths when `dsproxy` provides a structured contract. | WeClaw `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Existing WeClaw code still contains profile repair logic and must be refactored in the next implementation branch. |
-| `/effort` integration | `/effort max` calls the authoritative `dsproxy profile set-effort <profile> max --json` contract and displays `effort.user_facing` or `effort.deepseek_reasoning_effort`. | Pending WeClaw implementation after CoDeepSeedeX `p2.10a48` | planned | 2026-05-16 | Do not widen WeClaw into a global Codex profile repair layer. |
-| `/status` contract integration | `/status` consumes `dsproxy status <route> --weclaw-json` or the equivalent HTTP endpoint and renders only returned data. Missing or unavailable fields degrade explicitly. | Pending WeClaw implementation after CoDeepSeedeX `p2.10a48` | planned | 2026-05-16 | Token-level context and char-level runtime compaction must not be merged into one progress bar without unit labels. |
+| Full telemetry contract baseline | Local `dsproxy` exposes profile status and WeClaw status JSON for `deepseek` and `deepseek-thinking`, including `model`, `effort`, `context_window`, `tokens`, `pricing`, `cost`, `balance`, and `compaction`. | CoDeepSeedeX `p2.10a48-weclaw-full-telemetry-contract`; WeClaw audit before `p0.1.5a56` | verified | 2026-05-16 | Contract is accepted as the first engineering baseline. WeClaw first-round integration is implemented in `p0.1.5a57-dsproxy-telemetry-contract`. |
+| WeClaw ownership boundary | WeClaw does not directly edit Codex profile files for normal `/effort`, `/model`, `/status`, or telemetry paths when `dsproxy` provides a structured contract. | WeClaw `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Profile repair logic is removed from the `/effort` path in `p0.1.5a57-dsproxy-telemetry-contract`. |
+| `/effort` integration | `/effort max` calls the authoritative `dsproxy profile set-effort <profile> max --json` contract and displays `effort.user_facing` or `effort.deepseek_reasoning_effort`. | WeClaw `p0.1.5a57-dsproxy-telemetry-contract` | verified | 2026-05-16 | WeClaw no longer edits Codex profile files in this path. |
+| `/status` contract integration | `/status` consumes `dsproxy status <route> --weclaw-json` and renders returned data with explicit fallback for unavailable fields. | WeClaw `p0.1.5a57-dsproxy-telemetry-contract` | in_progress | 2026-05-16 | First integration is implemented. Runtime WeChat validation and second-round CoDeepSeedeX feedback are still pending. |
 | Telemetry display quality | Mobile WeChat output remains compact and Markdown-first while showing model, effort, context window, token usage, estimated cost, balance, and compaction from `dsproxy`. | Pending WeClaw implementation | planned | 2026-05-16 | Do not maintain model prices, balance logic, or prompt subcategory token estimates in WeClaw. |
 | Evidence-first audit discipline | Source and document changes are based on full source files, full canonical documents, or complete function/module blocks rather than isolated grep snippets. | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Grep/rg may help locate symbols or verify markers, but it is not sufficient evidence for patch design. |
 | Cross-project feedback loop | After each WeClaw integration round, produce a precise CoDeepSeedeX follow-up prompt for missing fields, ambiguous semantics, or unstable contract behavior. | Pending after first WeClaw integration branch | planned | 2026-05-16 | Keep the prompt grounded in actual WeClaw implementation results and runtime logs. |
@@ -182,7 +182,7 @@ The expected local-development version shape is:
 
 ```text
 weclaw public version: v0.1.8-alpha | 05cb93c
-weclaw internal version: p0.1.5a56a1-devlog-heading-order | <current-commit>
+weclaw internal version: p0.1.5a57-dsproxy-telemetry-contract | <current-commit>
 ```
 
 Before replacing `/usr/local/bin/weclaw` or any other real runtime binary, the generated candidate binary must be checked with `weclaw version`. After replacement, the installed binary must be checked again. A result containing `dev | unknown` is a failed installation, even if the binary itself runs.
