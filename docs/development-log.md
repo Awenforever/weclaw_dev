@@ -1,3 +1,13 @@
+# WeClaw Dev Development Log
+
+## 2026-05-16 - p0.1.5a56a1-devlog-heading-order
+
+- Scope: development-log structure cleanup after p0.1.5a56.
+- Fix: restored the H1 title as the first line of `docs/development-log.md`.
+- Change: updated the current active internal development line in both developer handbooks from `p0.1.5a56-mainline-tracker-audit-policy` to `p0.1.5a56a1-devlog-heading-order`.
+- Validation: `git diff --check`, `bash -n install.sh`, focused package tests, and full `go test ./...` are required before merge.
+- Notes or lessons: marker checks and tests can miss document structure mistakes. Development-log patches must verify that the file starts with the canonical H1.
+
 ## 2026-05-16 - p0.1.5a56-mainline-tracker-audit-policy
 
 - Scope: documentation governance for the WeClaw and CoDeepSeedeX full telemetry integration line.
@@ -7,8 +17,6 @@
 - Validation: documentation marker checks, `git diff --check`, `bash -n install.sh`, focused package tests, and full `go test ./...` are required before merge.
 - Notes or lessons: long-running cross-project work needs an explicit checklist to prevent task drift across conversations and inserted side tasks.
 - Follow-up: implement the first WeClaw integration branch against CoDeepSeedeX `p2.10a48-weclaw-full-telemetry-contract`, then produce the next CoDeepSeedeX feedback prompt from actual implementation gaps.
-
-# WeClaw Dev Development Log
 
 ## 2026-05-15 - p0.1.5a53-effort-profile-slash-polish
 

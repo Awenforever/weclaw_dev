@@ -10,9 +10,9 @@ This is the canonical English handoff for starting a new AI development conversa
 - Current public Release: `v0.1.8-alpha`
 - Current public Release commit: `05cb93c`
 - Current Release internal marker: `p0.1.5a50-outbound-markdown-capture` at `05cb93c`
-- Current internal development tag: `p0.1.5a56-mainline-tracker-audit-policy`
-- Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a55-cross-project-profile-boundary-docs=cad0437`
-- Current active development line: `p0.1.5a56-mainline-tracker-audit-policy`. Resolve its exact commit from Git instead of trusting a copied static hash.
+- Current internal development tag: `p0.1.5a56a1-devlog-heading-order`
+- Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a56-mainline-tracker-audit-policy=882f9b3`
+- Current active development line: `p0.1.5a56a1-devlog-heading-order`. Resolve its exact commit from Git instead of trusting a copied static hash.
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
 - Expected Release assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
@@ -182,7 +182,7 @@ The expected local-development version shape is:
 
 ```text
 weclaw public version: v0.1.8-alpha | 05cb93c
-weclaw internal version: p0.1.5a56-mainline-tracker-audit-policy | <current-commit>
+weclaw internal version: p0.1.5a56a1-devlog-heading-order | <current-commit>
 ```
 
 Before replacing `/usr/local/bin/weclaw` or any other real runtime binary, the generated candidate binary must be checked with `weclaw version`. After replacement, the installed binary must be checked again. A result containing `dev | unknown` is a failed installation, even if the binary itself runs.

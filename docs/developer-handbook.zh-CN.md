@@ -10,9 +10,9 @@
 - 当前公开Release：`v0.1.8-alpha`
 - 当前公开Release commit：`05cb93c`
 - 当前Release对应内部标记：`p0.1.5a50-outbound-markdown-capture`，位于`05cb93c`
-- 当前内部开发标签：`p0.1.5a56-mainline-tracker-audit-policy`
-- 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a55-cross-project-profile-boundary-docs=cad0437`
-- 当前活动开发线：`p0.1.5a56-mainline-tracker-audit-policy`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
+- 当前内部开发标签：`p0.1.5a56a1-devlog-heading-order`
+- 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a56-mainline-tracker-audit-policy=882f9b3`
+- 当前活动开发线：`p0.1.5a56a1-devlog-heading-order`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
 - 预期Release资产：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64和Windows amd64。
@@ -185,7 +185,7 @@ github.com/fastclaw-ai/weclaw/cmd.InternalCommit
 
 ```text
 weclaw public version: v0.1.8-alpha | 05cb93c
-weclaw internal version: p0.1.5a56-mainline-tracker-audit-policy | <current-commit>
+weclaw internal version: p0.1.5a56a1-devlog-heading-order | <current-commit>
 ```
 
 替换`/usr/local/bin/weclaw`或其他真实运行时二进制之前，必须先对候选二进制执行`weclaw version`。替换后必须再次检查已安装二进制的版本输出。只要出现`dev | unknown`，就视为安装失败，即使该二进制本身可以运行。
