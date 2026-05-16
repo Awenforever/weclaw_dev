@@ -10,16 +10,33 @@
 - 当前公开Release：`v0.1.8-alpha`
 - 当前公开Release commit：`05cb93c`
 - 当前Release对应内部标记：`p0.1.5a50-outbound-markdown-capture`，位于`05cb93c`
-- 当前内部开发标签：`p0.1.5a55-cross-project-profile-boundary-docs`
-- 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a51-vm-proxy-docs=6988001`
-- 当前活动开发线：`p0.1.5a55-cross-project-profile-boundary-docs`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
+- 当前内部开发标签：`p0.1.5a56-mainline-tracker-audit-policy`
+- 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a55-cross-project-profile-boundary-docs=cad0437`
+- 当前活动开发线：`p0.1.5a56-mainline-tracker-audit-policy`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
 - 预期Release资产：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64和Windows amd64。
 - p0.1.5a51只记录VM中GitHub Release资产下载失败和宿主机代理修复方案，不移动公开Release。
 - 后续每个新任务都先做只读审计，确认`main`、`origin/main`、当前内部tag、公开Release tag、工作区干净状态以及开发手册和开发日志头部。
 
-## 2. 文件地图
+## 2. 长期主线任务检查表
+
+任何跨对话任务只要改变范围、状态、预期指标或责任边界，都必须更新此表。每个新开发对话都应先核对本表，再判断当前推进位置。
+
+状态词：`planned`、`in_progress`、`verified`、`blocked`、`done`、`superseded`。
+
+| 主线任务 | 预期指标或验收条件 | 当前版本或来源 | 当前状态 | 最后维护日期 | 备注 |
+| --- | --- | --- | --- | --- | --- |
+| Full telemetry契约基线 | 本机`dsproxy`已为`deepseek`和`deepseek-thinking`提供profile status和WeClaw status JSON，并包含`model`、`effort`、`context_window`、`tokens`、`pricing`、`cost`、`balance`和`compaction`。 | CoDeepSeedeX `p2.10a48-weclaw-full-telemetry-contract`，WeClaw `p0.1.5a56`前审计 | verified | 2026-05-16 | 接受为第一版工程基线。WeClaw侧仍需集成。 |
+| WeClaw责任边界 | 当`dsproxy`已提供结构化契约时，WeClaw在常规`/effort`、`/model`、`/status`或telemetry路径中不直接编辑Codex profile文件。 | WeClaw `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | 当前WeClaw代码仍存在profile修复逻辑，下一轮实现分支需要重构。 |
+| `/effort`集成 | `/effort max`调用权威`dsproxy profile set-effort <profile> max --json`契约，并展示`effort.user_facing`或`effort.deepseek_reasoning_effort`。 | CoDeepSeedeX `p2.10a48`之后的WeClaw待实现项 | planned | 2026-05-16 | 不要把WeClaw扩展成全局Codex profile修复层。 |
+| `/status`契约集成 | `/status`读取`dsproxy status <route> --weclaw-json`或等价HTTP接口，只展示返回字段。缺失或不可用字段必须明确降级。 | CoDeepSeedeX `p2.10a48`之后的WeClaw待实现项 | planned | 2026-05-16 | token级context和char级运行时compaction不能混合到同一个进度条，除非明确标注单位。 |
+| Telemetry展示质量 | 微信移动端输出保持紧凑、Markdown优先，并从`dsproxy`展示model、effort、context window、token usage、estimated cost、balance和compaction。 | WeClaw待实现项 | planned | 2026-05-16 | WeClaw不维护模型价格、余额逻辑，也不估算prompt内部子类token。 |
+| 证据优先审计纪律 | 源码和文档改动必须基于完整源码文件、完整主文档或完整函数/模块块级上下文，而不是孤立grep片段。 | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | grep/rg只能用于定位符号或验证标记，不能作为补丁设计的充分证据。 |
+| 跨项目反馈闭环 | 每轮WeClaw集成后，根据缺失字段、语义歧义或契约不稳定点，生成精确的CoDeepSeedeX后续需求prompt。 | 第一轮WeClaw集成后执行 | planned | 2026-05-16 | prompt必须基于实际WeClaw实现结果和运行日志。 |
+| Release准备 | README、开发手册、开发日志、focused tests、full tests和本地运行时版本元数据在公开Release决策前保持一致。 | 当前公开Release仍为`v0.1.8-alpha`，位于`05cb93c` | planned | 2026-05-16 | 内部追踪表更新不得移动公开Release tag，不重建Release资产。 |
+
+## 3. 文件地图
 
 | 路径 | 作用 |
 | --- | --- |
@@ -40,11 +57,13 @@
 | `docs/developer-handbook.zh-CN.md` | 中文维护者镜像。 |
 | `docs/development-log.md` | 可回溯详细开发日志。 |
 
-## 3. 开发协作契约
+## 4. 开发协作契约
 
 - 用户在本机或VM执行命令并上传日志。
 - 不猜源码结构、运行态、日志或配置。
 - 证据不足时先给只读审计命令。
+- 当源码或文档改动需要结构判断时，应优先要求用户直接上传完整源码文件、完整主文档或完整函数/模块块级上下文。grep或rg片段只能作为定位辅助，不能作为补丁设计的充分证据。
+- 补丁前必须记录已审阅文件或块、expected markers、forbidden markers、验证规则和测试断言。若上下文不足，应先做全文审计，再补丁。
 - 默认给可复制命令或补丁脚本，不要求手动打开文件替换。
 - 长输出写入`/tmp/*.txt`，终端只显示`run_ok`、`out`、行数、字节数和简短tail。
 - 每个审计或补丁日志必须包含`stage`、`prefix`、`branch`、`status_count`、`head`、`run_ok`和`out`。
@@ -57,7 +76,7 @@
 - 推送工作分支时同步推送内部tag。
 - 合并到`main`必须在验证后fast-forward。
 
-## 4. 版本、tag和Release规则
+## 5. 版本、tag和Release规则
 
 - 公开Release tag使用`v0.1.x-alpha`。
 - 内部开发和handoff tag必须使用`p<major>.<minor>.<patch>[aN[aM...]][-topic]`。
@@ -71,7 +90,7 @@
 - 发布Release前，开发机必须与当前`main`提交同步。
 - Release资产必须覆盖全部预期平台。
 
-## 5. Release note规则
+## 6. Release note规则
 
 - GitHub Release页面已有标题，Release正文不要再写`WeClaw Dev v0.1.7-alpha`这类重复标题行。
 - 正文从`Highlights`、`Changes`、`Fixes`、`Install`或`Validation`等部分开始。
@@ -79,7 +98,7 @@
 - Release note应描述用户可见行为和验证状态。
 - 除非解释用户可见变化或已知风险，否则不要堆实现细节。
 
-## VM中通过宿主机代理下载GitHub Release资产
+## 7. VM中通过宿主机代理下载GitHub Release资产
 
 - 根因模式：VM可以访问`github.com`、`api.github.com`、`codeload.github.com`和jsDelivr，但GitHub Release资产会跳转到`release-assets.githubusercontent.com`，该链路在VM网络中可能超时。
 - `weclaw upgrade`是Go HTTP客户端。它读取`HTTP_PROXY`、`HTTPS_PROXY`、`http_proxy`和`https_proxy`，不会读取`git config http.*.proxy`。
@@ -88,7 +107,7 @@
 - 推荐VM修复方式：持久化用户级`~/.weclaw/proxy.env`，从`~/.profile`和`~/.bashrc`加载，并将Git代理同步更新到同一个可达宿主机代理。
 - 持久化后验证命令：直接运行`weclaw upgrade`，应能正常报告`Already up to date`或升级到当前公开Release。
 
-## 6. 文档维护规则
+## 8. 文档维护规则
 
 - README面向用户，应把安装、升级、启动、恢复、CLI命令和微信端slash命令放在技术细节之前。
 - WeClaw CLI命令集中放置。
@@ -105,7 +124,7 @@
 - 保持微信ClawBot回复Markdown优先。纯文本转换只用于内部分类或保守fallback逻辑，不作为主要出站路径。
 - p0.1.5a42将微信端slash command统一改为Markdown精排版，包括表格、章节标题和context window进度条。
 
-## 7. 最近一个大版本上下文
+## 9. 最近一个大版本上下文
 
 `v0.1.7-alpha`收束p5a20到p5a25主线。
 
@@ -121,7 +140,7 @@
 - `weclaw upgrade --alpha`可以识别同公开tag但commit更新的升级，并迁移受管进程。
 - `weclaw stop`现在会报告停止了哪些PID或当前未运行，清理stale pid状态，并确认没有managed进程残留。
 
-## 8. 经验总结
+## 10. 经验总结
 
 - 直接覆盖运行中的二进制可能触发`Text file busy`，应采用停止、构建、写入新路径、原子替换。
 - 只有thread id不足以让新的Codex app-server进程真正恢复会话，必须调用`thread/resume`。
@@ -134,7 +153,7 @@
 
 - p0.1.5a39之后，内部tag治理完成：内部开发使用规范化`p*.*.*`tag，CI不再自动发布分支/tag pre-release，公开Release必须通过手动`release.yml`流程发布。GitHub Release `targetCommitish`可能显示`main`，因此Release commit校验以tag目标为准。所有预规范化内部`v`前缀ref已在确认规范镜像覆盖后删除。
 
-## 9. 后续方向
+## 11. 后续方向
 
 - 持续保持README面向用户。
 - 保持handoff简洁。
@@ -166,7 +185,7 @@ github.com/fastclaw-ai/weclaw/cmd.InternalCommit
 
 ```text
 weclaw public version: v0.1.8-alpha | 05cb93c
-weclaw internal version: p0.1.5a54-local-build-ldflags-docs | <current-commit>
+weclaw internal version: p0.1.5a56-mainline-tracker-audit-policy | <current-commit>
 ```
 
 替换`/usr/local/bin/weclaw`或其他真实运行时二进制之前，必须先对候选二进制执行`weclaw version`。替换后必须再次检查已安装二进制的版本输出。只要出现`dev | unknown`，就视为安装失败，即使该二进制本身可以运行。

@@ -1,3 +1,13 @@
+## 2026-05-16 - p0.1.5a56-mainline-tracker-audit-policy
+
+- Scope: documentation governance for the WeClaw and CoDeepSeedeX full telemetry integration line.
+- Change: added a long-term mainline task tracker to both developer handbooks, including expected metrics, current version or source, current status, last maintained date, and notes.
+- Change: recorded the audit rule that source and document modifications should be based on complete source files, full canonical documents, or complete function/module blocks. Grep and rg are navigation or verification aids, not sufficient patch evidence.
+- Change: updated the active internal development line from `p0.1.5a55-cross-project-profile-boundary-docs` to `p0.1.5a56-mainline-tracker-audit-policy`.
+- Validation: documentation marker checks, `git diff --check`, `bash -n install.sh`, focused package tests, and full `go test ./...` are required before merge.
+- Notes or lessons: long-running cross-project work needs an explicit checklist to prevent task drift across conversations and inserted side tasks.
+- Follow-up: implement the first WeClaw integration branch against CoDeepSeedeX `p2.10a48-weclaw-full-telemetry-contract`, then produce the next CoDeepSeedeX feedback prompt from actual implementation gaps.
+
 # WeClaw Dev Development Log
 
 ## 2026-05-15 - p0.1.5a53-effort-profile-slash-polish

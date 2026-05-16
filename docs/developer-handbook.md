@@ -10,16 +10,33 @@ This is the canonical English handoff for starting a new AI development conversa
 - Current public Release: `v0.1.8-alpha`
 - Current public Release commit: `05cb93c`
 - Current Release internal marker: `p0.1.5a50-outbound-markdown-capture` at `05cb93c`
-- Current internal development tag: `p0.1.5a55-cross-project-profile-boundary-docs`
-- Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a51-vm-proxy-docs=6988001`
-- Current active development line: `p0.1.5a55-cross-project-profile-boundary-docs`. Resolve its exact commit from Git instead of trusting a copied static hash.
+- Current internal development tag: `p0.1.5a56-mainline-tracker-audit-policy`
+- Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a55-cross-project-profile-boundary-docs=cad0437`
+- Current active development line: `p0.1.5a56-mainline-tracker-audit-policy`. Resolve its exact commit from Git instead of trusting a copied static hash.
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
 - Expected Release assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
 - p0.1.5a51 only documented the VM GitHub Release asset download failure and host-proxy fix. It did not move the public Release.
 - Start every future task with a read-only audit of `main`, `origin/main`, the active internal tag, public Release tags, clean worktree state, and the handbook/log heads.
 
-## 2. File map
+## 2. Long-term mainline task tracker
+
+Update this table whenever a cross-conversation task changes scope, status, expected metrics, or ownership. Treat it as the first progress checkpoint for any new development conversation.
+
+Status vocabulary: `planned`, `in_progress`, `verified`, `blocked`, `done`, `superseded`.
+
+| Mainline item | Expected metric or acceptance condition | Current version or source | Current status | Last maintained | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Full telemetry contract baseline | Local `dsproxy` exposes profile status and WeClaw status JSON for `deepseek` and `deepseek-thinking`, including `model`, `effort`, `context_window`, `tokens`, `pricing`, `cost`, `balance`, and `compaction`. | CoDeepSeedeX `p2.10a48-weclaw-full-telemetry-contract`; WeClaw audit before `p0.1.5a56` | verified | 2026-05-16 | Contract is accepted as the first engineering baseline. WeClaw still needs integration work. |
+| WeClaw ownership boundary | WeClaw does not directly edit Codex profile files for normal `/effort`, `/model`, `/status`, or telemetry paths when `dsproxy` provides a structured contract. | WeClaw `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Existing WeClaw code still contains profile repair logic and must be refactored in the next implementation branch. |
+| `/effort` integration | `/effort max` calls the authoritative `dsproxy profile set-effort <profile> max --json` contract and displays `effort.user_facing` or `effort.deepseek_reasoning_effort`. | Pending WeClaw implementation after CoDeepSeedeX `p2.10a48` | planned | 2026-05-16 | Do not widen WeClaw into a global Codex profile repair layer. |
+| `/status` contract integration | `/status` consumes `dsproxy status <route> --weclaw-json` or the equivalent HTTP endpoint and renders only returned data. Missing or unavailable fields degrade explicitly. | Pending WeClaw implementation after CoDeepSeedeX `p2.10a48` | planned | 2026-05-16 | Token-level context and char-level runtime compaction must not be merged into one progress bar without unit labels. |
+| Telemetry display quality | Mobile WeChat output remains compact and Markdown-first while showing model, effort, context window, token usage, estimated cost, balance, and compaction from `dsproxy`. | Pending WeClaw implementation | planned | 2026-05-16 | Do not maintain model prices, balance logic, or prompt subcategory token estimates in WeClaw. |
+| Evidence-first audit discipline | Source and document changes are based on full source files, full canonical documents, or complete function/module blocks rather than isolated grep snippets. | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Grep/rg may help locate symbols or verify markers, but it is not sufficient evidence for patch design. |
+| Cross-project feedback loop | After each WeClaw integration round, produce a precise CoDeepSeedeX follow-up prompt for missing fields, ambiguous semantics, or unstable contract behavior. | Pending after first WeClaw integration branch | planned | 2026-05-16 | Keep the prompt grounded in actual WeClaw implementation results and runtime logs. |
+| Release readiness | README, handbooks, development log, focused tests, full tests, and local runtime version metadata are consistent before any public Release decision. | Public Release remains `v0.1.8-alpha` at `05cb93c` | planned | 2026-05-16 | Internal tracker updates must not move public Release tags or rebuild assets. |
+
+## 3. File map
 
 | Path | Role |
 | --- | --- |
@@ -40,11 +57,13 @@ This is the canonical English handoff for starting a new AI development conversa
 | `docs/developer-handbook.zh-CN.md` | Chinese maintainer mirror of the handoff. |
 | `docs/development-log.md` | Detailed chronological development log. |
 
-## 3. Development working contract
+## 4. Development working contract
 
 - The user runs commands locally or in a VM and uploads logs.
 - Do not guess source layout, runtime state, logs, or configuration.
 - If evidence is missing, ask for a read-only audit command.
+- When source or documentation changes require structural judgment, first request complete source files, full canonical documents, or complete function/module blocks from the user. Grep or rg excerpts are navigation aids only and must not be treated as sufficient patch evidence.
+- Before patching, record the reviewed files or blocks, expected markers, forbidden markers, validation rules, and test assertions. If the required context is unavailable, do a full-context audit before patching.
 - Prefer copyable commands and patch scripts over manual file editing.
 - Long output must be written to `/tmp/*.txt`; the terminal should show only `run_ok`, `out`, line count, byte count, and a short tail.
 - Every audit or patch log must include `stage`, `prefix`, `branch`, `status_count`, `head`, `run_ok`, and `out`.
@@ -57,7 +76,7 @@ This is the canonical English handoff for starting a new AI development conversa
 - When pushing a work branch, push the matching internal tag as well.
 - Merge to `main` only by fast-forward after validation.
 
-## 4. Version, tag, and Release rules
+## 5. Version, tag, and Release rules
 
 - Public Release tags use `v0.1.x-alpha`.
 - Internal development and handoff tags must use `p<major>.<minor>.<patch>[aN[aM...]][-topic]`.
@@ -71,7 +90,7 @@ This is the canonical English handoff for starting a new AI development conversa
 - Before a Release, the development machine must be synchronized with the current `main` commit.
 - Release assets must be checked for all expected platforms.
 
-## 5. Release note rules
+## 6. Release note rules
 
 - GitHub Release already has a title. The Release body must not repeat a title line such as `WeClaw Dev v0.1.7-alpha`.
 - Start the body from sections such as `Highlights`, `Changes`, `Fixes`, `Install`, or `Validation`.
@@ -79,7 +98,7 @@ This is the canonical English handoff for starting a new AI development conversa
 - Release notes must describe user-visible behavior and validation status.
 - Avoid implementation-only details unless they explain a user-visible change or a known operational risk.
 
-## VM GitHub Release download through host proxy
+## 7. VM GitHub Release download through host proxy
 
 - Root cause pattern: the VM can reach `github.com`, `api.github.com`, `codeload.github.com`, and jsDelivr, but GitHub Release assets redirect to `release-assets.githubusercontent.com`, which may time out from the VM network.
 - `weclaw upgrade` is a Go HTTP client. It reads `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy`, and `https_proxy`; it does not read `git config http.*.proxy`.
@@ -88,7 +107,7 @@ This is the canonical English handoff for starting a new AI development conversa
 - Preferred VM fix: persist a user-level `~/.weclaw/proxy.env`, source it from `~/.profile` and `~/.bashrc`, and update Git proxy settings to the same reachable host proxy.
 - Verification command after persistence: `weclaw upgrade` should run without explicit proxy variables and report either `Already up to date` or upgrade to the current public Release.
 
-## 6. Documentation maintenance rules
+## 8. Documentation maintenance rules
 
 - README files are user-facing. Put install, update, start, resume, CLI commands, and WeChat slash commands before technical details.
 - Group WeClaw CLI commands together.
@@ -102,7 +121,7 @@ This is the canonical English handoff for starting a new AI development conversa
 - Whenever a milestone permanently changes user workflow or existing CLI behavior, add a README table row with version, affected object, previous behavior, and current behavior.
 - Before any Release, confirm the development machine and current `main` commit are synchronized.
 
-## 7. Recent major-version context
+## 9. Recent major-version context
 
 `v0.1.7-alpha` closed the p5a20 to p5a25 line.
 
@@ -118,7 +137,7 @@ Key user-visible changes:
 - `weclaw upgrade --alpha` can detect same-public-tag but newer-commit upgrades and migrate a managed process.
 - `weclaw stop` now reports stopped PIDs or not-running state, clears stale PID state, and verifies that no managed process remains.
 
-## 8. Lessons learned
+## 10. Lessons learned
 
 - Directly overwriting a running binary can trigger `Text file busy`. Use stop, build, install to a new path, then atomic replacement.
 - Codex ACP thread identity is not enough for a new app-server process. Real resume requires `thread/resume`.
@@ -129,7 +148,7 @@ Key user-visible changes:
 - Raw ACP stdout logging is useful for diagnosis but should stay off by default.
 - A stop command must be explicit: report what was stopped, clear stale PID state, and verify that follow-up `start` will not immediately see the same managed process.
 
-## 9. Next likely work
+## 11. Next likely work
 
 - After p0.1.5a39, internal tag hygiene is complete: use normalized `p*.*.*` internal tags, CI no longer auto-publishes branch/tag pre-releases, and public Releases must go through the manual `release.yml` workflow. GitHub Release `targetCommitish` may display `main`, so the tag target is the source of truth for Release commit verification. All pre-normalization internal `v`-prefixed refs have been removed after verified normalized mirror coverage.
 - Keep README structure user-oriented.
@@ -163,7 +182,7 @@ The expected local-development version shape is:
 
 ```text
 weclaw public version: v0.1.8-alpha | 05cb93c
-weclaw internal version: p0.1.5a54-local-build-ldflags-docs | <current-commit>
+weclaw internal version: p0.1.5a56-mainline-tracker-audit-policy | <current-commit>
 ```
 
 Before replacing `/usr/local/bin/weclaw` or any other real runtime binary, the generated candidate binary must be checked with `weclaw version`. After replacement, the installed binary must be checked again. A result containing `dev | unknown` is a failed installation, even if the binary itself runs.
