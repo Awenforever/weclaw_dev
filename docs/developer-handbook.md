@@ -7,13 +7,15 @@ This is the canonical English handoff for starting a new AI development conversa
 - Project path: `~/projects/weclaw-streaming`
 - GitHub repository: `Awenforever/weclaw_dev`
 - Main branch: `main`
-- Current public Release: `v0.1.8-alpha`
-- Current public Release commit: `05cb93c`
+- Current Latest public Release: `v0.1.8-alpha`
+- Current Latest public Release commit: `05cb93c`
+- Current public pre-release target: `v0.1.9-alpha`. Resolve its exact commit from the public tag after publication.
 - Current Release internal marker: `p0.1.5a50-outbound-markdown-capture` at `05cb93c`
-- Current internal development tag: `p0.1.5a59-status-paths-restore`
-- Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a58-status-telemetry-polish=3ccea5d`
-- Current active development line: `p0.1.5a59-status-paths-restore`. Resolve its exact commit from Git instead of trusting a copied static hash.
+- Current internal development tag: `p0.1.5a60-release-v0.1.9-alpha`
+- Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
+- Current active development line: `p0.1.5a60-release-v0.1.9-alpha`. Resolve its exact commit from Git instead of trusting a copied static hash.
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
+- Target `v0.1.9-alpha` GitHub Release title is `WeClaw Dev v0.1.9-alpha`, must be created as a pre-release, and must require CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
 - Expected Release assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
 - p0.1.5a51 only documented the VM GitHub Release asset download failure and host-proxy fix. It did not move the public Release.
@@ -27,14 +29,14 @@ Status vocabulary: `planned`, `in_progress`, `verified`, `blocked`, `done`, `sup
 
 | Mainline item | Expected metric or acceptance condition | Current version or source | Current status | Last maintained | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Full telemetry contract baseline | Local `dsproxy` exposes profile status and WeClaw status JSON for `deepseek` and `deepseek-thinking`, including `model`, `effort`, `context_window`, `tokens`, `pricing`, `cost`, `balance`, and `compaction`. | CoDeepSeedeX `p2.10a48-weclaw-full-telemetry-contract`; WeClaw audit before `p0.1.5a56` | verified | 2026-05-16 | Contract is accepted as the first engineering baseline. WeClaw first-round integration is implemented in `p0.1.5a57-dsproxy-telemetry-contract`. |
+| Full telemetry contract baseline | Local `dsproxy` exposes profile status and WeClaw status JSON for `deepseek` and `deepseek-thinking`, including `model`, `effort`, `context_window`, `tokens`, `pricing`, `cost`, `balance`, and `compaction`. | CoDeepSeedeX `v0.3.9-alpha` / `p2.10a55-weclaw-runtime-status-contract`; WeClaw `p0.1.5a59-status-paths-restore` | verified | 2026-05-17 | Runtime audit shows token usage, estimated cost, balance, and model conflict display hints are now available from dsproxy. |
 | WeClaw ownership boundary | WeClaw does not directly edit Codex profile files for normal `/effort`, `/model`, `/status`, or telemetry paths when `dsproxy` provides a structured contract. | WeClaw `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Profile repair logic is removed from the `/effort` path in `p0.1.5a57-dsproxy-telemetry-contract`. |
 | `/effort` integration | `/effort max` calls the authoritative `dsproxy profile set-effort <profile> max --json` contract and displays `effort.user_facing` or `effort.deepseek_reasoning_effort`. | WeClaw `p0.1.5a57-dsproxy-telemetry-contract` | verified | 2026-05-16 | WeClaw no longer edits Codex profile files in this path. |
-| `/status` contract integration | `/status` consumes `dsproxy status <route> --weclaw-json` and renders returned data with explicit fallback for unavailable fields. | WeClaw `p0.1.5a58-status-telemetry-polish` | in_progress | 2026-05-16 | Display polish is implemented. Token usage, cost attribution, and provider balance still depend on dsproxy runtime data availability. |
-| Telemetry display quality | Mobile WeChat output remains compact and Markdown-first while showing model, effort, context window, token usage, estimated cost, balance, compaction, and a single-line paths row from `dsproxy` and WeClaw runtime state. | WeClaw `p0.1.5a59-status-paths-restore` | in_progress | 2026-05-16 | Context source, model-conflict diagnostics, and missing-reason internals are hidden from compact `/status`; a compact paths row is retained for debugging. |
+| `/status` contract integration | `/status` consumes `dsproxy status <route> --weclaw-json` and renders returned data with explicit fallback for unavailable fields. | WeClaw `p0.1.5a59-status-paths-restore` plus CoDeepSeedeX `v0.3.9-alpha` | verified | 2026-05-17 | Status output keeps token-level Context separate from char-level Compact/Trim and restores a single-line Paths row. |
+| Telemetry display quality | Mobile WeChat output remains compact and Markdown-first while showing model, effort, context window, token usage, estimated cost, balance, compaction, proxy, and a single-line paths row. | WeClaw `p0.1.5a59-status-paths-restore` | verified | 2026-05-17 | Compact `/status` hides internal diagnostics but retains user-useful runtime paths. |
 | Evidence-first audit discipline | Source and document changes are based on full source files, full canonical documents, or complete function/module blocks rather than isolated grep snippets. | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Grep/rg may help locate symbols or verify markers, but it is not sufficient evidence for patch design. |
-| Cross-project feedback loop | After each WeClaw integration round, produce a precise CoDeepSeedeX follow-up prompt for missing fields, ambiguous semantics, or unstable contract behavior. | Pending after first WeClaw integration branch | planned | 2026-05-16 | Keep the prompt grounded in actual WeClaw implementation results and runtime logs. |
-| Release readiness | README, handbooks, development log, focused tests, full tests, and local runtime version metadata are consistent before any public Release decision. | Public Release remains `v0.1.8-alpha` at `05cb93c` | planned | 2026-05-16 | Internal tracker updates must not move public Release tags or rebuild assets. |
+| Cross-project feedback loop | After each WeClaw integration round, produce a precise CoDeepSeedeX follow-up prompt for missing fields, ambiguous semantics, or unstable contract behavior. | CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | done | 2026-05-17 | The second-round feedback loop closed the visible token, cost, balance, context-used, and model-conflict contract gaps needed for this pre-release. |
+| Release readiness | README, handbooks, development log, focused tests, full tests, Release notes, and five platform assets are consistent before public Release publication. | Target pre-release `v0.1.9-alpha` | in_progress | 2026-05-17 | Release notes must state that CoDeepSeedeX `v0.3.9-alpha` or newer is required when CoDeepSeedeX integration is used. |
 
 ## 3. File map
 
@@ -181,8 +183,8 @@ github.com/fastclaw-ai/weclaw/cmd.InternalCommit
 The expected local-development version shape is:
 
 ```text
-weclaw public version: v0.1.8-alpha | 05cb93c
-weclaw internal version: p0.1.5a59-status-paths-restore | <current-commit>
+weclaw public version: v0.1.9-alpha | <release-commit>
+weclaw internal version: p0.1.5a60-release-v0.1.9-alpha | <release-commit>
 ```
 
 Before replacing `/usr/local/bin/weclaw` or any other real runtime binary, the generated candidate binary must be checked with `weclaw version`. After replacement, the installed binary must be checked again. A result containing `dev | unknown` is a failed installation, even if the binary itself runs.

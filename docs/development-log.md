@@ -1,3 +1,15 @@
+## 2026-05-17 - v0.1.9-alpha / p0.1.5a60-release-v0.1.9-alpha
+
+- Scope: public pre-release for the WeClaw / CoDeepSeedeX telemetry integration line.
+- Release target: `v0.1.9-alpha`.
+- Required companion version: CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
+- Change: `/effort max` now uses the authoritative `dsproxy profile set-effort <profile> max --json` path and no longer directly edits Codex profile files from WeClaw.
+- Change: `/status` now consumes `dsproxy status <route> --weclaw-json` and displays model, effort, token context, token usage, estimated cost, provider balance, runtime Compact/Trim and paths from the dsproxy contract.
+- Change: compact `/status` hides internal model-conflict and missing-reason diagnostics while preserving a single-line `Paths` row for active debugging.
+- Change: developer handbooks now record the release state, telemetry contract state, and CoDeepSeedeX version requirement.
+- Validation: release readiness audit confirmed `main=origin/main=68ca2bb`, clean worktree, target `v0.1.9-alpha` absent before publication, and CoDeepSeedeX runtime `v0.3.9-alpha` telemetry fields available.
+- Notes or lessons: Release notes must highlight the CoDeepSeedeX minimum version because older dsproxy builds lack the complete WeClaw telemetry contract.
+
 # WeClaw Dev Development Log
 
 ## 2026-05-16 - p0.1.5a59-status-paths-restore
