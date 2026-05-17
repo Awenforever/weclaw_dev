@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a72-status-contract-display-adaptation
+
+- Scope: Adapt WeClaw `/status` display to the CoDeepSeedeX `p2.10a61` WeClaw status contract.
+- Change: Context now uses `context_window.used_tokens` only when dsproxy marks it available, prefers `display_limit_tokens` as the denominator, and appends `est` when dsproxy marks the numerator estimated.
+- Change: Pricing now shows the dsproxy source label, per-1M input cache-hit, cache-miss and output prices, plus the pricing update date. `bundled_official_docs_snapshot` is displayed honestly as a bundled snapshot, not as a live official cache.
+- Boundary: WeClaw still does not infer context usage from session totals, does not maintain pricing, does not change Tokens/aux/EstCost semantics, and does not merge Policy, Compact and Trim rows.
+
 ## 2026-05-17 - p0.1.5a70-post-release-doc-finalize
 
 - Scope: post-release documentation finalization after the `v0.1.9-alpha` refresh.

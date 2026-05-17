@@ -1505,15 +1505,73 @@ func formatDsproxyPricingSummaryLine(payload map[string]any) string {
 	if !ok || !nestedBoolDefault(pricing, false, "available") {
 		return ""
 	}
-	sourceKind := pricingSourceLabel(nestedStringDefault(pricing, "unknown", "source_kind"))
-	updated := pricingUpdatedLabel(pricing)
-	refresh, _ := nestedMap(pricing, "refresh")
-	return fmt.Sprintf(
-		"Pricing  %s · updated %s · refresh %s",
-		sourceKind,
-		updated,
-		availabilityText(refresh),
-	)
+
+	parts := []string{
+		pricingSourceLabel(nestedStringDefault(pricing, "unknown", "source_kind")),
+	}
+	if priceSummary := pricingPricesSummary(pricing); priceSummary != "" {
+		parts = append(parts, priceSummary)
+	}
+	parts = append(parts, "updated "+pricingUpdatedLabel(pricing))
+
+	return "Pricing  " + strings.Join(parts, " · ")
+}
+
+func pricingPricesSummary(pricing map[string]any) string {
+	prices, ok := nestedMap(pricing, "prices")
+	if !ok {
+		return ""
+	}
+	currency := nestedStringDefault(pricing, "USD", "currency")
+	parts := make([]string, 0, 4)
+
+	if value, ok := pricingFloatValue(prices, "input_cache_hit"); ok {
+		parts = append(parts, "hit "+formatPerMillionPrice(value, currency))
+	}
+	if value, ok := pricingFloatValue(prices, "input_cache_miss"); ok {
+		parts = append(parts, "miss "+formatPerMillionPrice(value, currency))
+	} else if value, ok := pricingFloatValue(prices, "input"); ok {
+		parts = append(parts, "in "+formatPerMillionPrice(value, currency))
+	}
+	if value, ok := pricingFloatValue(prices, "output"); ok {
+		parts = append(parts, "out "+formatPerMillionPrice(value, currency))
+	}
+	if value, ok := pricingFloatValue(prices, "reasoning"); ok {
+		parts = append(parts, "reason "+formatPerMillionPrice(value, currency))
+	}
+
+	return strings.Join(parts, " ")
+}
+
+func pricingFloatValue(root map[string]any, keys ...string) (float64, bool) {
+	value, ok := nestedValue(root, keys...)
+	if !ok || value == nil {
+		return 0, false
+	}
+	switch typed := value.(type) {
+	case float64:
+		return typed, true
+	case int:
+		return float64(typed), true
+	case int64:
+		return float64(typed), true
+	case json.Number:
+		parsed, err := typed.Float64()
+		return parsed, err == nil
+	case string:
+		normalized := strings.NewReplacer("_", "", ",", "").Replace(strings.TrimSpace(typed))
+		if normalized == "" {
+			return 0, false
+		}
+		parsed, err := strconv.ParseFloat(normalized, 64)
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func formatPerMillionPrice(value float64, currency string) string {
+	return formatMoney(value, currency) + "/M"
 }
 
 func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
@@ -1571,8 +1629,10 @@ func pricingSourceLabel(sourceKind string) string {
 	switch sourceKind {
 	case "project_default_config", "project_default_pricing_config":
 		return "default config"
-	case "official_docs_html":
-		return "official docs"
+	case "bundled_official_docs_snapshot", "bundled_official_snapshot":
+		return "bundled official snapshot"
+	case "official_docs_html", "official_live_cache", "official_cache":
+		return "official cache"
 	case "user_cache", "cache", "pricing_cache":
 		return "pricing cache"
 	case "":
@@ -1583,10 +1643,13 @@ func pricingSourceLabel(sourceKind string) string {
 }
 
 func pricingUpdatedLabel(pricing map[string]any) string {
-	for _, key := range []string{"fetched_at", "updated_at", "pricing_updated_at"} {
+	for _, key := range []string{"fetched_at", "updated_at", "snapshot_created_at", "pricing_updated_at"} {
 		if value, ok := nestedValue(pricing, key); ok && value != nil {
 			text := strings.TrimSpace(fmt.Sprint(value))
 			if text != "" && text != "<nil>" {
+				if strings.Contains(text, "T") {
+					text = strings.Split(text, "T")[0]
+				}
 				return compactCommandOutput(text, 32)
 			}
 		}
@@ -1622,10 +1685,7 @@ func availabilityBoolText(value bool) string {
 }
 
 func formatDsproxyContextLine(payload map[string]any) string {
-	limit := nestedInt64Default(payload, 0, "context_window", "effective_safe_window_tokens")
-	if limit <= 0 {
-		limit = nestedInt64Default(payload, 0, "context_window", "display_limit_tokens")
-	}
+	limit := dsproxyContextDisplayLimit(payload)
 	used, ok := dsproxyContextUsedTokens(payload)
 	if !ok {
 		return fmt.Sprintf(
@@ -1634,13 +1694,33 @@ func formatDsproxyContextLine(payload map[string]any) string {
 			formatContextLimit(limit),
 		)
 	}
+
+	estimateSuffix := ""
+	if dsproxyContextUsedTokensEstimated(payload) {
+		estimateSuffix = " est"
+	}
+
 	return fmt.Sprintf(
-		"Context  [%s]  %s  %s/%s",
+		"Context  [%s]  %s  %s/%s%s",
 		formatCommandProgressBar(used, limit, 20),
 		formatTokenPercent(used, limit),
 		formatTokenCount(maxInt64(used, 0)),
 		formatContextLimit(limit),
+		estimateSuffix,
 	)
+}
+
+func dsproxyContextDisplayLimit(payload map[string]any) int64 {
+	for _, keys := range [][]string{
+		{"context_window", "display_limit_tokens"},
+		{"context_window", "limit_explanation", "display_limit_tokens"},
+		{"context_window", "effective_safe_window_tokens"},
+	} {
+		if value := nestedInt64Default(payload, 0, keys...); value > 0 {
+			return value
+		}
+	}
+	return 0
 }
 
 func dsproxyContextUsedTokens(payload map[string]any) (int64, bool) {
@@ -1653,6 +1733,23 @@ func dsproxyContextUsedTokens(payload map[string]any) (int64, bool) {
 		return 0, false
 	}
 	return used, true
+}
+
+func dsproxyContextUsedTokensEstimated(payload map[string]any) bool {
+	contextWindow, ok := nestedMap(payload, "context_window")
+	if !ok {
+		return false
+	}
+	if nestedBoolDefault(contextWindow, false, "used_tokens_is_estimated") {
+		return true
+	}
+	if nestedBoolDefault(contextWindow, false, "is_estimated") {
+		return true
+	}
+	if latest, ok := nestedMap(contextWindow, "latest_upstream_prompt_tokens"); ok {
+		return nestedBoolDefault(latest, false, "is_estimated_for_context_window")
+	}
+	return false
 }
 
 func tokenBucketTotal(bucket map[string]any) (int64, bool) {

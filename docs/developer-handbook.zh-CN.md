@@ -11,9 +11,9 @@
 - 当前Latest公开Release commit：`05cb93c`
 - 当前公开pre-release：`v0.1.9-alpha`，位于`6a5f10f`。
 - 当前Release对应内部标记：`p0.1.5a69-release-v0.1.9-alpha-refresh`，位于`6a5f10f`
-- 当前内部开发标签：`p0.1.5a70-post-release-doc-finalize`
+- 当前内部开发标签：`p0.1.5a72-status-contract-display-adaptation`
 - 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- 当前活动开发线：`p0.1.5a70-post-release-doc-finalize`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
+- 当前活动开发线：`p0.1.5a72-status-contract-display-adaptation`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - 目标`v0.1.9-alpha` GitHub Release标题为`WeClaw Dev v0.1.9-alpha`，必须创建为pre-release，并在使用CoDeepSeedeX集成时要求CoDeepSeedeX `v0.3.9-alpha`或更新版本。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
@@ -256,3 +256,8 @@ dsproxy Codex profile状态：model_reasoning_effort="xhigh"
 - 不把`.debug/`报告当成稳定公共API读取
 - 要求`dsproxy`提供机器可读的CLI或HTTP JSON接口，然后由WeClaw负责微信端展示
 - WeClaw只负责消息入口、路由、会话UX和Markdown排版
+
+
+## p0.1.5a72 status契约展示适配
+
+p0.1.5a72适配CoDeepSeedeX `p2.10a61`的WeClaw契约。普通`/status`只在`context_window.used_tokens_available=true`时展示Context numerator，并用`est`标明估算值。Context分母来自`context_window.display_limit_tokens`或`context_window.limit_explanation.display_limit_tokens`。Pricing行展示dsproxy返回的价格来源、每100万tokens单价和更新时间。`bundled_official_docs_snapshot`必须显示为随包官方快照，不能说成实时官网缓存。Tokens、`aux`、`EstCost`、Policy、Compact、Trim、Proxy和Paths继续保持分离。

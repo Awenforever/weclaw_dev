@@ -11,9 +11,9 @@ This is the canonical English handoff for starting a new AI development conversa
 - Current Latest public Release commit: `05cb93c`
 - Current public pre-release: `v0.1.9-alpha` at `6a5f10f`.
 - Current Release internal marker: `p0.1.5a69-release-v0.1.9-alpha-refresh` at `6a5f10f`
-- Current internal development tag: `p0.1.5a70-post-release-doc-finalize`
+- Current internal development tag: `p0.1.5a72-status-contract-display-adaptation`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- Current active development line: `p0.1.5a70-post-release-doc-finalize`. Resolve its exact commit from Git instead of trusting a copied static hash.
+- Current active development line: `p0.1.5a72-status-contract-display-adaptation`. Resolve its exact commit from Git instead of trusting a copied static hash.
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - Target `v0.1.9-alpha` GitHub Release title is `WeClaw Dev v0.1.9-alpha`, must be created as a pre-release, and must require CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
@@ -253,3 +253,8 @@ For future WeClaw work:
 - do not read `.debug/` reports as a stable public API
 - request a machine-readable `dsproxy` CLI or HTTP JSON interface, then format that result for WeChat
 - keep WeClaw responsible for messaging, routing, session UX, and Markdown presentation only
+
+
+## p0.1.5a72 status contract display adaptation
+
+p0.1.5a72 adapts ordinary `/status` to the CoDeepSeedeX `p2.10a61` WeClaw contract. Context now displays a numerator only when `context_window.used_tokens_available=true`, marks estimated numerators with `est`, and uses `context_window.display_limit_tokens` or `context_window.limit_explanation.display_limit_tokens` as the denominator. Pricing now displays the dsproxy pricing source label, per-1M token prices, and update date. `bundled_official_docs_snapshot` must be shown as a bundled snapshot, not as a live official cache. Tokens, `aux`, `EstCost`, Policy, Compact, Trim, Proxy, and Paths remain separate.

@@ -182,11 +182,6 @@ func sampleWeClawTelemetryRound3JSON() string {
     "user_visible": false,
     "degraded_fields": [
       {
-        "path": "context_window.used_tokens",
-        "reason": "context_used_tokens_not_reported_by_codex_or_provider",
-        "action": "display an unavailable marker instead of deriving context usage from session totals"
-      },
-      {
         "path": "context_window.model_catalog",
         "reason": "model_catalog_entry_not_found",
         "action": "add the effective model to the model catalog or repair the managed Codex profile"
@@ -201,9 +196,34 @@ func sampleWeClawTelemetryRound3JSON() string {
       "model_conflict_hidden_from_normal_status"
     ],
     "actions": [
-      "display an unavailable marker instead of deriving context usage from session totals",
       "keep semantic payload compaction disabled until blockers clear"
     ]
+  },
+  "context_window": {
+    "display_limit_tokens": 750000,
+    "effective_safe_window_tokens": 750000,
+    "used_tokens": 87,
+    "used_tokens_available": true,
+    "used_tokens_is_estimated": true,
+    "used_tokens_precision": "estimated_current_context_from_latest_upstream_prompt_tokens",
+    "used_tokens_source": "dsproxy_usage_ledger.latest_turn.by_purpose.primary.prompt_tokens",
+    "remaining_tokens_estimate": 749913,
+    "latest_upstream_prompt_tokens": {
+      "available": true,
+      "value": 87,
+      "unit": "tokens",
+      "is_estimated_for_context_window": true,
+      "precision": "provider_reported_prompt_tokens_for_latest_upstream_model_call",
+      "source": "dsproxy_usage_ledger.latest_turn.by_purpose.primary.prompt_tokens"
+    },
+    "limit_explanation": {
+      "display_limit_tokens": 750000,
+      "display_limit_source": "codex_profile.model_auto_compact_token_limit",
+      "display_limit_reason": "codex_profile_auto_compact_token_limit",
+      "auto_compact_token_limit": 750000,
+      "model_context_window_tokens": 1000000,
+      "unit": "tokens"
+    }
   },
   "tokens": {
     "taxonomy": {
@@ -212,7 +232,7 @@ func sampleWeClawTelemetryRound3JSON() string {
         "provider_usage_totals": "exact_provider_reported",
         "purpose_attribution": "exact_dsproxy_call_purpose",
         "prompt_subcategory_split": "not_reported_by_provider_without_tokenizer",
-        "context_window_used_tokens": "unavailable"
+        "context_window_used_tokens": "estimated_current_context_from_latest_upstream_prompt_tokens"
       }
     },
     "attribution": {
@@ -236,8 +256,9 @@ func sampleWeClawTelemetryRound3JSON() string {
       },
       "context_window_used_tokens": {
         "available": false,
-        "reason": "context_used_tokens_not_reported_by_codex_or_provider",
-        "action": "use context_window.used_tokens unavailable marker; do not derive context usage from session totals"
+        "estimate_field": "context_window.latest_upstream_prompt_tokens",
+        "estimate_precision": "estimated_current_context_from_latest_upstream_prompt_tokens",
+        "action": "use context_window.used_tokens when context_window.used_tokens_available is true; otherwise display an unavailable marker; never derive current context usage from session totals"
       }
     },
     "prompt_subcategory_split": {
@@ -264,16 +285,48 @@ func sampleWeClawTelemetryRound3JSON() string {
       }
     }
   },
+  "cost": {
+    "available": true,
+    "currency": "USD",
+    "is_estimated": true,
+    "last_turn_estimated_cost": 0.0001540728,
+    "session_estimated_cost": 0.5992747866,
+    "auxiliary_estimated_cost": 0.0093673598,
+    "usage_available": true,
+    "pricing_available": true,
+    "pricing_source_kind": "bundled_official_docs_snapshot",
+    "pricing_source_trust": "bundled_official_docs_snapshot",
+    "pricing_source_url": "https://api-docs.deepseek.com/quick_start/pricing",
+    "pricing_updated_at": "2026-05-17T00:00:00Z",
+    "official_pricing_available": false
+  },
   "pricing": {
     "available": true,
-    "source_kind": "project_default_config",
-    "is_stale": null,
-    "fetched_at": null,
-    "expires_at": null,
-    "refresh": {
-      "available": true,
+    "source": "project_default_pricing_config",
+    "source_kind": "bundled_official_docs_snapshot",
+    "source_trust": "bundled_official_docs_snapshot",
+    "source_url": "https://api-docs.deepseek.com/quick_start/pricing",
+    "official_reference_url": "https://api-docs.deepseek.com/quick_start/pricing",
+    "updated_at": "2026-05-17T00:00:00Z",
+    "snapshot_created_at": "2026-05-17T00:00:00Z",
+    "prices": {
+      "input_cache_hit": 0.0028,
+      "input_cache_miss": 0.14,
+      "output": 0.28
+    },
+    "pricing_source_state": {
+      "cost_uses_current_prices": true,
+      "current_prices_are_bundled_official_snapshot": true,
+      "current_prices_are_external_config": false,
+      "current_prices_are_official_live_cache": false,
+      "must_display_source_label": true
+    },
+    "official_source": {
+      "available": false,
       "source_kind": "official_docs_html",
-      "action": "run dsproxy pricing refresh --json to fetch and validate official DeepSeek pricing HTML; add --write-cache to persist it"
+      "source_url": "https://api-docs.deepseek.com/quick_start/pricing",
+      "reason": "official_pricing_cache_not_available_for_active_status",
+      "requires_refresh": true
     }
   },
   "semantic_compaction": {
@@ -939,7 +992,8 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 		"Tokens   last 50.2k  session 9.1M  aux 648.2k",
 		"EstCost session $0.5993  last $0.000154  aux $0.009367",
 		"Balance  5.83 CNY",
-		"Pricing  default config · updated n/a · refresh yes",
+		"87/750k est",
+		"Pricing  bundled official snapshot · hit $0.0028/M miss $0.14/M out $0.28/M · updated 2026-05-17",
 		"Policy   adaptive · trigger 1.2M chars · target 750k · keep 24",
 		"Compact [",
 		"Proxy    thinking · 127.0.0.1:8001 · reachable",
@@ -960,6 +1014,8 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 		"environment_tokens",
 		"runtime_tokens",
 		"semantic payload compaction enabled",
+		"Pricing  default config",
+		"refresh yes",
 	} {
 		if strings.Contains(reply, forbidden) {
 			t.Fatalf("status reply = %q, should not contain %q", reply, forbidden)
@@ -1007,6 +1063,46 @@ func TestDsproxyContextUsedTokensRequiresExplicitAvailability(t *testing.T) {
 	for _, want := range []string{"50.0%", "375k/750k"} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("context line = %q, want %q", line, want)
+		}
+	}
+}
+
+func TestDsproxyContextLineMarksEstimatedUsage(t *testing.T) {
+	payload, ok := parseJSONMap(sampleWeClawTelemetryRound3JSON())
+	if !ok {
+		t.Fatal("sample round4 telemetry JSON should parse")
+	}
+	line := formatDsproxyContextLine(payload)
+	for _, want := range []string{"0.0%", "87/750k est"} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("context line = %q, want %q", line, want)
+		}
+	}
+	if strings.Contains(line, "9.1M/750k") {
+		t.Fatalf("context line = %q, must not use session_total as context used tokens", line)
+	}
+}
+
+func TestDsproxyPricingSummaryShowsSnapshotPrices(t *testing.T) {
+	payload, ok := parseJSONMap(sampleWeClawTelemetryRound3JSON())
+	if !ok {
+		t.Fatal("sample round4 telemetry JSON should parse")
+	}
+	line := formatDsproxyPricingSummaryLine(payload)
+	for _, want := range []string{
+		"Pricing  bundled official snapshot",
+		"hit $0.0028/M",
+		"miss $0.14/M",
+		"out $0.28/M",
+		"updated 2026-05-17",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("pricing line = %q, want %q", line, want)
+		}
+	}
+	for _, forbidden := range []string{"default config", "refresh yes"} {
+		if strings.Contains(line, forbidden) {
+			t.Fatalf("pricing line = %q, should not contain %q", line, forbidden)
 		}
 	}
 }
