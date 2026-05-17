@@ -994,7 +994,7 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 		"Balance  5.83 CNY",
 		"87/750k",
 		"Pricing  hit $0.0028/M miss $0.14/M out $0.28/M · updated 2026-05-17",
-		"Policy   adaptive · trigger 1.2M chars · target 750k · keep 24",
+		"Policy   adaptive · trigger 1.2M chars · target 750k · keep ⤒24 msgs",
 		"Compact [",
 		"Proxy    thinking · 127.0.0.1:8001 · reachable",
 		"Paths    cfg ~/.weclaw/config.json · log ~/.weclaw/weclaw.log",
@@ -1207,6 +1207,22 @@ func TestDsproxyCompactionLinesFallbackToConfigWhenReportsMissing(t *testing.T) 
 	}
 	if strings.Contains(joined, "0/-- chars") {
 		t.Fatalf("compaction lines = %q, should not contain invalid 0/-- chars", joined)
+	}
+}
+
+func TestDsproxyCompactionPolicySummaryLabelsKeepMessages(t *testing.T) {
+	payload, ok := parseJSONMap(sampleWeClawTelemetryRound3JSON())
+	if !ok {
+		t.Fatal("sample telemetry JSON should parse")
+	}
+	line := formatDsproxyCompactionPolicySummaryLine(payload)
+	if !strings.Contains(line, "keep ⤒24 msgs") {
+		t.Fatalf("policy line = %q, want keep arrow message count", line)
+	}
+	for _, forbidden := range []string{"keep 24 msgs", "keep 24"} {
+		if strings.Contains(line, forbidden) {
+			t.Fatalf("policy line = %q, should not contain %q", line, forbidden)
+		}
 	}
 }
 

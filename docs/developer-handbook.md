@@ -11,9 +11,9 @@ This is the canonical English handoff for starting a new AI development conversa
 - Current Latest public Release commit: `05cb93c`
 - Current public pre-release: `v0.1.9-alpha` at `6a5f10f`.
 - Current Release internal marker: `p0.1.5a69-release-v0.1.9-alpha-refresh` at `6a5f10f`
-- Current internal development tag: `p0.1.5a74-runtime-payload-guard-display`
+- Current internal development tag: `p0.1.5a75-policy-keep-arrow-msgs-label`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- Current active development line: `p0.1.5a74-runtime-payload-guard-display`
+- Current active development line: `p0.1.5a75-policy-keep-arrow-msgs-label`
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - Target `v0.1.9-alpha` GitHub Release title is `WeClaw Dev v0.1.9-alpha`, must be created as a pre-release, and must require CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
@@ -268,3 +268,8 @@ p0.1.5a73 removes low-value source and estimate suffixes from ordinary `/status`
 ## p0.1.5a74 runtime payload guard display
 
 p0.1.5a74 adapts WeChat `/status` to the CoDeepSeedeX `runtime_payload_guard` contract from `p2.10a62`. Compact and Trim now prefer real-time char counters from `runtime_payload_guard.compaction.current_chars` and `runtime_payload_guard.trimming.current_chars`, using `trigger_chars` and `max_context_chars` as denominators. The older config/report fallback remains only for runtimes that do not expose the new contract.
+
+
+## p0.1.5a75 Policy keep label polish
+
+p0.1.5a75 changes the ordinary `/status` Policy row from `keep 24` to `keep ⤒24 msgs`, making the retained-message count explicit while keeping the status layout compact.

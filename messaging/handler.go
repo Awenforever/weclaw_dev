@@ -1621,7 +1621,7 @@ func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
 		parts = append(parts, "target "+formatCompactStatusNumber(target))
 	}
 	if keep > 0 {
-		parts = append(parts, fmt.Sprintf("keep %d", keep))
+		parts = append(parts, fmt.Sprintf("keep ⤒%d msgs", keep))
 	}
 	return "Policy   " + strings.Join(parts, " · ")
 }

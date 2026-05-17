@@ -1,5 +1,10 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a75-policy-keep-arrow-msgs-label
+
+- Scope: small WeChat `/status` display polish.
+- Change: Policy now displays `keep ⤒24 msgs` instead of `keep 24`, making the retained-message count explicit while keeping the line compact.
+
 ## 2026-05-17 - p0.1.5a74-runtime-payload-guard-display
 
 - Scope: Adapt WeChat `/status` to the CoDeepSeedeX `p2.10a62` runtime payload guard contract.

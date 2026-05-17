@@ -11,9 +11,9 @@
 - 当前Latest公开Release commit：`05cb93c`
 - 当前公开pre-release：`v0.1.9-alpha`，位于`6a5f10f`。
 - 当前Release对应内部标记：`p0.1.5a69-release-v0.1.9-alpha-refresh`，位于`6a5f10f`
-- 当前内部开发标签：`p0.1.5a74-runtime-payload-guard-display`
+- 当前内部开发标签：`p0.1.5a75-policy-keep-arrow-msgs-label`
 - 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- 当前活动开发线：`p0.1.5a74-runtime-payload-guard-display`
+- 当前活动开发线：`p0.1.5a75-policy-keep-arrow-msgs-label`
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - 目标`v0.1.9-alpha` GitHub Release标题为`WeClaw Dev v0.1.9-alpha`，必须创建为pre-release，并在使用CoDeepSeedeX集成时要求CoDeepSeedeX `v0.3.9-alpha`或更新版本。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
@@ -271,3 +271,8 @@ p0.1.5a73精简普通`/status`中的低价值来源和估算后缀：Pricing行�
 ## p0.1.5a74 runtime payload guard展示适配
 
 p0.1.5a74适配CoDeepSeedeX `p2.10a62`新增的`runtime_payload_guard`契约。普通`/status`中的Compact和Trim优先使用`runtime_payload_guard.compaction.current_chars`和`runtime_payload_guard.trimming.current_chars`作为实时char级numerator，并分别使用`trigger_chars`和`max_context_chars`作为分母。旧的config/report回退只保留给尚未提供新契约的运行时。
+
+
+## p0.1.5a75 Policy保留数量标签精简
+
+p0.1.5a75将普通`/status`中的Policy行从`keep 24`改为`keep ⤒24 msgs`，在不拉长布局的前提下明确这是保留消息数量。
