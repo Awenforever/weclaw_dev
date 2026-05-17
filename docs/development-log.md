@@ -1,5 +1,15 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a62-second-round-contract-acceptance-audit
+
+- Scope: documentation-only WeClaw-side acceptance audit for the original second-round CoDeepSeedeX profile and telemetry contract request.
+- Change: recorded the A1-A10 second-round acceptance matrix in both developer handbooks.
+- Change: clarified that `p2.10a55-weclaw-runtime-status-contract` is a stage-accepted baseline for current WeClaw operation, not a complete closure of every original second-round requirement.
+- Change: documented `/model` and `/balance` as partial boundaries. `/model` may update WeClaw local runtime/config fallback after calling dsproxy, but dsproxy `effective_model` remains authoritative. `/balance` still consumes legacy `dsproxy balance` JSON and should later consider the richer `--weclaw-json` balance diagnostic fields.
+- Change: documented third-round CoDeepSeedeX candidates: real `context_window.used_tokens`, prompt-subcategory attribution, official pricing refresh (`pricing.refresh.available=false` / `official_live_pricing_refresh_not_implemented`), model catalog binding, semantic payload compaction readiness, and debug/verbose diagnostics.
+- Validation: docs-only branch should pass `git diff --check`, `bash -n install.sh`, focused tests, and full `go test ./...`.
+- Notes or lessons: second-round acceptance must be matrix-based. A correct compact `/status` screenshot proves only one output surface, not the whole cross-project ownership and telemetry contract.
+
 ## 2026-05-17 - p0.1.5a61-dsproxy-runtime-status-followup
 
 - Scope: WeClaw follow-up integration against CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract`.

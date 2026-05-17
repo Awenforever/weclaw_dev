@@ -11,9 +11,9 @@
 - 当前Latest公开Release commit：`05cb93c`
 - 当前公开pre-release：`v0.1.9-alpha`，位于`a02b3c9`。
 - 当前Release对应内部标记：`p0.1.5a50-outbound-markdown-capture`，位于`05cb93c`
-- 当前内部开发标签：`p0.1.5a61-dsproxy-runtime-status-followup`
+- 当前内部开发标签：`p0.1.5a62-second-round-contract-acceptance-audit`
 - 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- 当前活动开发线：`p0.1.5a61-dsproxy-runtime-status-followup`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
+- 当前活动开发线：`p0.1.5a62-second-round-contract-acceptance-audit`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - 目标`v0.1.9-alpha` GitHub Release标题为`WeClaw Dev v0.1.9-alpha`，必须创建为pre-release，并在使用CoDeepSeedeX集成时要求CoDeepSeedeX `v0.3.9-alpha`或更新版本。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
@@ -35,8 +35,36 @@
 | `/status`契约集成 | `/status`读取`dsproxy status <route> --weclaw-json`，并对缺失或不可用字段明确降级。 | WeClaw `p0.1.5a61-dsproxy-runtime-status-followup`加CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | verified | 2026-05-17 | 状态输出读取可用的usage/cost/balance字段，保持token级Context与usage ledger累计值分离，并恢复单行Paths。 |
 | Telemetry展示质量 | 微信移动端输出保持紧凑、Markdown优先，并展示model、effort、context window、token usage、estimated cost、balance、compaction、proxy和单行paths。 | WeClaw `p0.1.5a61-dsproxy-runtime-status-followup` | verified | 2026-05-17 | WeClaw现在读取dsproxy的`summary.total_tokens`，保留estimated cost语义，并且不把`session_total`当作context used tokens。 |
 | 证据优先审计纪律 | 源码和文档改动必须基于完整源码文件、完整主文档或完整函数/模块块级上下文，而不是孤立grep片段。 | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | grep/rg只能用于定位符号或验证标记，不能作为补丁设计的充分证据。 |
-| 跨项目反馈闭环 | 每轮WeClaw集成后，根据缺失字段、语义歧义或契约不稳定点，生成精确的CoDeepSeedeX后续需求prompt。 | CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | done | 2026-05-17 | 第二轮反馈已闭环本次预发布所需的token、cost、balance、context used和model conflict契约缺口。 |
-| Release准备 | README、开发手册、开发日志、focused tests、full tests、Release notes和五个平台资产在公开Release发布前保持一致。 | 目标pre-release `v0.1.9-alpha` | in_progress | 2026-05-17 | Release notes必须说明使用CoDeepSeedeX集成时要求CoDeepSeedeX `v0.3.9-alpha`或更新版本。 |
+| 跨项目反馈闭环 | 每轮WeClaw集成后，根据缺失字段、语义歧义或契约不稳定点，生成精确的CoDeepSeedeX后续需求prompt。 | WeClaw `p0.1.5a62-second-round-contract-acceptance-audit`，CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | in_progress | 2026-05-17 | 第二轮基线对当前WeClaw运行已阶段性接受，但context used tokens、prompt子类归因、官方价格刷新、model catalog绑定、semantic compaction可观测性和debug/verbose诊断仍是第三轮候选。 |
+| Release准备 | README、开发手册、开发日志、focused tests、full tests、Release notes和五个平台资产在公开Release发布前保持一致。 | 当前pre-release `v0.1.9-alpha`，内部线 `p0.1.5a62-second-round-contract-acceptance-audit` | in_progress | 2026-05-17 | a62不重新发布、不移动公开tag。a62只记录a61运行验证后的第二轮验收边界和第三轮候选需求。 |
+
+### 第二轮CoDeepSeedeX契约验收
+
+`p0.1.5a62-second-round-contract-acceptance-audit`是WeClaw侧对原第二轮CoDeepSeedeX需求的验收检查点。它不是新的运行功能分支，也不是公开Release。它记录WeClaw可以安全消费CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract`的哪些内容，以及哪些内容仍属于后续CoDeepSeedeX轮次。
+
+| 编号 | 需求范围 | WeClaw验收结论 | 证据和边界 |
+| --- | --- | --- | --- |
+| A1 | dsproxy是Codex profile和DeepSeek运行配置的权威方。 | 阶段性接受。 | `dsproxy profile status deepseek-thinking --json`和`dsproxy status thinking --weclaw-json`已经提供结构化`model`、`effort`、`context_window`、`health`、`tokens`、`cost`、`balance`和`compaction`字段。 |
+| A2 | WeClaw在普通运行控制路径中不得直接编辑`~/.codex/config.toml`。 | 当前`/effort`和`/status`路径接受。 | `/effort`使用`dsproxy profile set-effort <profile> <effort> --json`。生产路径不得重新加入Codex profile修复逻辑。测试夹具可以创建临时`.codex/config.toml`。 |
+| A3 | dsproxy已有契约时，WeClaw不得解析Codex profile来推断profile、model、effort、context、token、cost或compaction状态。 | 阶段性接受，并保留降级纪律。 | `/status`读取`dsproxy status <route> --weclaw-json`。只有契约不可用时才允许显式降级。 |
+| A4 | `/effort high|max`只表达用户意图并调用dsproxy。 | 接受。 | WeClaw调用`dsproxy profile set-effort deepseek-thinking max --json`。用户输出展示`max`，隐藏Codex内部`xhigh`。 |
+| A5 | `/model`不能成为Codex profile权威源。 | 部分满足，需要记录边界。 | `/model`调用`dsproxy config set-model`，同时更新WeClaw本地agent运行态和配置作为显示或运行fallback。通过telemetry展示时，dsproxy `effective_model`仍是权威值。 |
+| A6 | `/status`消费dsproxy telemetry，不伪造context、cost、balance或token值。 | 对当前紧凑`/status`接受。 | `p0.1.5a61`读取`summary.total_tokens`，显示dsproxy提供的cost和balance，并且只有`context_window.used_tokens_available=true`时才显示context used tokens。 |
+| A7 | `/balance`必须兼容dsproxy维护的balance。 | 部分满足。 | `/balance`仍消费`dsproxy balance`旧JSON。它不维护价格或余额，但后续分支应考虑消费`--weclaw-json`中的`balance.status/reason/action/display`。 |
+| A8 | `/info`只能作为诊断入口，不能成为隐藏profile真相来源。 | 部分满足。 | `/info`可以显示WeClaw和dsproxy版本、uptime。未来profile诊断应来自`dsproxy profile status --json`，且不进入普通`/status`。 |
+| A9 | upgrade/start/resume/uninstall必须保留运行态，且不破坏dsproxy或Codex profile所有权。 | 阶段性接受。 | 当前upgrade/start/resume路径处理WeClaw二进制、pid/log文件、runtime state和session hint。不得扩展为修改Codex profile。 |
+| A10 | 第三轮CoDeepSeedeX需求必须按优先级拆分。 | 下一轮前必须完成。 | 见下方候选列表。 |
+
+本轮审计得到的第三轮CoDeepSeedeX候选需求：
+
+- `context_window.used_tokens`仍不可用。WeClaw可以显示`—/limit`，但CoDeepSeedeX后续需要定义真实来源，或明确这是长期限制。
+- user、assistant history、tool、environment、runtime和compaction summary等prompt子类归因仍不可用。当前taxonomy只能表达provider usage总量和dsproxy调用purpose归因。
+- 官方价格刷新仍未实现。当前`pricing.refresh.available=false`，原因为`official_live_pricing_refresh_not_implemented`。
+- model catalog context window尚未纳入WeClaw契约。当前契约报告`model_catalog.available=false`。
+- semantic payload compaction可观测但尚不能启用。当前blockers包括semantic audit、semantic policy dry-run和semantic payload compaction事件缺失。
+- 如果WeClaw需要在普通`/status`之外展示`reason`、`action`、`diagnostic_hint`、model conflict细节或降级字段解释，还需要稳定debug或verbose诊断契约。
+
+操作规则：不要因为紧凑`/status`当前正确就认为第三轮没有必要。只有当下一个WeClaw任务需要上述deferred字段，或长会话/运行时测试证明当前降级行为不足时，才启动第三轮CoDeepSeedeX需求。
 
 ## 3. 文件地图
 

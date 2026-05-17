@@ -11,9 +11,9 @@ This is the canonical English handoff for starting a new AI development conversa
 - Current Latest public Release commit: `05cb93c`
 - Current public pre-release: `v0.1.9-alpha` at `a02b3c9`.
 - Current Release internal marker: `p0.1.5a50-outbound-markdown-capture` at `05cb93c`
-- Current internal development tag: `p0.1.5a61-dsproxy-runtime-status-followup`
+- Current internal development tag: `p0.1.5a62-second-round-contract-acceptance-audit`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- Current active development line: `p0.1.5a61-dsproxy-runtime-status-followup`. Resolve its exact commit from Git instead of trusting a copied static hash.
+- Current active development line: `p0.1.5a62-second-round-contract-acceptance-audit`. Resolve its exact commit from Git instead of trusting a copied static hash.
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - Target `v0.1.9-alpha` GitHub Release title is `WeClaw Dev v0.1.9-alpha`, must be created as a pre-release, and must require CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
@@ -35,8 +35,36 @@ Status vocabulary: `planned`, `in_progress`, `verified`, `blocked`, `done`, `sup
 | `/status` contract integration | `/status` consumes `dsproxy status <route> --weclaw-json` and renders returned data with explicit fallback for unavailable fields. | WeClaw `p0.1.5a61-dsproxy-runtime-status-followup` plus CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | verified | 2026-05-17 | Status output reads available usage/cost/balance fields, keeps token-level Context separate from usage ledger totals, and restores a single-line Paths row. |
 | Telemetry display quality | Mobile WeChat output remains compact and Markdown-first while showing model, effort, context window, token usage, estimated cost, balance, compaction, proxy, and a single-line paths row. | WeClaw `p0.1.5a59-status-paths-restore` | verified | 2026-05-17 | Compact `/status` hides internal diagnostics but retains user-useful runtime paths. |
 | Evidence-first audit discipline | Source and document changes are based on full source files, full canonical documents, or complete function/module blocks rather than isolated grep snippets. | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Grep/rg may help locate symbols or verify markers, but it is not sufficient evidence for patch design. |
-| Cross-project feedback loop | After each WeClaw integration round, produce a precise CoDeepSeedeX follow-up prompt for missing fields, ambiguous semantics, or unstable contract behavior. | CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | done | 2026-05-17 | The second-round feedback loop closed the visible token, cost, balance, context-used, and model-conflict contract gaps needed for this pre-release. |
-| Release readiness | README, handbooks, development log, focused tests, full tests, Release notes, and five platform assets are consistent before public Release publication. | Target pre-release `v0.1.9-alpha` | in_progress | 2026-05-17 | Release notes must state that CoDeepSeedeX `v0.3.9-alpha` or newer is required when CoDeepSeedeX integration is used. |
+| Cross-project feedback loop | After each WeClaw integration round, produce a precise CoDeepSeedeX follow-up prompt for missing fields, ambiguous semantics, or unstable contract behavior. | WeClaw `p0.1.5a62-second-round-contract-acceptance-audit`; CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | in_progress | 2026-05-17 | The second-round baseline is stage-accepted for current WeClaw operation, but context used tokens, prompt-subcategory attribution, live pricing refresh, model catalog binding, semantic compaction observability, and debug/verbose diagnostics remain third-round candidates. |
+| Release readiness | README, handbooks, development log, focused tests, full tests, Release notes, and five platform assets are consistent before public Release publication. | Current pre-release `v0.1.9-alpha`; internal line `p0.1.5a62-second-round-contract-acceptance-audit` | in_progress | 2026-05-17 | Do not republish or move public tags for a62. a62 only documents second-round acceptance boundaries and third-round candidates after the a61 runtime validation. |
+
+### Second-round CoDeepSeedeX contract acceptance
+
+`p0.1.5a62-second-round-contract-acceptance-audit` is a WeClaw-side acceptance checkpoint for the original second-round CoDeepSeedeX request. It must not be interpreted as a new runtime feature branch or as a public Release. It records what WeClaw can safely consume from CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` and what still belongs in a later CoDeepSeedeX round.
+
+| ID | Requirement area | WeClaw acceptance | Evidence and boundary |
+| --- | --- | --- | --- |
+| A1 | dsproxy is authoritative for Codex profiles and DeepSeek runtime configuration. | Stage-accepted. | `dsproxy profile status deepseek-thinking --json` and `dsproxy status thinking --weclaw-json` provide structured `model`, `effort`, `context_window`, `health`, `tokens`, `cost`, `balance`, and `compaction` fields. |
+| A2 | WeClaw must not directly edit `~/.codex/config.toml` in normal runtime-control paths. | Accepted for current `/effort` and `/status` paths. | `/effort` uses `dsproxy profile set-effort <profile> <effort> --json`; production paths must not add Codex profile repair logic. Test fixtures may still create temporary `.codex/config.toml` files. |
+| A3 | WeClaw must not parse Codex profiles to infer profile, model, effort, context, token, cost, or compaction state when dsproxy provides a contract. | Stage-accepted with fallback discipline. | `/status` consumes `dsproxy status <route> --weclaw-json`; fallbacks are allowed only when the contract is unavailable and must be visibly degraded. |
+| A4 | `/effort high|max` should express user intent and call dsproxy. | Accepted. | WeClaw calls `dsproxy profile set-effort deepseek-thinking max --json`; user output shows `max` and hides Codex-internal `xhigh`. |
+| A5 | `/model` must not become a Codex profile authority. | Partial, documented boundary. | `/model` calls `dsproxy config set-model` and updates WeClaw local agent runtime/config as a display and runtime fallback. The dsproxy `effective_model` remains authoritative when shown through telemetry. |
+| A6 | `/status` consumes dsproxy telemetry and does not fabricate context, cost, balance, or token values. | Accepted for current compact status. | `p0.1.5a61` reads `summary.total_tokens`, displays cost and balance from dsproxy, and only shows context used tokens when `context_window.used_tokens_available=true`. |
+| A7 | `/balance` must remain compatible with dsproxy-owned balance. | Partial. | `/balance` still consumes `dsproxy balance` legacy JSON. It does not maintain pricing or balance itself, but a later branch should consider the richer `balance.status/reason/action/display` contract from `--weclaw-json`. |
+| A8 | `/info` must remain diagnostics, not a hidden source of profile truth. | Partial. | `/info` can show WeClaw and dsproxy versions and uptime. Any future profile diagnostics should come from `dsproxy profile status --json` and should stay out of ordinary `/status`. |
+| A9 | upgrade/start/resume/uninstall must preserve runtime state without corrupting dsproxy or Codex profile ownership. | Stage-accepted. | Current upgrade/start/resume paths operate on WeClaw binaries, pid/log files, runtime state, and session hints. They must not be expanded to mutate Codex profiles. |
+| A10 | Third-round CoDeepSeedeX needs must be separated by priority. | Required before the next CoDeepSeedeX round. | See the candidate list below. |
+
+Third-round CoDeepSeedeX candidates from this audit:
+
+- `context_window.used_tokens` remains unavailable. WeClaw can display `—/limit`, but CoDeepSeedeX must later define a real source or declare this a long-term limitation.
+- Prompt-subcategory attribution such as user, assistant history, tool, environment, runtime, and compaction summary is not available. Current taxonomy supports provider usage totals and dsproxy call-purpose attribution.
+- Official pricing refresh is not implemented. `pricing.refresh.available=false` currently reports `official_live_pricing_refresh_not_implemented`.
+- Model catalog context-window binding is not part of the WeClaw contract yet. The contract currently reports `model_catalog.available=false`.
+- Semantic payload compaction is observable but not safe to enable. Current blockers include missing semantic audit, semantic policy dry-run, and semantic payload compaction events.
+- A stable debug or verbose diagnostics contract is still needed if WeClaw should expose `reason`, `action`, `diagnostic_hint`, model conflict details, or degraded-field explanations outside ordinary `/status`.
+
+Operational rule: do not start a third CoDeepSeedeX round merely because compact `/status` is correct. Start it only when the next WeClaw task requires one of the deferred fields above, or when a long-session/runtime test shows the current degraded behavior is insufficient.
 
 ## 3. File map
 
