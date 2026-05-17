@@ -953,36 +953,17 @@ func (h *Handler) handleRuntimeControl(ctx context.Context, trimmed, userID stri
 
 	switch fields[0] {
 	case "/status":
-		debugMode := false
-		if len(fields) == 2 {
-			switch strings.ToLower(fields[1]) {
-			case "verbose", "debug":
-				debugMode = true
-			default:
-				return commandCard(
-					"ℹ️ Usage",
-					"> Show the compact or diagnostic runtime dashboard.",
-					"",
-					"```text",
-					"/status",
-					"/status verbose",
-					"/status debug",
-					"```",
-				), true
-			}
-		} else if len(fields) != 1 {
+		if len(fields) != 1 {
 			return commandCard(
 				"ℹ️ Usage",
-				"> Show the compact or diagnostic runtime dashboard.",
+				"> Show the compact runtime dashboard.",
 				"",
 				"```text",
 				"/status",
-				"/status verbose",
-				"/status debug",
 				"```",
 			), true
 		}
-		return h.buildStatusDiagnostics(ctx, userID, debugMode), true
+		return h.buildStatusDiagnostics(ctx, userID), true
 
 	case "/balance":
 		if len(fields) != 1 {
@@ -1227,7 +1208,7 @@ func unknownSlashCommandCard(command string) string {
 	return commandCard("⚠️ Unknown slash command", lines...)
 }
 
-func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string, debugMode bool) string {
+func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) string {
 	resolved := h.resolveDefaultSessionForRuntimeControl(ctx, userID)
 	defaultName := resolved.profile
 	ag := resolved.ag
@@ -1251,15 +1232,11 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string, deb
 	}
 
 	if payload, _, ok := runDsproxyJSONCommand(ctx, dsproxyWeClawStatusArgsForProfile(defaultName)...); ok {
-		return h.buildStatusDiagnosticsFromDsproxyTelemetry(defaultName, agentType, agentModel, sessionID, proxyRoute, proxyEndpoint, payload, debugMode)
+		return h.buildStatusDiagnosticsFromDsproxyTelemetry(defaultName, agentType, agentModel, sessionID, proxyRoute, proxyEndpoint, payload)
 	}
 
 	panelLines := buildCompactStatusPanel(ag, userID, 0, proxyRoute, proxyEndpoint, "telemetry unavailable", "balance n/a")
 	panelLines = append(panelLines, "Contract unavailable")
-	if debugMode {
-		panelLines = append(panelLines, "", "Diagnostics", "Diag    contract unavailable")
-	}
-
 	lines := []string{
 		slashBoldField("Profile", slashInlineCode(valueOrUnknown(defaultName))+" "+slashInlineCode(slashAgentTypeBadge(agentType))),
 		slashBoldField("Model", slashInlineCode(valueOrUnknown(agentModel))+" "+slashInlineCode("unknown")),
@@ -1267,14 +1244,10 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string, deb
 		"",
 	}
 	lines = append(lines, visualCommandFence("", panelLines...)...)
-	title := "🧩 Status"
-	if debugMode {
-		title = "🧩 Status Debug"
-	}
-	return commandCard(title, lines...)
+	return commandCard("🧩 Status", lines...)
 }
 
-func (h *Handler) buildStatusDiagnosticsFromDsproxyTelemetry(defaultName, agentType, agentModel, sessionID, proxyRoute, proxyEndpoint string, payload map[string]any, debugMode bool) string {
+func (h *Handler) buildStatusDiagnosticsFromDsproxyTelemetry(defaultName, agentType, agentModel, sessionID, proxyRoute, proxyEndpoint string, payload map[string]any) string {
 	model := nestedStringDefault(payload, "unknown", "model", "effective_model")
 	if model == "unknown" {
 		model = nestedStringDefault(payload, "unknown", "model", "weclaw_display_model")
@@ -1295,15 +1268,8 @@ func (h *Handler) buildStatusDiagnosticsFromDsproxyTelemetry(defaultName, agentT
 	}
 
 	panelLines := buildDsproxyTelemetryPanel(payload, proxyRoute, proxyEndpoint)
-	if debugMode {
-		panelLines = append(panelLines, buildDsproxyDebugPanel(payload)...)
-	}
 	lines = append(lines, visualCommandFence("", panelLines...)...)
-	title := "🧩 Status"
-	if debugMode {
-		title = "🧩 Status Debug"
-	}
-	return commandCard(title, lines...)
+	return commandCard("🧩 Status", lines...)
 }
 
 var dsproxyCommandRunner = runDsproxyCommand
@@ -1509,6 +1475,7 @@ func buildDsproxyTelemetryPanel(payload map[string]any, proxyRoute, proxyEndpoin
 		formatDsproxyCostLine(payload),
 		formatDsproxyBalanceLine(payload),
 	}
+	lines = append(lines, buildDsproxyRound3SummaryLines(payload)...)
 	lines = append(lines, formatDsproxyCompactionLines(payload)...)
 
 	proxyState := "reachable"
@@ -1522,159 +1489,84 @@ func buildDsproxyTelemetryPanel(payload map[string]any, proxyRoute, proxyEndpoin
 	return lines
 }
 
-func buildDsproxyDebugPanel(payload map[string]any) []string {
-	lines := []string{"", "Diagnostics"}
-	lines = append(lines, formatDsproxyDiagnosticsDebugLines(payload)...)
-	lines = append(lines, formatDsproxyContextDebugLines(payload)...)
-	lines = append(lines, formatDsproxyTokenAttributionDebugLines(payload)...)
-	lines = append(lines, formatDsproxyPricingDebugLines(payload)...)
-	lines = append(lines, formatDsproxySemanticDebugLines(payload)...)
+func buildDsproxyRound3SummaryLines(payload map[string]any) []string {
+	lines := make([]string, 0, 4)
+	if line := formatDsproxyDiagnosticsSummaryLine(payload); line != "" {
+		lines = append(lines, line)
+	}
+	if line := formatDsproxyAttributionSummaryLine(payload); line != "" {
+		lines = append(lines, line)
+	}
+	if line := formatDsproxyPricingSummaryLine(payload); line != "" {
+		lines = append(lines, line)
+	}
+	if line := formatDsproxySemanticSummaryLine(payload); line != "" {
+		lines = append(lines, line)
+	}
 	return lines
 }
 
-func formatDsproxyDiagnosticsDebugLines(payload map[string]any) []string {
+func formatDsproxyDiagnosticsSummaryLine(payload map[string]any) string {
 	diagnostics, ok := nestedMap(payload, "diagnostics")
 	if !ok || !nestedBoolDefault(diagnostics, false, "available") {
-		return []string{"Diag    n/a"}
+		return ""
 	}
-
-	degraded := nestedListValues(diagnostics, "degraded_fields")
-	warnings := nestedStringList(diagnostics, "warnings")
-	actions := nestedStringList(diagnostics, "actions")
-	lines := []string{
-		fmt.Sprintf("Diag    degraded %d · warnings %d · actions %d", len(degraded), len(warnings), len(actions)),
+	degraded := len(nestedListValues(diagnostics, "degraded_fields"))
+	warnings := len(nestedStringList(diagnostics, "warnings"))
+	actions := len(nestedStringList(diagnostics, "actions"))
+	if degraded == 0 && warnings == 0 && actions == 0 {
+		return ""
 	}
-
-	for _, item := range degraded {
-		field, ok := mapFromAny(item)
-		if !ok {
-			continue
-		}
-		path := nestedStringDefault(field, "unknown", "path")
-		reason := nestedStringDefault(field, "unknown", "reason")
-		action := nestedStringDefault(field, "", "action")
-		line := fmt.Sprintf("- %s: %s", path, reason)
-		if action != "" {
-			line += " -> " + action
-		}
-		lines = append(lines, compactCommandOutput(line, 132))
-	}
-
-	for idx, warning := range warnings {
-		if idx >= 3 {
-			lines = append(lines, fmt.Sprintf("Warn    ... +%d more", len(warnings)-idx))
-			break
-		}
-		lines = append(lines, compactCommandOutput("Warn    "+warning, 132))
-	}
-	return lines
+	return fmt.Sprintf("Diag     degraded %d · warnings %d · actions %d", degraded, warnings, actions)
 }
 
-func formatDsproxyContextDebugLines(payload map[string]any) []string {
-	contextWindow, ok := nestedMap(payload, "context_window")
-	if !ok {
-		return []string{"Context debug n/a"}
-	}
-
-	available := nestedBoolDefault(contextWindow, false, "used_tokens_available")
-	precision := nestedStringDefault(contextWindow, "unknown", "used_tokens_precision")
-	source := nestedStringDefault(contextWindow, "unknown", "used_tokens_source")
-	reason := nestedStringDefault(contextWindow, "", "used_tokens_reason")
-	action := nestedStringDefault(contextWindow, "", "used_tokens_action")
-
-	lines := []string{
-		fmt.Sprintf("Context used %s · precision %s · source %s", formatDebugBool(available), precision, source),
-	}
-	if reason != "" {
-		lines = append(lines, compactCommandOutput("Reason  "+reason, 132))
-	}
-	if action != "" {
-		lines = append(lines, compactCommandOutput("Action  "+action, 132))
-	}
-
-	if catalog, ok := nestedMap(contextWindow, "model_catalog"); ok {
-		catalogAvailable := nestedBoolDefault(catalog, false, "available")
-		model := nestedStringDefault(catalog, "unknown", "model")
-		sourceKind := nestedStringDefault(catalog, "unknown", "source_kind")
-		catalogReason := nestedStringDefault(catalog, "", "reason")
-		lines = append(lines, fmt.Sprintf("Catalog %s · model %s · source %s", formatDebugBool(catalogAvailable), model, sourceKind))
-		if catalogReason != "" {
-			lines = append(lines, compactCommandOutput("Catalog reason "+catalogReason, 132))
-		}
-	}
-	return lines
-}
-
-func formatDsproxyTokenAttributionDebugLines(payload map[string]any) []string {
+func formatDsproxyAttributionSummaryLine(payload map[string]any) string {
 	tokens, ok := nestedMap(payload, "tokens")
 	if !ok {
-		return []string{"Tokens debug n/a"}
+		return ""
 	}
-
+	attribution, ok := nestedMap(tokens, "attribution")
+	if !ok {
+		return ""
+	}
 	taxonomy, _ := nestedMap(tokens, "taxonomy")
-	version := nestedStringDefault(taxonomy, "unknown", "version")
-	attribution, _ := nestedMap(tokens, "attribution")
+	version := nestedStringDefault(taxonomy, "", "version")
 	providerTotals, _ := nestedMap(attribution, "provider_usage_totals")
 	purposeAttribution, _ := nestedMap(attribution, "purpose_attribution")
 	promptSplit, ok := nestedMap(attribution, "prompt_subcategory_split")
 	if !ok {
 		promptSplit, _ = nestedMap(tokens, "prompt_subcategory_split")
 	}
-
-	providerAvailable := nestedBoolDefault(providerTotals, false, "available")
-	purposeAvailable := nestedBoolDefault(purposeAttribution, false, "available")
-	promptAvailable := nestedBoolDefault(promptSplit, false, "available")
-	promptReason := nestedStringDefault(promptSplit, "", "reason")
-	promptAction := nestedStringDefault(promptSplit, "", "action")
-	purposeNames := nestedStringList(purposeAttribution, "known_purposes")
-
-	lines := []string{
-		fmt.Sprintf(
-			"Tokens  taxonomy v%s · provider totals %s · purpose %s · prompt split %s",
-			version,
-			formatDebugBool(providerAvailable),
-			formatDebugBool(purposeAvailable),
-			formatDebugBool(promptAvailable),
-		),
+	prefix := "Attrib"
+	if version != "" {
+		prefix = "Attrib v" + version
 	}
-	if len(purposeNames) > 0 {
-		lines = append(lines, compactCommandOutput("Purpose "+strings.Join(purposeNames, ", "), 132))
-	}
-	if promptReason != "" {
-		lines = append(lines, compactCommandOutput("Prompt reason "+promptReason, 132))
-	}
-	if promptAction != "" {
-		lines = append(lines, compactCommandOutput("Prompt action "+promptAction, 132))
-	}
-	return lines
+	return fmt.Sprintf(
+		"%s provider %s · purpose %s · prompt %s",
+		prefix,
+		availabilityText(providerTotals),
+		availabilityText(purposeAttribution),
+		availabilityText(promptSplit),
+	)
 }
 
-func formatDsproxyPricingDebugLines(payload map[string]any) []string {
+func formatDsproxyPricingSummaryLine(payload map[string]any) string {
 	pricing, ok := nestedMap(payload, "pricing")
 	if !ok || !nestedBoolDefault(pricing, false, "available") {
-		return []string{"Pricing n/a"}
+		return ""
 	}
-
 	sourceKind := nestedStringDefault(pricing, "unknown", "source_kind")
 	isStale := nestedStringDefault(pricing, "n/a", "is_stale")
-	fetchedAt := nestedStringDefault(pricing, "n/a", "fetched_at")
-	expiresAt := nestedStringDefault(pricing, "n/a", "expires_at")
 	refresh, _ := nestedMap(pricing, "refresh")
-	refreshAvailable := nestedBoolDefault(refresh, false, "available")
-	refreshSourceKind := nestedStringDefault(refresh, "unknown", "source_kind")
-	refreshAction := nestedStringDefault(refresh, "", "action")
-
-	lines := []string{
-		fmt.Sprintf("Pricing %s · stale %s · refresh %s", sourceKind, isStale, formatDebugBool(refreshAvailable)),
-		fmt.Sprintf("PriceTS fetched %s · expires %s", fetchedAt, expiresAt),
-	}
-	if refreshAction != "" {
-		lines = append(lines, compactCommandOutput("Refresh "+refreshSourceKind+" · "+refreshAction, 132))
-	}
-	return lines
+	return fmt.Sprintf(
+		"Pricing  %s · stale %s · refresh %s",
+		compactCommandOutput(sourceKind, 32),
+		isStale,
+		availabilityText(refresh),
+	)
 }
 
-func formatDsproxySemanticDebugLines(payload map[string]any) []string {
+func formatDsproxySemanticSummaryLine(payload map[string]any) string {
 	semantic, ok := nestedMap(payload, "semantic_compaction")
 	if !ok {
 		if compactionSemantic, nestedOK := nestedMap(payload, "compaction", "semantic_compaction"); nestedOK {
@@ -1683,31 +1575,30 @@ func formatDsproxySemanticDebugLines(payload map[string]any) []string {
 		}
 	}
 	if !ok {
-		return []string{"Semantic n/a"}
+		return ""
 	}
-
 	safe := nestedBoolDefault(semantic, false, "rollout", "safe_to_enable_payload_compaction")
 	mode := nestedStringDefault(semantic, "unknown", "rollout", "current_payload_mode")
 	blockers := nestedStringList(semantic, "rollout", "blockers")
-	missingEvents := nestedStringList(semantic, "rollout", "missing_events")
-	action := nestedStringDefault(semantic, "", "rollout", "action")
-
-	lines := []string{
-		fmt.Sprintf("Semantic safe %s · mode %s · blockers %d", formatDebugBool(safe), mode, len(blockers)),
-	}
-	if len(blockers) > 0 {
-		lines = append(lines, compactCommandOutput("Blockers "+strings.Join(blockers, ", "), 132))
-	}
-	if len(missingEvents) > 0 {
-		lines = append(lines, compactCommandOutput("Missing "+strings.Join(missingEvents, ", "), 132))
-	}
-	if action != "" {
-		lines = append(lines, compactCommandOutput("Semantic action "+action, 132))
-	}
-	return lines
+	return fmt.Sprintf(
+		"Semantic safe %s · mode %s · blockers %d",
+		availabilityBoolText(safe),
+		compactCommandOutput(mode, 32),
+		len(blockers),
+	)
 }
 
-func formatDebugBool(value bool) string {
+func availabilityText(root map[string]any) string {
+	if root == nil {
+		return "n/a"
+	}
+	if _, ok := nestedValue(root, "available"); !ok {
+		return "n/a"
+	}
+	return availabilityBoolText(nestedBoolDefault(root, false, "available"))
+}
+
+func availabilityBoolText(value bool) string {
 	if value {
 		return "yes"
 	}
@@ -1731,11 +1622,6 @@ func nestedListValues(root map[string]any, keys ...string) []any {
 	default:
 		return nil
 	}
-}
-
-func mapFromAny(value any) (map[string]any, bool) {
-	obj, ok := value.(map[string]any)
-	return obj, ok
 }
 
 func formatDsproxyContextLine(payload map[string]any) string {

@@ -905,7 +905,7 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 	}
 }
 
-func TestRuntimeControlStatusVerboseShowsRound3Diagnostics(t *testing.T) {
+func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 	withDsproxyCommandRunner(t, func(ctx context.Context, args ...string) string {
 		wantArgs := []string{"status", "thinking", "--weclaw-json"}
 		if strings.Join(args, " ") != strings.Join(wantArgs, " ") {
@@ -916,75 +916,68 @@ func TestRuntimeControlStatusVerboseShowsRound3Diagnostics(t *testing.T) {
 
 	ag := &runtimeControlTestAgent{
 		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "stale-agent-model"},
-		currentSessionID: "thread-debug-1",
+		currentSessionID: "thread-round3-compact",
 	}
 	h := NewHandler(nil, nil)
 	h.SetDefaultAgent("deepseek-thinking", ag)
 
-	reply, ok := h.handleRuntimeControl(context.Background(), "/status verbose", "user-1")
+	reply, ok := h.handleRuntimeControl(context.Background(), "/status", "user-1")
 	if !ok {
-		t.Fatal("/status verbose should be intercepted")
+		t.Fatal("/status should be intercepted")
 	}
 	for _, want := range []string{
-		"## 🧩 Status Debug",
+		"## 🧩 Status",
 		"Profile:** `deepseek-thinking` `ACP`",
 		"Model:** `deepseek-v4-flash` `max`",
-		"Diagnostics",
-		"Diag    degraded 3 · warnings 1 · actions 2",
-		"context_window.used_tokens",
-		"context_used_tokens_not_reported_by_codex_or_provider",
-		"Context used no · precision unknown · source not_reported",
-		"Tokens  taxonomy v3 · provider totals yes · purpose yes · prompt split no",
-		"Purpose primary, tool_bridge, liveness_retry, compaction, semantic_audit",
-		"provider_usage_is_aggregate_without_prompt_subcategory_breakdown",
-		"Pricing project_default_config · stale n/a · refresh yes",
-		"Refresh official_docs_html",
+		"Session:** `thread-round3-compact`",
+		"Context  [",
+		"Tokens   last 50.2k  session 9.1M  aux 648.2k",
+		"Cost     session $0.5993  last $0.000154  aux $0.009367  est",
+		"Balance  5.83 CNY",
+		"Diag     degraded 3 · warnings 1 · actions 2",
+		"Attrib v3 provider yes · purpose yes · prompt no",
+		"Pricing  project_default_config · stale n/a · refresh yes",
 		"Semantic safe no · mode dry_run · blockers 3",
-		"semantic_audit_event_missing",
+		"Compact [",
+		"Proxy    thinking · 127.0.0.1:8001 · reachable",
+		"Paths    cfg ~/.weclaw/config.json · log ~/.weclaw/weclaw.log",
 	} {
 		if !strings.Contains(reply, want) {
-			t.Fatalf("status verbose reply = %q, want %q", reply, want)
+			t.Fatalf("status reply = %q, want %q", reply, want)
 		}
 	}
-	for _, forbidden := range []string{"user_tokens", "assistant_history_tokens", "tool_tokens", "environment_tokens", "runtime_tokens"} {
+	for _, forbidden := range []string{
+		"Status Debug",
+		"user_tokens",
+		"assistant_history_tokens",
+		"tool_tokens",
+		"environment_tokens",
+		"runtime_tokens",
+		"semantic payload compaction enabled",
+	} {
 		if strings.Contains(reply, forbidden) {
-			t.Fatalf("status verbose reply = %q, should not fabricate prompt split token %q", reply, forbidden)
+			t.Fatalf("status reply = %q, should not contain %q", reply, forbidden)
 		}
 	}
 }
 
-func TestRuntimeControlStatusDebugAliasUsesVerboseDiagnostics(t *testing.T) {
-	withDsproxyCommandRunner(t, func(ctx context.Context, args ...string) string {
-		return sampleWeClawTelemetryRound3JSON()
-	})
-
+func TestRuntimeControlStatusDebugAliasesAreRemoved(t *testing.T) {
 	h := NewHandler(nil, nil)
-	h.SetDefaultAgent("deepseek-thinking", &runtimeControlTestAgent{
-		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-flash"},
-		currentSessionID: "thread-debug-alias",
-	})
 
-	reply, ok := h.handleRuntimeControl(context.Background(), "/status debug", "user-1")
-	if !ok {
-		t.Fatal("/status debug should be intercepted")
-	}
-	for _, want := range []string{"## 🧩 Status Debug", "Diagnostics", "Semantic safe no"} {
-		if !strings.Contains(reply, want) {
-			t.Fatalf("status debug reply = %q, want %q", reply, want)
+	for _, command := range []string{"/status verbose", "/status debug", "/status noisy"} {
+		reply, ok := h.handleRuntimeControl(context.Background(), command, "user-1")
+		if !ok {
+			t.Fatalf("%s should be intercepted as usage", command)
 		}
-	}
-}
-
-func TestRuntimeControlStatusRejectsUnknownMode(t *testing.T) {
-	h := NewHandler(nil, nil)
-
-	reply, ok := h.handleRuntimeControl(context.Background(), "/status noisy", "user-1")
-	if !ok {
-		t.Fatal("/status noisy should be intercepted as usage")
-	}
-	for _, want := range []string{"/status", "/status verbose", "/status debug"} {
-		if !strings.Contains(reply, want) {
-			t.Fatalf("status usage reply = %q, want %q", reply, want)
+		for _, want := range []string{"## ℹ️ Usage", "Show the compact runtime dashboard.", "/status"} {
+			if !strings.Contains(reply, want) {
+				t.Fatalf("%s usage reply = %q, want %q", command, reply, want)
+			}
+		}
+		for _, forbidden := range []string{"/status verbose", "/status debug", "Status Debug", "Diagnostics"} {
+			if strings.Contains(reply, forbidden) {
+				t.Fatalf("%s usage reply = %q, should not contain %q", command, reply, forbidden)
+			}
 		}
 	}
 }

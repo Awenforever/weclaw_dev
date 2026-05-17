@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a65-status-round3-compact-consolidation
+
+- Scope: consolidate the temporary a64 debug rendering into a single strengthened compact `/status`.
+- Change: removed `/status verbose` and `/status debug` aliases.
+- Change: ordinary `/status` now folds compact round3 summaries into the panel: diagnostics counts, token attribution availability, pricing refresh/source state, and semantic compaction readiness.
+- Boundary: WeClaw still does not fabricate user/tool/env/history token splits, does not derive context usage from session totals, and does not enable semantic payload compaction.
+- Validation: requires `gofmt`, `git diff --check`, `bash -n install.sh`, focused messaging tests, broader package tests, and full `go test ./...`.
+
 ## 2026-05-17 - p0.1.5a64-status-debug-diagnostics
 
 - Scope: WeClaw-side optional diagnostic rendering for the CoDeepSeedeX `p2.10a59-weclaw-round3-token-attribution-plan` contract.
