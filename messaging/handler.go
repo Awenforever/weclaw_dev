@@ -1490,64 +1490,14 @@ func buildDsproxyTelemetryPanel(payload map[string]any, proxyRoute, proxyEndpoin
 }
 
 func buildDsproxyRound3SummaryLines(payload map[string]any) []string {
-	lines := make([]string, 0, 4)
-	if line := formatDsproxyDiagnosticsSummaryLine(payload); line != "" {
-		lines = append(lines, line)
-	}
-	if line := formatDsproxyAttributionSummaryLine(payload); line != "" {
-		lines = append(lines, line)
-	}
+	lines := make([]string, 0, 2)
 	if line := formatDsproxyPricingSummaryLine(payload); line != "" {
 		lines = append(lines, line)
 	}
-	if line := formatDsproxySemanticSummaryLine(payload); line != "" {
+	if line := formatDsproxyCompactionPolicySummaryLine(payload); line != "" {
 		lines = append(lines, line)
 	}
 	return lines
-}
-
-func formatDsproxyDiagnosticsSummaryLine(payload map[string]any) string {
-	diagnostics, ok := nestedMap(payload, "diagnostics")
-	if !ok || !nestedBoolDefault(diagnostics, false, "available") {
-		return ""
-	}
-	degraded := len(nestedListValues(diagnostics, "degraded_fields"))
-	warnings := len(nestedStringList(diagnostics, "warnings"))
-	actions := len(nestedStringList(diagnostics, "actions"))
-	if degraded == 0 && warnings == 0 && actions == 0 {
-		return ""
-	}
-	return fmt.Sprintf("Diag     degraded %d · warnings %d · actions %d", degraded, warnings, actions)
-}
-
-func formatDsproxyAttributionSummaryLine(payload map[string]any) string {
-	tokens, ok := nestedMap(payload, "tokens")
-	if !ok {
-		return ""
-	}
-	attribution, ok := nestedMap(tokens, "attribution")
-	if !ok {
-		return ""
-	}
-	taxonomy, _ := nestedMap(tokens, "taxonomy")
-	version := nestedStringDefault(taxonomy, "", "version")
-	providerTotals, _ := nestedMap(attribution, "provider_usage_totals")
-	purposeAttribution, _ := nestedMap(attribution, "purpose_attribution")
-	promptSplit, ok := nestedMap(attribution, "prompt_subcategory_split")
-	if !ok {
-		promptSplit, _ = nestedMap(tokens, "prompt_subcategory_split")
-	}
-	prefix := "Attrib"
-	if version != "" {
-		prefix = "Attrib v" + version
-	}
-	return fmt.Sprintf(
-		"%s provider %s · purpose %s · prompt %s",
-		prefix,
-		availabilityText(providerTotals),
-		availabilityText(purposeAttribution),
-		availabilityText(promptSplit),
-	)
 }
 
 func formatDsproxyPricingSummaryLine(payload map[string]any) string {
@@ -1555,37 +1505,103 @@ func formatDsproxyPricingSummaryLine(payload map[string]any) string {
 	if !ok || !nestedBoolDefault(pricing, false, "available") {
 		return ""
 	}
-	sourceKind := nestedStringDefault(pricing, "unknown", "source_kind")
-	isStale := nestedStringDefault(pricing, "n/a", "is_stale")
+	sourceKind := pricingSourceLabel(nestedStringDefault(pricing, "unknown", "source_kind"))
+	updated := pricingUpdatedLabel(pricing)
 	refresh, _ := nestedMap(pricing, "refresh")
 	return fmt.Sprintf(
-		"Pricing  %s · stale %s · refresh %s",
-		compactCommandOutput(sourceKind, 32),
-		isStale,
+		"Pricing  %s · updated %s · refresh %s",
+		sourceKind,
+		updated,
 		availabilityText(refresh),
 	)
 }
 
-func formatDsproxySemanticSummaryLine(payload map[string]any) string {
-	semantic, ok := nestedMap(payload, "semantic_compaction")
-	if !ok {
-		if compactionSemantic, nestedOK := nestedMap(payload, "compaction", "semantic_compaction"); nestedOK {
-			semantic = compactionSemantic
-			ok = true
-		}
-	}
-	if !ok {
+func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
+	compaction, ok := nestedMap(payload, "compaction")
+	if !ok || !nestedBoolDefault(compaction, false, "available") {
 		return ""
 	}
-	safe := nestedBoolDefault(semantic, false, "rollout", "safe_to_enable_payload_compaction")
-	mode := nestedStringDefault(semantic, "unknown", "rollout", "current_payload_mode")
-	blockers := nestedStringList(semantic, "rollout", "blockers")
-	return fmt.Sprintf(
-		"Semantic safe %s · mode %s · blockers %d",
-		availabilityBoolText(safe),
-		compactCommandOutput(mode, 32),
-		len(blockers),
-	)
+
+	policy := nestedStringDefault(compaction, "", "runtime_context", "compaction", "last_report", "policy")
+	if policy == "" {
+		policy = nestedStringDefault(compaction, "", "runtime_context", "compaction", "last_report", "policy_decision", "policy")
+	}
+	if policy == "" {
+		policy = nestedStringDefault(compaction, "", "runtime_context", "compaction", "config", "policy")
+	}
+	if policy == "" {
+		return ""
+	}
+
+	trigger := nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "effective_trigger_chars")
+	if trigger <= 0 {
+		trigger = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "trigger_chars")
+	}
+	if trigger <= 0 {
+		trigger = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "config", "trigger_chars")
+	}
+
+	target := nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "effective_target_chars")
+	if target <= 0 {
+		target = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "target_chars")
+	}
+	if target <= 0 {
+		target = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "config", "target_chars")
+	}
+
+	keep := nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "keep_recent_messages")
+	if keep <= 0 {
+		keep = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "config", "keep_recent_messages")
+	}
+
+	parts := []string{policy}
+	if trigger > 0 {
+		parts = append(parts, "trigger "+formatCompactStatusNumber(trigger)+" chars")
+	}
+	if target > 0 {
+		parts = append(parts, "target "+formatCompactStatusNumber(target))
+	}
+	if keep > 0 {
+		parts = append(parts, fmt.Sprintf("keep %d", keep))
+	}
+	return "Policy   " + strings.Join(parts, " · ")
+}
+
+func pricingSourceLabel(sourceKind string) string {
+	switch sourceKind {
+	case "project_default_config", "project_default_pricing_config":
+		return "default config"
+	case "official_docs_html":
+		return "official docs"
+	case "user_cache", "cache", "pricing_cache":
+		return "pricing cache"
+	case "":
+		return "unknown"
+	default:
+		return compactCommandOutput(sourceKind, 32)
+	}
+}
+
+func pricingUpdatedLabel(pricing map[string]any) string {
+	for _, key := range []string{"fetched_at", "updated_at", "pricing_updated_at"} {
+		if value, ok := nestedValue(pricing, key); ok && value != nil {
+			text := strings.TrimSpace(fmt.Sprint(value))
+			if text != "" && text != "<nil>" {
+				return compactCommandOutput(text, 32)
+			}
+		}
+	}
+	return "n/a"
+}
+
+func formatCompactStatusNumber(value int64) string {
+	if value >= 1000000 {
+		return strings.TrimSuffix(strings.TrimSuffix(fmt.Sprintf("%.1f", float64(value)/1000000), "0"), ".") + "M"
+	}
+	if value >= 1000 {
+		return fmt.Sprintf("%dk", value/1000)
+	}
+	return fmt.Sprintf("%d", value)
 }
 
 func availabilityText(root map[string]any) string {
@@ -1603,25 +1619,6 @@ func availabilityBoolText(value bool) string {
 		return "yes"
 	}
 	return "no"
-}
-
-func nestedListValues(root map[string]any, keys ...string) []any {
-	value, ok := nestedValue(root, keys...)
-	if !ok || value == nil {
-		return nil
-	}
-	switch typed := value.(type) {
-	case []any:
-		return typed
-	case []string:
-		out := make([]any, 0, len(typed))
-		for _, item := range typed {
-			out = append(out, item)
-		}
-		return out
-	default:
-		return nil
-	}
 }
 
 func formatDsproxyContextLine(payload map[string]any) string {

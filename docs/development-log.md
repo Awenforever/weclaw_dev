@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a66-status-label-pricing-compaction
+
+- Scope: make the strengthened `/status` more user-readable after the p2.10a59 contract integration.
+- Change: kept `aux` and `est` labels unchanged.
+- Change: removed low-value contract health lines from ordinary `/status`, including diagnostic counts, token attribution availability, and semantic readiness.
+- Change: changed the pricing summary to show pricing source and last update status.
+- Change: added a compact compaction policy line showing the active adaptive strategy, effective trigger, effective target, and recent-message retention.
+- Boundary: WeClaw still does not derive context used tokens from session totals, does not fabricate prompt subcategory token splits, and does not enable semantic payload compaction.
+
 ## 2026-05-17 - p0.1.5a65-status-round3-compact-consolidation
 
 - Scope: consolidate the temporary a64 debug rendering into a single strengthened compact `/status`.

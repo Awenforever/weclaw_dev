@@ -155,6 +155,11 @@ func sampleWeClawTelemetryJSON() string {
         "last_report": {
           "before_chars": 58,
           "effective_trigger_chars": 1250000,
+          "effective_target_chars": 750000,
+          "keep_recent_messages": 24,
+          "policy_decision": {
+            "policy": "adaptive"
+          },
           "reason": "not_triggered"
         }
       },
@@ -934,10 +939,8 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 		"Tokens   last 50.2k  session 9.1M  aux 648.2k",
 		"Cost     session $0.5993  last $0.000154  aux $0.009367  est",
 		"Balance  5.83 CNY",
-		"Diag     degraded 3 · warnings 1 · actions 2",
-		"Attrib v3 provider yes · purpose yes · prompt no",
-		"Pricing  project_default_config · stale n/a · refresh yes",
-		"Semantic safe no · mode dry_run · blockers 3",
+		"Pricing  default config · updated n/a · refresh yes",
+		"Policy   adaptive · trigger 1.2M chars · target 750k · keep 24",
 		"Compact [",
 		"Proxy    thinking · 127.0.0.1:8001 · reachable",
 		"Paths    cfg ~/.weclaw/config.json · log ~/.weclaw/weclaw.log",
@@ -948,6 +951,9 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 	}
 	for _, forbidden := range []string{
 		"Status Debug",
+		"Diag     degraded",
+		"Attrib v3",
+		"Semantic safe",
 		"user_tokens",
 		"assistant_history_tokens",
 		"tool_tokens",
