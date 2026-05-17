@@ -7,7 +7,7 @@
 Pre-release install must use the raw GitHub fixed-tag installer and pass the Release tag explicitly. Do not use jsDelivr fixed-tag URLs for pre-release installation, because jsDelivr can keep stale content after a public tag is moved during a pre-release refresh.
 
 ```bash
-https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
 ```
 
 `v0.1.9-alpha` highlights:

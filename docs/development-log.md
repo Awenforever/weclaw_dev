@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## 2026-05-18 - p0.1.5a79-prerelease-install-command-curl-prefix
+
+- Scope: fix the user-facing `v0.1.9-alpha` pre-release install command format after p78.
+- Problem: the Release note command used the raw fixed-tag URL but omitted the required `curl -fsSL` prefix.
+- Fix: docs and Release notes now use the full executable command: `curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha`.
+- Boundary: raw GitHub fixed-tag remains the authoritative pre-release installer entry; jsDelivr fixed-tag is still avoided for moved pre-release tags.
+
 ## 2026-05-18 - p0.1.5a78-prerelease-raw-install-entry
 
 - Scope: fix the pre-release install entry after VM testing showed stale jsDelivr fixed-tag content.

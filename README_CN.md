@@ -7,7 +7,7 @@
 pre-release安装必须使用raw GitHub固定tag安装器，并显式传入Release tag。不要把jsDelivr固定tag URL作为pre-release安装入口，因为公开tag移动后jsDelivr可能继续返回旧内容。
 
 ```bash
-https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
 ```
 
 `v0.1.9-alpha`重点：

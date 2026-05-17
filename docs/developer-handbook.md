@@ -7,7 +7,7 @@ p0.1.5a78 changes the published pre-release install entry from jsDelivr fixed-ta
 Use this for pre-release install notes:
 
 ```bash
-https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
 ```
 
 Keep jsDelivr for stable/latest `@main` convenience entrypoints, but do not use jsDelivr fixed-tag URLs as the authoritative pre-release installer path after a moved public pre-release tag.
@@ -38,11 +38,11 @@ This is the canonical English handoff for starting a new AI development conversa
 - Main branch: `main`
 - Current Latest public Release: `v0.1.8-alpha`
 - Current Latest public Release commit: `05cb93c`
-- Current public pre-release: `v0.1.9-alpha` at `aaecf0b`.
+- Current public pre-release: `v0.1.9-alpha` at `<to-be-refreshed-by-p79>`.
 - Current Release internal marker: `p0.1.5a69-release-v0.1.9-alpha-refresh` at `6a5f10f`
-- Current internal development tag: `p0.1.5a78-prerelease-raw-install-entry`
+- Current internal development tag: `p0.1.5a79-prerelease-install-command-curl-prefix`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- Current active development line: `p0.1.5a78-prerelease-raw-install-entry`
+- Current active development line: `p0.1.5a79-prerelease-install-command-curl-prefix`
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - Target `v0.1.9-alpha` GitHub Release title is `WeClaw Dev v0.1.9-alpha`, must be created as a pre-release, and must require CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
@@ -302,3 +302,14 @@ p0.1.5a74 adapts WeChat `/status` to the CoDeepSeedeX `runtime_payload_guard` co
 ## p0.1.5a75 Policy keep label polish
 
 p0.1.5a75 changes the ordinary `/status` Policy row from `keep 24` to `keep ⤒24 msgs`, making the retained-message count explicit while keeping the status layout compact.
+
+
+## p0.1.5a79 pre-release install command prefix
+
+p0.1.5a79 fixes the published pre-release install command format. The raw fixed-tag URL must be invoked through `curl -fsSL`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+```
+
+Do not publish a bare URL piped to `sh`; it is not executable as a shell command.

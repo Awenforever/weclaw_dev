@@ -7,7 +7,7 @@ p0.1.5a78将公开pre-release安装入口从jsDelivr固定tag URL改为raw GitHu
 pre-release Release notes使用：
 
 ```bash
-https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
 ```
 
 jsDelivr仍可用于stable/latest的`@main`便捷入口，但公开pre-release tag被移动刷新后，不应把jsDelivr固定tag URL作为权威pre-release安装路径。
@@ -38,11 +38,11 @@ p0.1.5a76在a72-a75 `/status`遥测线完成后，刷新文档并将当前`v0.1.
 - 主分支：`main`
 - 当前Latest公开Release：`v0.1.8-alpha`
 - 当前Latest公开Release commit：`05cb93c`
-- 当前公开pre-release：`v0.1.9-alpha`，位于`aaecf0b`。
+- 当前公开pre-release：`v0.1.9-alpha`，位于`<to-be-refreshed-by-p79>`。
 - 当前Release对应内部标记：`p0.1.5a69-release-v0.1.9-alpha-refresh`，位于`6a5f10f`
-- 当前内部开发标签：`p0.1.5a78-prerelease-raw-install-entry`
+- 当前内部开发标签：`p0.1.5a79-prerelease-install-command-curl-prefix`
 - 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- 当前活动开发线：`p0.1.5a78-prerelease-raw-install-entry`
+- 当前活动开发线：`p0.1.5a79-prerelease-install-command-curl-prefix`
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - 目标`v0.1.9-alpha` GitHub Release标题为`WeClaw Dev v0.1.9-alpha`，必须创建为pre-release，并在使用CoDeepSeedeX集成时要求CoDeepSeedeX `v0.3.9-alpha`或更新版本。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
@@ -305,3 +305,14 @@ p0.1.5a74适配CoDeepSeedeX `p2.10a62`新增的`runtime_payload_guard`契约。�
 ## p0.1.5a75 Policy保留数量标签精简
 
 p0.1.5a75将普通`/status`中的Policy行从`keep 24`改为`keep ⤒24 msgs`，在不拉长布局的前提下明确这是保留消息数量。
+
+
+## p0.1.5a79 pre-release安装命令前缀修正
+
+p0.1.5a79修正公开pre-release安装命令格式。raw固定tag URL必须通过`curl -fsSL`调用：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+```
+
+不要发布裸URL直接管道给`sh`的命令；那不是可执行shell命令。
