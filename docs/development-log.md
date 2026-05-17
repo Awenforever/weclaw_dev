@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a70-post-release-doc-finalize
+
+- Scope: post-release documentation finalization after the `v0.1.9-alpha` refresh.
+- Confirmed Release state: `v0.1.9-alpha`, `p0.1.5a69-release-v0.1.9-alpha-refresh`, `main`, and `origin/main` pointed to `6a5f10f` immediately after the a69 release operation.
+- Confirmed assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64 were uploaded for `v0.1.9-alpha`.
+- Fix: replaced temporary `refreshing` placeholders in developer handbooks with the final release commit `6a5f10f`.
+- Boundary: this is docs-only and must not move `v0.1.9-alpha`, `v0.1.8-alpha`, or rebuild any assets.
+- Lesson: `gh release view --json body` returns raw `>=`, not HTML-escaped `&gt;=`, so future release verification must accept the raw body string.
+
 ## 2026-05-17 - p0.1.5a69-release-v0.1.9-alpha-refresh
 
 - Scope: refresh the public `v0.1.9-alpha` pre-release after the a61-a67 CoDeepSeedeX telemetry follow-up line.
