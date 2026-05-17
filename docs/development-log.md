@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## 2026-05-18 - p0.1.5a78-prerelease-raw-install-entry
+
+- Scope: fix the pre-release install entry after VM testing showed stale jsDelivr fixed-tag content.
+- Problem: `cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@v0.1.9-alpha/install.sh` continued serving the old installer after tag movement and successful purge, so the VM test could not install p77 through the published jsDelivr fixed-tag command.
+- Fix: pre-release Release notes and docs now use the raw GitHub fixed-tag installer with explicit `--version v0.1.9-alpha`.
+- Boundary: jsDelivr remains acceptable for `@main` stable/latest convenience entrypoints, but not as the authoritative fixed-tag pre-release installer after moved public pre-release tags.
+
 ## 2026-05-17 - p0.1.5a77-installer-prerelease-pin
 
 - Scope: fix the `v0.1.9-alpha` pre-release install path discovered by VM user-path testing.

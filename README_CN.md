@@ -2,12 +2,12 @@
 
 ## 当前pre-release：v0.1.9-alpha
 
-`v0.1.9-alpha`已包含a72-a75线的WeClaw `/status`遥测刷新，以及a77的pre-release固定版本安装修复。
+`v0.1.9-alpha`已包含a72-a75线的WeClaw `/status`遥测刷新、a77的pre-release固定版本安装修复，以及a78的raw GitHub固定tag pre-release入口。
 
-pre-release安装必须显式传入Release tag，因为未提供版本时安装器默认使用stable/latest GitHub Release通道：
+pre-release安装必须使用raw GitHub固定tag安装器，并显式传入Release tag。不要把jsDelivr固定tag URL作为pre-release安装入口，因为公开tag移动后jsDelivr可能继续返回旧内容。
 
 ```bash
-curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
 ```
 
 `v0.1.9-alpha`重点：

@@ -34,7 +34,7 @@ Examples:
   curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
 
   # Pre-release/pinned install:
-  curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+  curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
 
   curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@main/install.sh | sh -s -- --uninstall
   # Fallback:
@@ -481,7 +481,7 @@ main() {
   echo "  weclaw upgrade --alpha"
   echo "  curl -fsSL https://cdn.jsdelivr.net/gh/${REPO}@main/install.sh | sh"
   echo "  # Pre-release/pinned install example:"
-  echo "  curl -fsSL https://cdn.jsdelivr.net/gh/${REPO}@v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha"
+  echo "  curl -fsSL https://raw.githubusercontent.com/${REPO}/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha"
   echo "  # Fallback:"
   echo "  curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh"
   echo ""

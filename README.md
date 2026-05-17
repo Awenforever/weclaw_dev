@@ -2,12 +2,12 @@
 
 ## Current pre-release: v0.1.9-alpha
 
-`v0.1.9-alpha` now includes the WeClaw `/status` telemetry refresh from the a72-a75 line and the pinned pre-release installer fix from a77.
+`v0.1.9-alpha` now includes the WeClaw `/status` telemetry refresh from the a72-a75 line, the pinned pre-release installer fix from a77, and the raw GitHub fixed-tag pre-release entry from a78.
 
-Pre-release install must pass the Release tag explicitly because the installer defaults to the stable/latest GitHub Release channel when no version is provided:
+Pre-release install must use the raw GitHub fixed-tag installer and pass the Release tag explicitly. Do not use jsDelivr fixed-tag URLs for pre-release installation, because jsDelivr can keep stale content after a public tag is moved during a pre-release refresh.
 
 ```bash
-curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
 ```
 
 `v0.1.9-alpha` highlights:
