@@ -170,6 +170,127 @@ func sampleWeClawTelemetryJSON() string {
 }`
 }
 
+func sampleWeClawTelemetryRound3JSON() string {
+	return strings.TrimSuffix(sampleWeClawTelemetryJSON(), "\n}") + `,
+  "diagnostics": {
+    "available": true,
+    "user_visible": false,
+    "degraded_fields": [
+      {
+        "path": "context_window.used_tokens",
+        "reason": "context_used_tokens_not_reported_by_codex_or_provider",
+        "action": "display an unavailable marker instead of deriving context usage from session totals"
+      },
+      {
+        "path": "context_window.model_catalog",
+        "reason": "model_catalog_entry_not_found",
+        "action": "add the effective model to the model catalog or repair the managed Codex profile"
+      },
+      {
+        "path": "semantic_compaction.rollout",
+        "reason": "semantic_payload_compaction_not_safe_to_enable",
+        "action": "keep semantic payload compaction disabled until blockers clear"
+      }
+    ],
+    "warnings": [
+      "model_conflict_hidden_from_normal_status"
+    ],
+    "actions": [
+      "display an unavailable marker instead of deriving context usage from session totals",
+      "keep semantic payload compaction disabled until blockers clear"
+    ]
+  },
+  "tokens": {
+    "taxonomy": {
+      "version": 3,
+      "precision": {
+        "provider_usage_totals": "exact_provider_reported",
+        "purpose_attribution": "exact_dsproxy_call_purpose",
+        "prompt_subcategory_split": "not_reported_by_provider_without_tokenizer",
+        "context_window_used_tokens": "unavailable"
+      }
+    },
+    "attribution": {
+      "provider_usage_totals": {
+        "available": true
+      },
+      "purpose_attribution": {
+        "available": true,
+        "known_purposes": [
+          "primary",
+          "tool_bridge",
+          "liveness_retry",
+          "compaction",
+          "semantic_audit"
+        ]
+      },
+      "prompt_subcategory_split": {
+        "available": false,
+        "reason": "provider_usage_is_aggregate_without_prompt_subcategory_breakdown",
+        "action": "display prompt subcategory splits as unavailable until dsproxy adds an audited tokenizer or a provider-backed per-segment ledger"
+      },
+      "context_window_used_tokens": {
+        "available": false,
+        "reason": "context_used_tokens_not_reported_by_codex_or_provider",
+        "action": "use context_window.used_tokens unavailable marker; do not derive context usage from session totals"
+      }
+    },
+    "prompt_subcategory_split": {
+      "available": false,
+      "reason": "provider_usage_is_aggregate_without_prompt_subcategory_breakdown",
+      "action": "display prompt subcategory splits as unavailable until dsproxy adds an audited tokenizer or a provider-backed per-segment ledger"
+    },
+    "last_turn": {
+      "available": true,
+      "summary": {
+        "total_tokens": 50236
+      }
+    },
+    "session_total": {
+      "available": true,
+      "summary": {
+        "total_tokens": 9113787
+      }
+    },
+    "auxiliary_model_calls": {
+      "available": true,
+      "summary": {
+        "total_tokens": 648175
+      }
+    }
+  },
+  "pricing": {
+    "available": true,
+    "source_kind": "project_default_config",
+    "is_stale": null,
+    "fetched_at": null,
+    "expires_at": null,
+    "refresh": {
+      "available": true,
+      "source_kind": "official_docs_html",
+      "action": "run dsproxy pricing refresh --json to fetch and validate official DeepSeek pricing HTML; add --write-cache to persist it"
+    }
+  },
+  "semantic_compaction": {
+    "rollout": {
+      "safe_to_enable_payload_compaction": false,
+      "current_payload_mode": "dry_run",
+      "blockers": [
+        "semantic_audit_event_missing",
+        "semantic_policy_dry_run_event_missing",
+        "semantic_payload_compaction_event_missing"
+      ],
+      "missing_events": [
+        "semantic_audit",
+        "semantic_policy_dry_run",
+        "semantic_payload_compaction"
+      ],
+      "action": "keep semantic payload compaction disabled until blockers clear; use debug semantic selftest and canary checks for validation"
+    }
+  }
+}`
+}
+
 func TestRuntimeControlRejectsInvalidModelAndEffort(t *testing.T) {
 	h := NewHandler(nil, nil)
 
@@ -780,6 +901,90 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 	for _, forbidden := range []string{"stale-agent-model", "source:", "tools:", "other:", "last turn id:", "Model    codex", "codex_profile.model_auto_compact_token_limit", "missing usage_attribution", "balance_client_unavailable", "9.1M/750k", "100.0%"} {
 		if strings.Contains(reply, forbidden) {
 			t.Fatalf("status reply = %q, should not contain %q", reply, forbidden)
+		}
+	}
+}
+
+func TestRuntimeControlStatusVerboseShowsRound3Diagnostics(t *testing.T) {
+	withDsproxyCommandRunner(t, func(ctx context.Context, args ...string) string {
+		wantArgs := []string{"status", "thinking", "--weclaw-json"}
+		if strings.Join(args, " ") != strings.Join(wantArgs, " ") {
+			t.Fatalf("dsproxy args = %#v, want %#v", args, wantArgs)
+		}
+		return sampleWeClawTelemetryRound3JSON()
+	})
+
+	ag := &runtimeControlTestAgent{
+		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "stale-agent-model"},
+		currentSessionID: "thread-debug-1",
+	}
+	h := NewHandler(nil, nil)
+	h.SetDefaultAgent("deepseek-thinking", ag)
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/status verbose", "user-1")
+	if !ok {
+		t.Fatal("/status verbose should be intercepted")
+	}
+	for _, want := range []string{
+		"## 🧩 Status Debug",
+		"Profile:** `deepseek-thinking` `ACP`",
+		"Model:** `deepseek-v4-flash` `max`",
+		"Diagnostics",
+		"Diag    degraded 3 · warnings 1 · actions 2",
+		"context_window.used_tokens",
+		"context_used_tokens_not_reported_by_codex_or_provider",
+		"Context used no · precision unknown · source not_reported",
+		"Tokens  taxonomy v3 · provider totals yes · purpose yes · prompt split no",
+		"Purpose primary, tool_bridge, liveness_retry, compaction, semantic_audit",
+		"provider_usage_is_aggregate_without_prompt_subcategory_breakdown",
+		"Pricing project_default_config · stale n/a · refresh yes",
+		"Refresh official_docs_html",
+		"Semantic safe no · mode dry_run · blockers 3",
+		"semantic_audit_event_missing",
+	} {
+		if !strings.Contains(reply, want) {
+			t.Fatalf("status verbose reply = %q, want %q", reply, want)
+		}
+	}
+	for _, forbidden := range []string{"user_tokens", "assistant_history_tokens", "tool_tokens", "environment_tokens", "runtime_tokens"} {
+		if strings.Contains(reply, forbidden) {
+			t.Fatalf("status verbose reply = %q, should not fabricate prompt split token %q", reply, forbidden)
+		}
+	}
+}
+
+func TestRuntimeControlStatusDebugAliasUsesVerboseDiagnostics(t *testing.T) {
+	withDsproxyCommandRunner(t, func(ctx context.Context, args ...string) string {
+		return sampleWeClawTelemetryRound3JSON()
+	})
+
+	h := NewHandler(nil, nil)
+	h.SetDefaultAgent("deepseek-thinking", &runtimeControlTestAgent{
+		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-flash"},
+		currentSessionID: "thread-debug-alias",
+	})
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/status debug", "user-1")
+	if !ok {
+		t.Fatal("/status debug should be intercepted")
+	}
+	for _, want := range []string{"## 🧩 Status Debug", "Diagnostics", "Semantic safe no"} {
+		if !strings.Contains(reply, want) {
+			t.Fatalf("status debug reply = %q, want %q", reply, want)
+		}
+	}
+}
+
+func TestRuntimeControlStatusRejectsUnknownMode(t *testing.T) {
+	h := NewHandler(nil, nil)
+
+	reply, ok := h.handleRuntimeControl(context.Background(), "/status noisy", "user-1")
+	if !ok {
+		t.Fatal("/status noisy should be intercepted as usage")
+	}
+	for _, want := range []string{"/status", "/status verbose", "/status debug"} {
+		if !strings.Contains(reply, want) {
+			t.Fatalf("status usage reply = %q, want %q", reply, want)
 		}
 	}
 }

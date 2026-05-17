@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a64-status-debug-diagnostics
+
+- Scope: WeClaw-side optional diagnostic rendering for the CoDeepSeedeX `p2.10a59-weclaw-round3-token-attribution-plan` contract.
+- Change: added `/status verbose` and `/status debug` as explicit diagnostic aliases while preserving ordinary compact `/status` output.
+- Change: verbose status now consumes dsproxy `--weclaw-json` fields for `diagnostics.degraded_fields`, context used-token unavailable reason/action, token attribution boundaries, pricing refresh/source state, and semantic compaction readiness.
+- Boundary: WeClaw still does not parse Codex profile files, does not derive context usage from session totals, does not fabricate user/tool/env/history token splits, and does not enable semantic payload compaction.
+- Validation: requires `gofmt`, `git diff --check`, `bash -n install.sh`, focused messaging tests, broader package tests, and full `go test ./...`.
+
 ## 2026-05-17 - p0.1.5a62-second-round-contract-acceptance-audit
 
 - Scope: documentation-only WeClaw-side acceptance audit for the original second-round CoDeepSeedeX profile and telemetry contract request.
