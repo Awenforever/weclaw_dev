@@ -1494,10 +1494,10 @@ func formatDsproxyContextLine(payload map[string]any) string {
 	if limit <= 0 {
 		limit = nestedInt64Default(payload, 0, "context_window", "display_limit_tokens")
 	}
-	used, ok := dsproxySessionTotalTokens(payload)
+	used, ok := dsproxyContextUsedTokens(payload)
 	if !ok {
 		return fmt.Sprintf(
-			"Context  [%s]  n/a  n/a/%s",
+			"Context  [%s]  n/a  —/%s",
 			formatCommandProgressBar(0, limit, 20),
 			formatContextLimit(limit),
 		)
@@ -1511,15 +1511,34 @@ func formatDsproxyContextLine(payload map[string]any) string {
 	)
 }
 
-func dsproxySessionTotalTokens(payload map[string]any) (int64, bool) {
-	session, ok := nestedMap(payload, "tokens", "session_total")
-	if !ok || !nestedBoolDefault(session, false, "available") {
+func dsproxyContextUsedTokens(payload map[string]any) (int64, bool) {
+	contextWindow, ok := nestedMap(payload, "context_window")
+	if !ok || !nestedBoolDefault(contextWindow, false, "used_tokens_available") {
 		return 0, false
 	}
-	return tokenBucketTotal(session)
+	used := nestedInt64Default(contextWindow, -1, "used_tokens")
+	if used < 0 {
+		return 0, false
+	}
+	return used, true
 }
 
 func tokenBucketTotal(bucket map[string]any) (int64, bool) {
+	if bucket == nil {
+		return 0, false
+	}
+	if total, ok := tokenTotalFromMap(bucket); ok {
+		return total, true
+	}
+	if summary, ok := nestedMap(bucket, "summary"); ok {
+		if total, ok := tokenTotalFromMap(summary); ok {
+			return total, true
+		}
+	}
+	return 0, false
+}
+
+func tokenTotalFromMap(bucket map[string]any) (int64, bool) {
 	if bucket == nil {
 		return 0, false
 	}
@@ -1529,7 +1548,13 @@ func tokenBucketTotal(bucket map[string]any) (int64, bool) {
 		}
 	}
 	input := nestedInt64Default(bucket, 0, "input_tokens")
+	if input == 0 {
+		input = nestedInt64Default(bucket, 0, "prompt_tokens")
+	}
 	output := nestedInt64Default(bucket, 0, "output_tokens")
+	if output == 0 {
+		output = nestedInt64Default(bucket, 0, "completion_tokens")
+	}
 	reasoning := nestedInt64Default(bucket, 0, "reasoning_tokens")
 	total := input + output + reasoning
 	if total > 0 {
@@ -1559,21 +1584,9 @@ func formatTokenBucket(label string, bucket map[string]any) string {
 		return label + " n/a"
 	}
 	if !nestedBoolDefault(bucket, false, "available") {
-		if missing := nestedStringList(bucket, "missing"); len(missing) > 0 {
-			return label + " n/a"
-		}
 		return label + " n/a"
 	}
-	for _, key := range []string{"total_tokens", "total", "tokens", "provider_total_tokens"} {
-		if value := nestedInt64Default(bucket, -1, key); value >= 0 {
-			return label + " " + formatTokenCount(value)
-		}
-	}
-	input := nestedInt64Default(bucket, 0, "input_tokens")
-	output := nestedInt64Default(bucket, 0, "output_tokens")
-	reasoning := nestedInt64Default(bucket, 0, "reasoning_tokens")
-	total := input + output + reasoning
-	if total > 0 {
+	if total, ok := tokenBucketTotal(bucket); ok {
 		return label + " " + formatTokenCount(total)
 	}
 	return label + " n/a"
@@ -1601,7 +1614,7 @@ func formatDsproxyCostLine(payload map[string]any) string {
 
 func formatMoney(value float64, currency string) string {
 	currency = strings.ToUpper(strings.TrimSpace(currency))
-	amount := trimFixedDecimal(value)
+	amount := trimMoneyDecimal(value)
 	switch currency {
 	case "USD":
 		return "$" + amount
@@ -1612,6 +1625,30 @@ func formatMoney(value float64, currency string) string {
 	default:
 		return currency + " " + amount
 	}
+}
+
+func trimMoneyDecimal(value float64) string {
+	if value == 0 {
+		return "0"
+	}
+	abs := value
+	if abs < 0 {
+		abs = -abs
+	}
+	decimals := 2
+	switch {
+	case abs < 0.01:
+		decimals = 6
+	case abs < 1:
+		decimals = 4
+	}
+	text := fmt.Sprintf("%.*f", decimals, value)
+	text = strings.TrimRight(text, "0")
+	text = strings.TrimRight(text, ".")
+	if text == "-0" {
+		return "0"
+	}
+	return text
 }
 
 func formatDsproxyBalanceLine(payload map[string]any) string {

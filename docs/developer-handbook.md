@@ -9,11 +9,11 @@ This is the canonical English handoff for starting a new AI development conversa
 - Main branch: `main`
 - Current Latest public Release: `v0.1.8-alpha`
 - Current Latest public Release commit: `05cb93c`
-- Current public pre-release target: `v0.1.9-alpha`. Resolve its exact commit from the public tag after publication.
+- Current public pre-release: `v0.1.9-alpha` at `a02b3c9`.
 - Current Release internal marker: `p0.1.5a50-outbound-markdown-capture` at `05cb93c`
-- Current internal development tag: `p0.1.5a60-release-v0.1.9-alpha`
+- Current internal development tag: `p0.1.5a61-dsproxy-runtime-status-followup`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- Current active development line: `p0.1.5a60-release-v0.1.9-alpha`. Resolve its exact commit from Git instead of trusting a copied static hash.
+- Current active development line: `p0.1.5a61-dsproxy-runtime-status-followup`. Resolve its exact commit from Git instead of trusting a copied static hash.
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - Target `v0.1.9-alpha` GitHub Release title is `WeClaw Dev v0.1.9-alpha`, must be created as a pre-release, and must require CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
@@ -29,10 +29,10 @@ Status vocabulary: `planned`, `in_progress`, `verified`, `blocked`, `done`, `sup
 
 | Mainline item | Expected metric or acceptance condition | Current version or source | Current status | Last maintained | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Full telemetry contract baseline | Local `dsproxy` exposes profile status and WeClaw status JSON for `deepseek` and `deepseek-thinking`, including `model`, `effort`, `context_window`, `tokens`, `pricing`, `cost`, `balance`, and `compaction`. | CoDeepSeedeX `v0.3.9-alpha` / `p2.10a55-weclaw-runtime-status-contract`; WeClaw `p0.1.5a59-status-paths-restore` | verified | 2026-05-17 | Runtime audit shows token usage, estimated cost, balance, and model conflict display hints are now available from dsproxy. |
+| Full telemetry contract baseline | Local `dsproxy` exposes profile status and WeClaw status JSON for `deepseek` and `deepseek-thinking`, including `model`, `effort`, `context_window`, `tokens`, `pricing`, `cost`, `balance`, and `compaction`. | CoDeepSeedeX `v0.3.9-alpha` / `p2.10a55-weclaw-runtime-status-contract`; WeClaw `p0.1.5a61-dsproxy-runtime-status-followup` | verified | 2026-05-17 | WeClaw now reads dsproxy `summary.total_tokens`, preserves estimated cost display, and does not treat session_total as context used tokens. |
 | WeClaw ownership boundary | WeClaw does not directly edit Codex profile files for normal `/effort`, `/model`, `/status`, or telemetry paths when `dsproxy` provides a structured contract. | WeClaw `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Profile repair logic is removed from the `/effort` path in `p0.1.5a57-dsproxy-telemetry-contract`. |
 | `/effort` integration | `/effort max` calls the authoritative `dsproxy profile set-effort <profile> max --json` contract and displays `effort.user_facing` or `effort.deepseek_reasoning_effort`. | WeClaw `p0.1.5a57-dsproxy-telemetry-contract` | verified | 2026-05-16 | WeClaw no longer edits Codex profile files in this path. |
-| `/status` contract integration | `/status` consumes `dsproxy status <route> --weclaw-json` and renders returned data with explicit fallback for unavailable fields. | WeClaw `p0.1.5a59-status-paths-restore` plus CoDeepSeedeX `v0.3.9-alpha` | verified | 2026-05-17 | Status output keeps token-level Context separate from char-level Compact/Trim and restores a single-line Paths row. |
+| `/status` contract integration | `/status` consumes `dsproxy status <route> --weclaw-json` and renders returned data with explicit fallback for unavailable fields. | WeClaw `p0.1.5a61-dsproxy-runtime-status-followup` plus CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | verified | 2026-05-17 | Status output reads available usage/cost/balance fields, keeps token-level Context separate from usage ledger totals, and restores a single-line Paths row. |
 | Telemetry display quality | Mobile WeChat output remains compact and Markdown-first while showing model, effort, context window, token usage, estimated cost, balance, compaction, proxy, and a single-line paths row. | WeClaw `p0.1.5a59-status-paths-restore` | verified | 2026-05-17 | Compact `/status` hides internal diagnostics but retains user-useful runtime paths. |
 | Evidence-first audit discipline | Source and document changes are based on full source files, full canonical documents, or complete function/module blocks rather than isolated grep snippets. | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Grep/rg may help locate symbols or verify markers, but it is not sufficient evidence for patch design. |
 | Cross-project feedback loop | After each WeClaw integration round, produce a precise CoDeepSeedeX follow-up prompt for missing fields, ambiguous semantics, or unstable contract behavior. | CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | done | 2026-05-17 | The second-round feedback loop closed the visible token, cost, balance, context-used, and model-conflict contract gaps needed for this pre-release. |

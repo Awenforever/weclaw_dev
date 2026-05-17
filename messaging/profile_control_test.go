@@ -85,7 +85,10 @@ func sampleWeClawTelemetryJSON() string {
   "model": {
     "effective_model": "deepseek-v4-flash",
     "codex_model": "glm-5.1",
-    "model_conflict": true
+    "model_conflict": true,
+    "display_hint": null,
+    "diagnostic_hint": "Codex profile model differs from forced upstream model; dsproxy effective_model is authoritative.",
+    "user_visible": false
   },
   "effort": {
     "user_facing": "max",
@@ -94,26 +97,55 @@ func sampleWeClawTelemetryJSON() string {
   },
   "context_window": {
     "effective_safe_window_tokens": 750000,
+    "used_tokens": null,
+    "used_tokens_available": false,
+    "used_tokens_source": "not_reported",
+    "used_tokens_reason": "context_used_tokens_not_reported_by_codex_or_provider",
     "source": "codex_profile.model_auto_compact_token_limit",
     "is_estimated": false
   },
   "tokens": {
-    "last_turn": {"available": false, "missing": ["usage_ledger_events"]},
-    "session_total": {"available": false, "missing": ["usage_ledger_events"]},
-    "auxiliary_model_calls": {"available": false, "missing": ["usage_ledger_events"]}
+    "last_turn": {
+      "available": true,
+      "summary": {
+        "total_tokens": 50236
+      }
+    },
+    "session_total": {
+      "available": true,
+      "summary": {
+        "total_tokens": 9113787
+      }
+    },
+    "auxiliary_model_calls": {
+      "available": true,
+      "summary": {
+        "total_tokens": 648175
+      }
+    }
   },
   "cost": {
-    "available": false,
+    "available": true,
     "currency": "USD",
     "is_estimated": true,
-    "last_turn_estimated_cost": 0.0,
-    "session_estimated_cost": 0.0,
-    "auxiliary_estimated_cost": 0.0,
-    "missing": ["usage_attribution"]
+    "last_turn_estimated_cost": 0.0001540728,
+    "session_estimated_cost": 0.5992581266,
+    "auxiliary_estimated_cost": 0.0093673598,
+    "usage_available": true,
+    "pricing_available": true,
+    "pricing_stale": false,
+    "reason": null,
+    "missing": []
   },
   "balance": {
-    "available": false,
-    "reason": "balance_client_unavailable"
+    "available": true,
+    "status": "ok",
+    "provider": "deepseek",
+    "currency": "CNY",
+    "amount": 5.83,
+    "display": "5.83 CNY",
+    "reason": null,
+    "action": null
   },
   "compaction": {
     "available": true,
@@ -730,10 +762,10 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 		"Profile:** `deepseek-thinking` `ACP`",
 		"Model:** `deepseek-v4-flash` `max`",
 		"Session:** `thread-telemetry-1`",
-		"n/a/750k",
-		"Tokens   last n/a  session n/a  aux n/a",
-		"Cost     n/a",
-		"Balance  n/a",
+		"—/750k",
+		"Tokens   last 50.2k  session 9.1M  aux 648.2k",
+		"Cost     session $0.5993  last $0.000154  aux $0.009367  est",
+		"Balance  5.83 CNY",
 		"Compact [",
 		"58/1.2M chars · not_triggered",
 		"Trim    [",
@@ -745,9 +777,32 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
 		}
 	}
-	for _, forbidden := range []string{"stale-agent-model", "source:", "tools:", "other:", "last turn id:", "Model    codex", "codex_profile.model_auto_compact_token_limit", "missing usage_attribution", "balance_client_unavailable"} {
+	for _, forbidden := range []string{"stale-agent-model", "source:", "tools:", "other:", "last turn id:", "Model    codex", "codex_profile.model_auto_compact_token_limit", "missing usage_attribution", "balance_client_unavailable", "9.1M/750k", "100.0%"} {
 		if strings.Contains(reply, forbidden) {
 			t.Fatalf("status reply = %q, should not contain %q", reply, forbidden)
+		}
+	}
+}
+
+func TestDsproxyContextUsedTokensRequiresExplicitAvailability(t *testing.T) {
+	payload, ok := parseJSONMap(sampleWeClawTelemetryJSON())
+	if !ok {
+		t.Fatal("sample telemetry JSON should parse")
+	}
+	line := formatDsproxyContextLine(payload)
+	if !strings.Contains(line, "—/750k") {
+		t.Fatalf("context line = %q, want unavailable used-token marker", line)
+	}
+	if strings.Contains(line, "9.1M/750k") || strings.Contains(line, "100.0%") {
+		t.Fatalf("context line = %q, must not use session_total as context used tokens", line)
+	}
+
+	payload["context_window"].(map[string]any)["used_tokens_available"] = true
+	payload["context_window"].(map[string]any)["used_tokens"] = float64(375000)
+	line = formatDsproxyContextLine(payload)
+	for _, want := range []string{"50.0%", "375k/750k"} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("context line = %q, want %q", line, want)
 		}
 	}
 }

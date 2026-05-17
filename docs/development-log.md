@@ -1,3 +1,15 @@
+# WeClaw Dev Development Log
+
+## 2026-05-17 - p0.1.5a61-dsproxy-runtime-status-followup
+
+- Scope: WeClaw follow-up integration against CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract`.
+- Change: `/status` no longer uses `tokens.session_total` as token-level Context used tokens. It displays an unavailable marker when `context_window.used_tokens_available=false`.
+- Change: `/status` now reads dsproxy `summary.total_tokens` for `tokens.last_turn`, `tokens.session_total`, and `tokens.auxiliary_model_calls`.
+- Change: small estimated costs keep enough decimal precision to avoid displaying nonzero usage as `$0`.
+- Change: developer handbooks were synchronized with the a61 internal line and the development log H1 was restored to the first line.
+- Validation: `gofmt`, `git diff --check`, `bash -n install.sh`, focused messaging tests, broader package tests, and full `go test ./...` are required before merge.
+- Notes or lessons: usage ledger totals and context-window used tokens are different metrics. WeClaw must only display context used tokens when dsproxy explicitly marks them available.
+
 ## 2026-05-17 - v0.1.9-alpha / p0.1.5a60-release-v0.1.9-alpha
 
 - Scope: public pre-release for the WeClaw / CoDeepSeedeX telemetry integration line.
@@ -7,10 +19,8 @@
 - Change: `/status` now consumes `dsproxy status <route> --weclaw-json` and displays model, effort, token context, token usage, estimated cost, provider balance, runtime Compact/Trim and paths from the dsproxy contract.
 - Change: compact `/status` hides internal model-conflict and missing-reason diagnostics while preserving a single-line `Paths` row for active debugging.
 - Change: developer handbooks now record the release state, telemetry contract state, and CoDeepSeedeX version requirement.
-- Validation: release readiness audit confirmed `main=origin/main=68ca2bb`, clean worktree, target `v0.1.9-alpha` absent before publication, and CoDeepSeedeX runtime `v0.3.9-alpha` telemetry fields available.
+- Validation: release readiness audit confirmed `main=origin/main=a02b3c9`, clean worktree, target `v0.1.9-alpha` absent before publication, and CoDeepSeedeX runtime `v0.3.9-alpha` telemetry fields available.
 - Notes or lessons: Release notes must highlight the CoDeepSeedeX minimum version because older dsproxy builds lack the complete WeClaw telemetry contract.
-
-# WeClaw Dev Development Log
 
 ## 2026-05-16 - p0.1.5a59-status-paths-restore
 
