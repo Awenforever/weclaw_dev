@@ -38,7 +38,7 @@ p0.1.5a76在a72-a75 `/status`遥测线完成后，刷新文档并将当前`v0.1.
 - 主分支：`main`
 - 当前Latest公开Release：`v0.1.8-alpha`
 - 当前Latest公开Release commit：`05cb93c`
-- 当前公开pre-release：`v0.1.9-alpha`，位于`<to-be-refreshed-by-p78>`。
+- 当前公开pre-release：`v0.1.9-alpha`，位于`aaecf0b`。
 - 当前Release对应内部标记：`p0.1.5a69-release-v0.1.9-alpha-refresh`，位于`6a5f10f`
 - 当前内部开发标签：`p0.1.5a78-prerelease-raw-install-entry`
 - 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`

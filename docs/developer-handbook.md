@@ -38,7 +38,7 @@ This is the canonical English handoff for starting a new AI development conversa
 - Main branch: `main`
 - Current Latest public Release: `v0.1.8-alpha`
 - Current Latest public Release commit: `05cb93c`
-- Current public pre-release: `v0.1.9-alpha` at `<to-be-refreshed-by-p78>`.
+- Current public pre-release: `v0.1.9-alpha` at `aaecf0b`.
 - Current Release internal marker: `p0.1.5a69-release-v0.1.9-alpha-refresh` at `6a5f10f`
 - Current internal development tag: `p0.1.5a78-prerelease-raw-install-entry`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
