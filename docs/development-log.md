@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a73-status-display-polish
+
+- Scope: WeChat `/status` display polish after p0.1.5a72 live validation.
+- Change: removed the visible `bundled official snapshot` prefix from ordinary Pricing output while retaining per-1M prices and update date.
+- Change: removed the visible `est` suffix from the Context numerator while retaining the dsproxy availability gate.
+- Fix: Compact and Trim now fall back to dsproxy runtime config denominators when report files are absent and show `no report` instead of `0/-- chars`.
+- Boundary: WeClaw still does not infer current char usage when dsproxy report files are absent.
+
 ## 2026-05-17 - p0.1.5a72-status-contract-display-adaptation
 
 - Scope: Adapt WeClaw `/status` display to the CoDeepSeedeX `p2.10a61` WeClaw status contract.

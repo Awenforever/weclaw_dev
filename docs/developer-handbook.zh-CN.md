@@ -11,9 +11,9 @@
 - 当前Latest公开Release commit：`05cb93c`
 - 当前公开pre-release：`v0.1.9-alpha`，位于`6a5f10f`。
 - 当前Release对应内部标记：`p0.1.5a69-release-v0.1.9-alpha-refresh`，位于`6a5f10f`
-- 当前内部开发标签：`p0.1.5a72-status-contract-display-adaptation`
+- 当前内部开发标签：`p0.1.5a73-status-display-polish`
 - 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- 当前活动开发线：`p0.1.5a72-status-contract-display-adaptation`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
+- 当前活动开发线：`p0.1.5a73-status-display-polish`
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - 目标`v0.1.9-alpha` GitHub Release标题为`WeClaw Dev v0.1.9-alpha`，必须创建为pre-release，并在使用CoDeepSeedeX集成时要求CoDeepSeedeX `v0.3.9-alpha`或更新版本。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
@@ -261,3 +261,8 @@ dsproxy Codex profile状态：model_reasoning_effort="xhigh"
 ## p0.1.5a72 status契约展示适配
 
 p0.1.5a72适配CoDeepSeedeX `p2.10a61`的WeClaw契约。普通`/status`只在`context_window.used_tokens_available=true`时展示Context numerator，并用`est`标明估算值。Context分母来自`context_window.display_limit_tokens`或`context_window.limit_explanation.display_limit_tokens`。Pricing行展示dsproxy返回的价格来源、每100万tokens单价和更新时间。`bundled_official_docs_snapshot`必须显示为随包官方快照，不能说成实时官网缓存。Tokens、`aux`、`EstCost`、Policy、Compact、Trim、Proxy和Paths继续保持分离。
+
+
+## p0.1.5a73 status展示精简
+
+p0.1.5a73精简普通`/status`中的低价值来源和估算后缀：Pricing行不再显示`bundled_official_docs_snapshot`标签，但继续显示每100万tokens单价和更新时间；Context行不再显示`est`后缀，但仍只消费dsproxy明确可用的numerator。Compact和Trim在报告文件不存在时回退到dsproxy运行时配置分母，并显示`no report`，避免继续出现无效的`0/-- chars`。

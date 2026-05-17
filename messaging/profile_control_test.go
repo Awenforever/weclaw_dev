@@ -992,8 +992,8 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 		"Tokens   last 50.2k  session 9.1M  aux 648.2k",
 		"EstCost session $0.5993  last $0.000154  aux $0.009367",
 		"Balance  5.83 CNY",
-		"87/750k est",
-		"Pricing  bundled official snapshot · hit $0.0028/M miss $0.14/M out $0.28/M · updated 2026-05-17",
+		"87/750k",
+		"Pricing  hit $0.0028/M miss $0.14/M out $0.28/M · updated 2026-05-17",
 		"Policy   adaptive · trigger 1.2M chars · target 750k · keep 24",
 		"Compact [",
 		"Proxy    thinking · 127.0.0.1:8001 · reachable",
@@ -1073,7 +1073,7 @@ func TestDsproxyContextLineMarksEstimatedUsage(t *testing.T) {
 		t.Fatal("sample round4 telemetry JSON should parse")
 	}
 	line := formatDsproxyContextLine(payload)
-	for _, want := range []string{"0.0%", "87/750k est"} {
+	for _, want := range []string{"0.0%", "87/750k"} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("context line = %q, want %q", line, want)
 		}
@@ -1090,8 +1090,7 @@ func TestDsproxyPricingSummaryShowsSnapshotPrices(t *testing.T) {
 	}
 	line := formatDsproxyPricingSummaryLine(payload)
 	for _, want := range []string{
-		"Pricing  bundled official snapshot",
-		"hit $0.0028/M",
+		"Pricing  hit $0.0028/M",
 		"miss $0.14/M",
 		"out $0.28/M",
 		"updated 2026-05-17",
@@ -1100,10 +1099,52 @@ func TestDsproxyPricingSummaryShowsSnapshotPrices(t *testing.T) {
 			t.Fatalf("pricing line = %q, want %q", line, want)
 		}
 	}
-	for _, forbidden := range []string{"default config", "refresh yes"} {
+	for _, forbidden := range []string{"default config", "refresh yes", "Pricing  bundled official snapshot ·"} {
 		if strings.Contains(line, forbidden) {
 			t.Fatalf("pricing line = %q, should not contain %q", line, forbidden)
 		}
+	}
+}
+
+func TestDsproxyCompactionLinesFallbackToConfigWhenReportsMissing(t *testing.T) {
+	payload := map[string]any{
+		"compaction": map[string]any{
+			"available": true,
+			"unit":      "chars",
+			"runtime_context": map[string]any{
+				"compaction": map[string]any{
+					"config": map[string]any{
+						"trigger_chars": float64(900000),
+					},
+					"last_report": map[string]any{
+						"exists": false,
+					},
+				},
+				"trimming": map[string]any{
+					"config": map[string]any{
+						"max_context_chars": float64(1500000),
+					},
+					"last_report": map[string]any{
+						"exists": false,
+					},
+				},
+			},
+		},
+	}
+	lines := formatDsproxyCompactionLines(payload)
+	joined := strings.Join(lines, "\n")
+	for _, want := range []string{
+		"Compact [",
+		"n/a  --/900k chars · no report",
+		"Trim    [",
+		"n/a  --/1.5M chars · no report",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("compaction lines = %q, want %q", joined, want)
+		}
+	}
+	if strings.Contains(joined, "0/-- chars") {
+		t.Fatalf("compaction lines = %q, should not contain invalid 0/-- chars", joined)
 	}
 }
 

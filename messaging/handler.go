@@ -1506,8 +1506,9 @@ func formatDsproxyPricingSummaryLine(payload map[string]any) string {
 		return ""
 	}
 
-	parts := []string{
-		pricingSourceLabel(nestedStringDefault(pricing, "unknown", "source_kind")),
+	parts := make([]string, 0, 3)
+	if sourceLabel := pricingSourceLabel(nestedStringDefault(pricing, "unknown", "source_kind")); sourceLabel != "" {
+		parts = append(parts, sourceLabel)
 	}
 	if priceSummary := pricingPricesSummary(pricing); priceSummary != "" {
 		parts = append(parts, priceSummary)
@@ -1630,7 +1631,7 @@ func pricingSourceLabel(sourceKind string) string {
 	case "project_default_config", "project_default_pricing_config":
 		return "default config"
 	case "bundled_official_docs_snapshot", "bundled_official_snapshot":
-		return "bundled official snapshot"
+		return ""
 	case "official_docs_html", "official_live_cache", "official_cache":
 		return "official cache"
 	case "user_cache", "cache", "pricing_cache":
@@ -1695,18 +1696,12 @@ func formatDsproxyContextLine(payload map[string]any) string {
 		)
 	}
 
-	estimateSuffix := ""
-	if dsproxyContextUsedTokensEstimated(payload) {
-		estimateSuffix = " est"
-	}
-
 	return fmt.Sprintf(
-		"Context  [%s]  %s  %s/%s%s",
+		"Context  [%s]  %s  %s/%s",
 		formatCommandProgressBar(used, limit, 20),
 		formatTokenPercent(used, limit),
 		formatTokenCount(maxInt64(used, 0)),
 		formatContextLimit(limit),
-		estimateSuffix,
 	)
 }
 
@@ -1907,35 +1902,69 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 		return []string{"Compact n/a"}
 	}
 	unit := nestedStringDefault(compaction, "chars", "unit")
-	before := nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "before_chars")
+
+	before := nestedInt64Default(compaction, -1, "runtime_context", "compaction", "last_report", "before_chars")
 	trigger := nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "effective_trigger_chars")
 	if trigger <= 0 {
 		trigger = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "trigger_chars")
 	}
-	reason := nestedStringDefault(compaction, "unknown", "runtime_context", "compaction", "last_report", "reason")
-	trimBefore := nestedInt64Default(compaction, 0, "runtime_context", "trimming", "last_report", "before_chars")
+	if trigger <= 0 {
+		trigger = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "config", "trigger_chars")
+	}
+	reason := nestedStringDefault(compaction, "", "runtime_context", "compaction", "last_report", "reason")
+	if reason == "" {
+		if !nestedBoolDefault(compaction, false, "runtime_context", "compaction", "last_report", "exists") {
+			reason = "no report"
+		} else {
+			reason = "unknown"
+		}
+	}
+
+	trimBefore := nestedInt64Default(compaction, -1, "runtime_context", "trimming", "last_report", "before_chars")
 	trimMax := nestedInt64Default(compaction, 0, "runtime_context", "trimming", "last_report", "max_context_chars")
+	if trimMax <= 0 {
+		trimMax = nestedInt64Default(compaction, 0, "runtime_context", "trimming", "config", "max_context_chars")
+	}
 	removed := nestedInt64Default(compaction, 0, "runtime_context", "trimming", "last_report", "chars_removed")
+	trimReason := "removed " + formatTokenCount(removed)
+	if trimBefore < 0 && !nestedBoolDefault(compaction, false, "runtime_context", "trimming", "last_report", "exists") {
+		trimReason = "no report"
+	}
+
 	return []string{
 		fmt.Sprintf(
 			"Compact [%s]  %s  %s/%s %s · %s",
-			formatCommandProgressBar(before, trigger, 20),
-			formatTokenPercent(before, trigger),
-			formatTokenCount(before),
+			formatCommandProgressBar(maxInt64(before, 0), trigger, 20),
+			formatStatusPercent(before, trigger),
+			formatStatusCount(before),
 			formatContextLimit(trigger),
 			unit,
 			compactCommandOutput(reason, 36),
 		),
 		fmt.Sprintf(
-			"Trim    [%s]  %s  %s/%s %s · removed %s",
-			formatCommandProgressBar(trimBefore, trimMax, 20),
-			formatTokenPercent(trimBefore, trimMax),
-			formatTokenCount(trimBefore),
+			"Trim    [%s]  %s  %s/%s %s · %s",
+			formatCommandProgressBar(maxInt64(trimBefore, 0), trimMax, 20),
+			formatStatusPercent(trimBefore, trimMax),
+			formatStatusCount(trimBefore),
 			formatContextLimit(trimMax),
 			unit,
-			formatTokenCount(removed),
+			trimReason,
 		),
 	}
+}
+
+func formatStatusPercent(used, limit int64) string {
+	if used < 0 {
+		return "n/a"
+	}
+	return formatTokenPercent(used, limit)
+}
+
+func formatStatusCount(value int64) string {
+	if value < 0 {
+		return "--"
+	}
+	return formatTokenCount(value)
 }
 
 func resolveDsproxyBinary() string {
