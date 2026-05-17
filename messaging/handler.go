@@ -1897,6 +1897,10 @@ func formatDsproxyBalanceLine(payload map[string]any) string {
 }
 
 func formatDsproxyCompactionLines(payload map[string]any) []string {
+	if lines, ok := formatDsproxyRuntimePayloadGuardLines(payload); ok {
+		return lines
+	}
+
 	compaction, ok := nestedMap(payload, "compaction")
 	if !ok || !nestedBoolDefault(compaction, false, "available") {
 		return []string{"Compact n/a"}
@@ -1939,7 +1943,7 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 			formatStatusCount(before),
 			formatContextLimit(trigger),
 			unit,
-			compactCommandOutput(reason, 36),
+			compactCommandOutput(displayRuntimePayloadGuardStatus(reason), 36),
 		),
 		fmt.Sprintf(
 			"Trim    [%s]  %s  %s/%s %s · %s",
@@ -1948,9 +1952,68 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 			formatStatusCount(trimBefore),
 			formatContextLimit(trimMax),
 			unit,
-			trimReason,
+			displayRuntimePayloadGuardStatus(trimReason),
 		),
 	}
+}
+
+func formatDsproxyRuntimePayloadGuardLines(payload map[string]any) ([]string, bool) {
+	guard, ok := nestedMap(payload, "runtime_payload_guard")
+	if !ok || !nestedBoolDefault(guard, false, "available") {
+		return nil, false
+	}
+	unit := nestedStringDefault(guard, "chars", "unit")
+	lines := make([]string, 0, 2)
+
+	if compaction, ok := nestedMap(guard, "compaction"); ok && nestedBoolDefault(compaction, false, "available") {
+		current := nestedInt64Default(compaction, -1, "current_chars")
+		trigger := nestedInt64Default(compaction, 0, "trigger_chars")
+		if trigger <= 0 {
+			trigger = nestedInt64Default(compaction, 0, "effective_trigger_chars")
+		}
+		if current >= 0 && trigger > 0 {
+			status := displayRuntimePayloadGuardStatus(nestedStringDefault(compaction, "unknown", "status"))
+			lines = append(lines, fmt.Sprintf(
+				"Compact [%s]  %s  %s/%s %s · %s",
+				formatCommandProgressBar(current, trigger, 20),
+				formatStatusPercent(current, trigger),
+				formatStatusCount(current),
+				formatContextLimit(trigger),
+				unit,
+				compactCommandOutput(status, 36),
+			))
+		}
+	}
+
+	if trimming, ok := nestedMap(guard, "trimming"); ok && nestedBoolDefault(trimming, false, "available") {
+		current := nestedInt64Default(trimming, -1, "current_chars")
+		limit := nestedInt64Default(trimming, 0, "max_context_chars")
+		if current >= 0 && limit > 0 {
+			status := displayRuntimePayloadGuardStatus(nestedStringDefault(trimming, "unknown", "status"))
+			lines = append(lines, fmt.Sprintf(
+				"Trim    [%s]  %s  %s/%s %s · %s",
+				formatCommandProgressBar(current, limit, 20),
+				formatStatusPercent(current, limit),
+				formatStatusCount(current),
+				formatContextLimit(limit),
+				unit,
+				compactCommandOutput(status, 36),
+			))
+		}
+	}
+
+	if len(lines) == 0 {
+		return nil, false
+	}
+	return lines, true
+}
+
+func displayRuntimePayloadGuardStatus(status string) string {
+	status = strings.TrimSpace(status)
+	if status == "" {
+		return "unknown"
+	}
+	return strings.ReplaceAll(status, "_", " ")
 }
 
 func formatStatusPercent(used, limit int64) string {

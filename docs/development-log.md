@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a74-runtime-payload-guard-display
+
+- Scope: Adapt WeChat `/status` to the CoDeepSeedeX `p2.10a62` runtime payload guard contract.
+- Change: Compact now displays real-time char progress from `runtime_payload_guard.compaction.current_chars / trigger_chars`.
+- Change: Trim now displays real-time char progress from `runtime_payload_guard.trimming.current_chars / max_context_chars`.
+- Boundary: WeClaw still does not infer payload chars from tokens, session totals, debug files, SQLite, or Codex profiles. It only consumes dsproxy's machine-readable contract.
+
 ## 2026-05-17 - p0.1.5a73-status-display-polish
 
 - Scope: WeChat `/status` display polish after p0.1.5a72 live validation.

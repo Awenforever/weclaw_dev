@@ -946,7 +946,7 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 		"EstCost session $0.5993  last $0.000154  aux $0.009367",
 		"Balance  5.83 CNY",
 		"Compact [",
-		"58/1.2M chars · not_triggered",
+		"58/1.2M chars · not triggered",
 		"Trim    [",
 		"219/1.5M chars · removed 0",
 		"Proxy    thinking · 127.0.0.1:8001 · reachable",
@@ -1102,6 +1102,68 @@ func TestDsproxyPricingSummaryShowsSnapshotPrices(t *testing.T) {
 	for _, forbidden := range []string{"default config", "refresh yes", "Pricing  bundled official snapshot ·"} {
 		if strings.Contains(line, forbidden) {
 			t.Fatalf("pricing line = %q, should not contain %q", line, forbidden)
+		}
+	}
+}
+
+func TestDsproxyRuntimePayloadGuardLinesUseRealtimeChars(t *testing.T) {
+	payload := map[string]any{
+		"runtime_payload_guard": map[string]any{
+			"available": true,
+			"unit":      "chars",
+			"compaction": map[string]any{
+				"available":     true,
+				"current_chars": float64(60),
+				"trigger_chars": float64(1250000),
+				"usage_ratio":   0.000048,
+				"status":        "not_triggered",
+			},
+			"trimming": map[string]any{
+				"available":         true,
+				"current_chars":     float64(174),
+				"max_context_chars": float64(1500000),
+				"usage_ratio":       0.000116,
+				"status":            "not_triggered",
+			},
+		},
+		"compaction": map[string]any{
+			"available": true,
+			"unit":      "chars",
+			"runtime_context": map[string]any{
+				"compaction": map[string]any{
+					"config": map[string]any{
+						"trigger_chars": float64(900000),
+					},
+					"last_report": map[string]any{
+						"exists": false,
+					},
+				},
+				"trimming": map[string]any{
+					"config": map[string]any{
+						"max_context_chars": float64(1500000),
+					},
+					"last_report": map[string]any{
+						"exists": false,
+					},
+				},
+			},
+		},
+	}
+	lines := formatDsproxyCompactionLines(payload)
+	joined := strings.Join(lines, "\n")
+	for _, want := range []string{
+		"Compact [",
+		"0.0%  60/1.2M chars · not triggered",
+		"Trim    [",
+		"0.0%  174/1.5M chars · not triggered",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("runtime payload guard lines = %q, want %q", joined, want)
+		}
+	}
+	for _, forbidden := range []string{"no report", "0/-- chars", "--/900k chars"} {
+		if strings.Contains(joined, forbidden) {
+			t.Fatalf("runtime payload guard lines = %q, should not contain %q", joined, forbidden)
 		}
 	}
 }

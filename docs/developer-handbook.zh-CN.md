@@ -11,9 +11,9 @@
 - 当前Latest公开Release commit：`05cb93c`
 - 当前公开pre-release：`v0.1.9-alpha`，位于`6a5f10f`。
 - 当前Release对应内部标记：`p0.1.5a69-release-v0.1.9-alpha-refresh`，位于`6a5f10f`
-- 当前内部开发标签：`p0.1.5a73-status-display-polish`
+- 当前内部开发标签：`p0.1.5a74-runtime-payload-guard-display`
 - 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- 当前活动开发线：`p0.1.5a73-status-display-polish`
+- 当前活动开发线：`p0.1.5a74-runtime-payload-guard-display`
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - 目标`v0.1.9-alpha` GitHub Release标题为`WeClaw Dev v0.1.9-alpha`，必须创建为pre-release，并在使用CoDeepSeedeX集成时要求CoDeepSeedeX `v0.3.9-alpha`或更新版本。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
@@ -266,3 +266,8 @@ p0.1.5a72适配CoDeepSeedeX `p2.10a61`的WeClaw契约。普通`/status`只在`co
 ## p0.1.5a73 status展示精简
 
 p0.1.5a73精简普通`/status`中的低价值来源和估算后缀：Pricing行不再显示`bundled_official_docs_snapshot`标签，但继续显示每100万tokens单价和更新时间；Context行不再显示`est`后缀，但仍只消费dsproxy明确可用的numerator。Compact和Trim在报告文件不存在时回退到dsproxy运行时配置分母，并显示`no report`，避免继续出现无效的`0/-- chars`。
+
+
+## p0.1.5a74 runtime payload guard展示适配
+
+p0.1.5a74适配CoDeepSeedeX `p2.10a62`新增的`runtime_payload_guard`契约。普通`/status`中的Compact和Trim优先使用`runtime_payload_guard.compaction.current_chars`和`runtime_payload_guard.trimming.current_chars`作为实时char级numerator，并分别使用`trigger_chars`和`max_context_chars`作为分母。旧的config/report回退只保留给尚未提供新契约的运行时。

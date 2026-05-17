@@ -11,9 +11,9 @@ This is the canonical English handoff for starting a new AI development conversa
 - Current Latest public Release commit: `05cb93c`
 - Current public pre-release: `v0.1.9-alpha` at `6a5f10f`.
 - Current Release internal marker: `p0.1.5a69-release-v0.1.9-alpha-refresh` at `6a5f10f`
-- Current internal development tag: `p0.1.5a73-status-display-polish`
+- Current internal development tag: `p0.1.5a74-runtime-payload-guard-display`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- Current active development line: `p0.1.5a73-status-display-polish`
+- Current active development line: `p0.1.5a74-runtime-payload-guard-display`
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - Target `v0.1.9-alpha` GitHub Release title is `WeClaw Dev v0.1.9-alpha`, must be created as a pre-release, and must require CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
@@ -263,3 +263,8 @@ p0.1.5a72 adapts ordinary `/status` to the CoDeepSeedeX `p2.10a61` WeClaw contra
 ## p0.1.5a73 status display polish
 
 p0.1.5a73 removes low-value source and estimate suffixes from ordinary `/status`: the Pricing line omits the `bundled_official_docs_snapshot` label while still showing per-1M prices and update date, and the Context line omits the visible `est` suffix while still consuming dsproxy's available numerator only. Compact and Trim now fall back to dsproxy runtime configuration denominators when report files are absent, and display `no report` instead of the invalid `0/-- chars`.
+
+
+## p0.1.5a74 runtime payload guard display
+
+p0.1.5a74 adapts WeChat `/status` to the CoDeepSeedeX `runtime_payload_guard` contract from `p2.10a62`. Compact and Trim now prefer real-time char counters from `runtime_payload_guard.compaction.current_chars` and `runtime_payload_guard.trimming.current_chars`, using `trigger_chars` and `max_context_chars` as denominators. The older config/report fallback remains only for runtimes that do not expose the new contract.
