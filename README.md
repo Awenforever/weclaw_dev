@@ -2,29 +2,22 @@
 
 ## Current pre-release: v0.1.9-alpha
 
-`v0.1.9-alpha` now includes the WeClaw `/status` telemetry refresh from the a72-a75 line:
+`v0.1.9-alpha` now includes the WeClaw `/status` telemetry refresh from the a72-a75 line and the pinned pre-release installer fix from a77.
+
+Pre-release install must pass the Release tag explicitly because the installer defaults to the stable/latest GitHub Release channel when no version is provided:
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+```
+
+`v0.1.9-alpha` highlights:
 
 - Context shows the dsproxy-reported context window numerator and display limit.
 - Pricing shows current per-1M token prices and the pricing update date.
 - Compact and Trim show real-time char-level progress from CoDeepSeedeX `runtime_payload_guard`.
-- Policy now displays the retained-message count as `keep ⤒24 msgs`.
+- Policy displays the retained-message count as `keep ⤒24 msgs`.
 
 For full `/status` telemetry, use CoDeepSeedeX `v0.3.9-alpha` or newer.
-
-
-<p align="center">
-  <strong>WeChat bridge for AI agents, optimized for Codex, DeepSeek and long-running chat workflows.</strong>
-</p>
-
-<p align="center">
-  <a href="README.md">English</a> · <a href="README_CN.md">中文文档</a>
-</p>
-
-> `weclaw_dev` is a development fork of [`fastclaw-ai/weclaw`](https://github.com/fastclaw-ai/weclaw).
-> It keeps the upstream WeChat AI Agent bridge model, while adding development-oriented behavior for Codex, DeepSeek, command formatting, session continuity and WeChat chat ergonomics.
-> Personal learning and research use only.
-
----
 
 ## What is WeClaw Dev?
 

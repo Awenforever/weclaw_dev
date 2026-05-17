@@ -2,7 +2,15 @@
 
 ## 当前pre-release：v0.1.9-alpha
 
-`v0.1.9-alpha`已包含a72-a75线的WeClaw `/status`遥测刷新：
+`v0.1.9-alpha`已包含a72-a75线的WeClaw `/status`遥测刷新，以及a77的pre-release固定版本安装修复。
+
+pre-release安装必须显式传入Release tag，因为未提供版本时安装器默认使用stable/latest GitHub Release通道：
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+```
+
+`v0.1.9-alpha`重点：
 
 - Context显示dsproxy返回的上下文窗口numerator和显示上限。
 - Pricing显示当前每100万tokens价格和价格更新时间。
@@ -10,21 +18,6 @@
 - Policy将近期消息保留数量显示为`keep ⤒24 msgs`。
 
 完整`/status`遥测需要CoDeepSeedeX `v0.3.9-alpha`或更新版本。
-
-
-<p align="center">
-  <strong>面向Codex、DeepSeek和长对话工作流优化的微信AI Agent桥接器。</strong>
-</p>
-
-<p align="center">
-  <a href="README_CN.md">中文文档</a> · <a href="README.md">English</a>
-</p>
-
-> `weclaw_dev`是[`fastclaw-ai/weclaw`](https://github.com/fastclaw-ai/weclaw)的开发分支。
-> 本分支保留上游“微信接入AI Agent”的核心模式，同时强化Codex、DeepSeek、命令格式化、会话连续性和微信聊天体验。
-> 本项目仅限个人学习和研究使用。
-
----
 
 ## WeClaw Dev是什么？
 

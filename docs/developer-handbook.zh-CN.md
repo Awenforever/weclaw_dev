@@ -1,5 +1,16 @@
 # WeClaw Dev开发者交接手册
 
+## p0.1.5a77 pre-release固定版本安装
+
+p0.1.5a77修复面向用户的pre-release安装路径。`install.sh`在没有传入`--version`时会默认使用stable/latest GitHub Release通道。因此pre-release的Release notes和文档必须使用固定版本命令：
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+```
+
+不要在pre-release notes中发布“不带`--version`的tagged installer管道命令”；那会安装stable/latest Release，而不是pre-release资产。
+
+
 ## p0.1.5a76 v0.1.9-alpha发布刷新
 
 p0.1.5a76在a72-a75 `/status`遥测线完成后，刷新文档并将当前`v0.1.9-alpha` pre-release重新发布到最新mainline。该Release包含Context、Pricing、Compact、Trim和Policy展示改进。Release notes只写用户可见变化，不重复GitHub Release标题行。
@@ -14,11 +25,11 @@ p0.1.5a76在a72-a75 `/status`遥测线完成后，刷新文档并将当前`v0.1.
 - 主分支：`main`
 - 当前Latest公开Release：`v0.1.8-alpha`
 - 当前Latest公开Release commit：`05cb93c`
-- 当前公开pre-release：`v0.1.9-alpha`，位于`6a5f10f`。
+- 当前公开pre-release：`v0.1.9-alpha`，位于`<to-be-refreshed-by-p77>`。
 - 当前Release对应内部标记：`p0.1.5a69-release-v0.1.9-alpha-refresh`，位于`6a5f10f`
-- 当前内部开发标签：`p0.1.5a76-release-v0.1.9-alpha-refresh`
+- 当前内部开发标签：`p0.1.5a77-installer-prerelease-pin`
 - 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- 当前活动开发线：`p0.1.5a76-release-v0.1.9-alpha-refresh`
+- 当前活动开发线：`p0.1.5a77-installer-prerelease-pin`
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - 目标`v0.1.9-alpha` GitHub Release标题为`WeClaw Dev v0.1.9-alpha`，必须创建为pre-release，并在使用CoDeepSeedeX集成时要求CoDeepSeedeX `v0.3.9-alpha`或更新版本。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。

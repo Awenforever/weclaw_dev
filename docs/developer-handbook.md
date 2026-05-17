@@ -1,5 +1,16 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a77 pinned pre-release installer
+
+p0.1.5a77 fixes the user-facing pre-release install path. `install.sh` intentionally defaults to the stable/latest GitHub Release when no `--version` is provided. Therefore pre-release Release notes and docs must use a pinned command:
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/Awenforever/weclaw_dev@v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+```
+
+Do not publish pre-release notes that pipe a tagged installer without passing `--version`; that installs the stable/latest Release instead of the pre-release asset.
+
+
 ## p0.1.5a76 v0.1.9-alpha release refresh
 
 p0.1.5a76 refreshes documentation and republishes the current `v0.1.9-alpha` pre-release from the latest mainline after the a72-a75 `/status` telemetry work. The release includes Context, Pricing, Compact, Trim and Policy display improvements, and keeps the public release note focused on user-visible changes. Release notes must not duplicate the GitHub Release title line.
@@ -14,11 +25,11 @@ This is the canonical English handoff for starting a new AI development conversa
 - Main branch: `main`
 - Current Latest public Release: `v0.1.8-alpha`
 - Current Latest public Release commit: `05cb93c`
-- Current public pre-release: `v0.1.9-alpha` at `6a5f10f`.
+- Current public pre-release: `v0.1.9-alpha` at `<to-be-refreshed-by-p77>`.
 - Current Release internal marker: `p0.1.5a69-release-v0.1.9-alpha-refresh` at `6a5f10f`
-- Current internal development tag: `p0.1.5a76-release-v0.1.9-alpha-refresh`
+- Current internal development tag: `p0.1.5a77-installer-prerelease-pin`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- Current active development line: `p0.1.5a76-release-v0.1.9-alpha-refresh`
+- Current active development line: `p0.1.5a77-installer-prerelease-pin`
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - Target `v0.1.9-alpha` GitHub Release title is `WeClaw Dev v0.1.9-alpha`, must be created as a pre-release, and must require CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.

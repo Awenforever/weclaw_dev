@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a77-installer-prerelease-pin
+
+- Scope: fix the `v0.1.9-alpha` pre-release install path discovered by VM user-path testing.
+- Problem: piping `install.sh` from `@v0.1.9-alpha` without arguments still used the installer's default latest-release resolver and installed the stable/latest `v0.1.8-alpha`.
+- Fix: docs, installer help, installer post-install hints and Release notes now use the pinned pre-release command with `--version v0.1.9-alpha`.
+- Boundary: the installer still defaults to stable/latest when no version is provided; pre-release users must opt in with `--version` or use `weclaw upgrade --alpha`.
+
 ## 2026-05-17 - p0.1.5a76-release-v0.1.9-alpha-refresh
 
 - Scope: final documentation and pre-release refresh for `v0.1.9-alpha` after the a72-a75 WeClaw `/status` telemetry line.
