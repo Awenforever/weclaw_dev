@@ -1727,17 +1727,17 @@ func formatTokenBucket(label string, bucket map[string]any) string {
 func formatDsproxyCostLine(payload map[string]any) string {
 	cost, ok := nestedMap(payload, "cost")
 	if !ok {
-		return "Cost     n/a"
+		return "EstCost n/a"
 	}
 	currency := nestedStringDefault(cost, "USD", "currency")
 	if !nestedBoolDefault(cost, false, "available") {
-		return "Cost     n/a"
+		return "EstCost n/a"
 	}
 	session := nestedFloat64Default(cost, 0, "session_estimated_cost")
 	last := nestedFloat64Default(cost, 0, "last_turn_estimated_cost")
 	aux := nestedFloat64Default(cost, 0, "auxiliary_estimated_cost")
 	return fmt.Sprintf(
-		"Cost     session %s  last %s  aux %s  est",
+		"EstCost session %s  last %s  aux %s",
 		formatMoney(session, currency),
 		formatMoney(last, currency),
 		formatMoney(aux, currency),

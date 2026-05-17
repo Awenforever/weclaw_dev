@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a67-status-estcost-label
+
+- Scope: make the `/status` estimated-cost row unambiguous.
+- Change: replaced the `Cost ... est` row with `EstCost ...`.
+- Change: replaced `Cost n/a` fallbacks with `EstCost n/a` for label consistency.
+- Boundary: kept `aux` unchanged and did not change pricing, token usage, balance, or compaction calculations.
+
 ## 2026-05-17 - p0.1.5a66-status-label-pricing-compaction
 
 - Scope: make the strengthened `/status` more user-readable after the p2.10a59 contract integration.
