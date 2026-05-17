@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a76-release-v0.1.9-alpha-refresh
+
+- Scope: final documentation and pre-release refresh for `v0.1.9-alpha` after the a72-a75 WeClaw `/status` telemetry line.
+- Documentation: updated README, README_CN, developer handbooks and development log with the latest status telemetry contract and display behavior.
+- Release: rebuilt the `v0.1.9-alpha` pre-release from current main, refreshed release notes, and rebuilt the five platform assets.
+- Boundary: public release notes remain user-facing and must not duplicate the GitHub Release title line.
+
 ## 2026-05-17 - p0.1.5a75-policy-keep-arrow-msgs-label
 
 - Scope: small WeChat `/status` display polish.

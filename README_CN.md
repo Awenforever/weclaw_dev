@@ -1,5 +1,17 @@
 # WeClaw Dev
 
+## 当前pre-release：v0.1.9-alpha
+
+`v0.1.9-alpha`已包含a72-a75线的WeClaw `/status`遥测刷新：
+
+- Context显示dsproxy返回的上下文窗口numerator和显示上限。
+- Pricing显示当前每100万tokens价格和价格更新时间。
+- Compact和Trim显示来自CoDeepSeedeX `runtime_payload_guard`的实时字符级进度。
+- Policy将近期消息保留数量显示为`keep ⤒24 msgs`。
+
+完整`/status`遥测需要CoDeepSeedeX `v0.3.9-alpha`或更新版本。
+
+
 <p align="center">
   <strong>面向Codex、DeepSeek和长对话工作流优化的微信AI Agent桥接器。</strong>
 </p>

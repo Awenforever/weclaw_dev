@@ -1,5 +1,17 @@
 # WeClaw Dev
 
+## Current pre-release: v0.1.9-alpha
+
+`v0.1.9-alpha` now includes the WeClaw `/status` telemetry refresh from the a72-a75 line:
+
+- Context shows the dsproxy-reported context window numerator and display limit.
+- Pricing shows current per-1M token prices and the pricing update date.
+- Compact and Trim show real-time char-level progress from CoDeepSeedeX `runtime_payload_guard`.
+- Policy now displays the retained-message count as `keep ⤒24 msgs`.
+
+For full `/status` telemetry, use CoDeepSeedeX `v0.3.9-alpha` or newer.
+
+
 <p align="center">
   <strong>WeChat bridge for AI agents, optimized for Codex, DeepSeek and long-running chat workflows.</strong>
 </p>

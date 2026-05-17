@@ -1,5 +1,10 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a76 v0.1.9-alpha release refresh
+
+p0.1.5a76 refreshes documentation and republishes the current `v0.1.9-alpha` pre-release from the latest mainline after the a72-a75 `/status` telemetry work. The release includes Context, Pricing, Compact, Trim and Policy display improvements, and keeps the public release note focused on user-visible changes. Release notes must not duplicate the GitHub Release title line.
+
+
 This is the canonical English handoff for starting a new AI development conversation. Keep it concise and current. Long chronological details belong in `docs/development-log.md`.
 
 ## 1. Current trusted state
@@ -11,9 +16,9 @@ This is the canonical English handoff for starting a new AI development conversa
 - Current Latest public Release commit: `05cb93c`
 - Current public pre-release: `v0.1.9-alpha` at `6a5f10f`.
 - Current Release internal marker: `p0.1.5a69-release-v0.1.9-alpha-refresh` at `6a5f10f`
-- Current internal development tag: `p0.1.5a75-policy-keep-arrow-msgs-label`
+- Current internal development tag: `p0.1.5a76-release-v0.1.9-alpha-refresh`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- Current active development line: `p0.1.5a75-policy-keep-arrow-msgs-label`
+- Current active development line: `p0.1.5a76-release-v0.1.9-alpha-refresh`
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
 - Target `v0.1.9-alpha` GitHub Release title is `WeClaw Dev v0.1.9-alpha`, must be created as a pre-release, and must require CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
 - `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.

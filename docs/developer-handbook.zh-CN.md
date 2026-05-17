@@ -1,5 +1,10 @@
 # WeClaw Dev开发者交接手册
 
+## p0.1.5a76 v0.1.9-alpha发布刷新
+
+p0.1.5a76在a72-a75 `/status`遥测线完成后，刷新文档并将当前`v0.1.9-alpha` pre-release重新发布到最新mainline。该Release包含Context、Pricing、Compact、Trim和Policy展示改进。Release notes只写用户可见变化，不重复GitHub Release标题行。
+
+
 这是中文维护者镜像。英文版`docs/developer-handbook.md`是新AI对话的主要启动手册。详细时间线放在`docs/development-log.md`。
 
 ## 1. 当前可信状态
@@ -11,9 +16,9 @@
 - 当前Latest公开Release commit：`05cb93c`
 - 当前公开pre-release：`v0.1.9-alpha`，位于`6a5f10f`。
 - 当前Release对应内部标记：`p0.1.5a69-release-v0.1.9-alpha-refresh`，位于`6a5f10f`
-- 当前内部开发标签：`p0.1.5a75-policy-keep-arrow-msgs-label`
+- 当前内部开发标签：`p0.1.5a76-release-v0.1.9-alpha-refresh`
 - 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- 当前活动开发线：`p0.1.5a75-policy-keep-arrow-msgs-label`
+- 当前活动开发线：`p0.1.5a76-release-v0.1.9-alpha-refresh`
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - 目标`v0.1.9-alpha` GitHub Release标题为`WeClaw Dev v0.1.9-alpha`，必须创建为pre-release，并在使用CoDeepSeedeX集成时要求CoDeepSeedeX `v0.3.9-alpha`或更新版本。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
