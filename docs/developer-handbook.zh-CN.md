@@ -9,11 +9,11 @@
 - 主分支：`main`
 - 当前Latest公开Release：`v0.1.8-alpha`
 - 当前Latest公开Release commit：`05cb93c`
-- 当前公开pre-release：`v0.1.9-alpha`，位于`a02b3c9`。
-- 当前Release对应内部标记：`p0.1.5a50-outbound-markdown-capture`，位于`05cb93c`
-- 当前内部开发标签：`p0.1.5a67-status-estcost-label`
+- 当前公开pre-release：`v0.1.9-alpha`，位于`refreshing at p0.1.5a69; verify by tag after release`。
+- 当前Release对应内部标记：`p0.1.5a69-release-v0.1.9-alpha-refresh`，位于`refreshing; verify by tag after release`
+- 当前内部开发标签：`p0.1.5a69-release-v0.1.9-alpha-refresh`
 - 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- 当前活动开发线：`p0.1.5a67-status-estcost-label`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
+- 当前活动开发线：`p0.1.5a69-release-v0.1.9-alpha-refresh`。精确commit必须用Git解析，不要相信复制到静态文档中的旧hash。
 - 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
 - 目标`v0.1.9-alpha` GitHub Release标题为`WeClaw Dev v0.1.9-alpha`，必须创建为pre-release，并在使用CoDeepSeedeX集成时要求CoDeepSeedeX `v0.3.9-alpha`或更新版本。
 - `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
@@ -36,7 +36,7 @@
 | Telemetry展示质量 | 微信移动端输出保持紧凑、Markdown优先，并展示model、effort、context window、token usage、estimated cost、balance、compaction、proxy和单行paths。 | WeClaw `p0.1.5a61-dsproxy-runtime-status-followup` | verified | 2026-05-17 | WeClaw现在读取dsproxy的`summary.total_tokens`，保留estimated cost语义，并且不把`session_total`当作context used tokens。 |
 | 证据优先审计纪律 | 源码和文档改动必须基于完整源码文件、完整主文档或完整函数/模块块级上下文，而不是孤立grep片段。 | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | grep/rg只能用于定位符号或验证标记，不能作为补丁设计的充分证据。 |
 | 跨项目反馈闭环 | 每轮WeClaw集成后，根据缺失字段、语义歧义或契约不稳定点，生成精确的CoDeepSeedeX后续需求prompt。 | WeClaw `p0.1.5a67-status-estcost-label`，CoDeepSeedeX `p2.10a59-weclaw-round3-token-attribution-plan` | in_progress | 2026-05-17 | WeClaw保留`aux`，将行尾`est`标记改为`EstCost`标签，并保持pricing、token和compaction语义不变。 |
-| Release准备 | README、开发手册、开发日志、focused tests、full tests、Release notes和五个平台资产在公开Release发布前保持一致。 | 当前pre-release `v0.1.9-alpha`，内部线 `p0.1.5a62-second-round-contract-acceptance-audit` | in_progress | 2026-05-17 | a62不重新发布、不移动公开tag。a62只记录a61运行验证后的第二轮验收边界和第三轮候选需求。 |
+| Release准备 | README、开发手册、开发日志、focused tests、full tests、Release notes和五个平台资产在公开Release发布前保持一致。 | 当前pre-release `v0.1.9-alpha`，内部线 `p0.1.5a69-release-v0.1.9-alpha-refresh` | in_progress | 2026-05-17 | 将`v0.1.9-alpha`从早先a60发布提交刷新到当前a69发布提交，使a61-a67的status telemetry polish进入公开资产。 |
 
 ### 第二轮CoDeepSeedeX契约验收
 

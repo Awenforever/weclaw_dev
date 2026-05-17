@@ -1,5 +1,15 @@
 # WeClaw Dev Development Log
 
+## 2026-05-17 - p0.1.5a69-release-v0.1.9-alpha-refresh
+
+- Scope: refresh the public `v0.1.9-alpha` pre-release after the a61-a67 CoDeepSeedeX telemetry follow-up line.
+- Release target: `v0.1.9-alpha`.
+- Required companion version: CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
+- Change: Release assets now include the final compact `/status` behavior from a61-a67, including context unavailable semantics, dsproxy summary token usage, `EstCost`, pricing source/update status, active compaction policy, Compact/Trim, proxy, and paths.
+- Change: ordinary `/status` hides low-value internal diagnostic, attribution and semantic-readiness rows while preserving user-useful pricing and compaction policy information.
+- Validation: release readiness audit confirmed `main=origin/main=d3a2112`, clean worktree, local runtime `p0.1.5a67-status-estcost-label`, and existing `v0.1.9-alpha` still pointing to the older `a02b3c9` release commit before refresh.
+- Notes or lessons: refreshing an existing alpha pre-release requires explicitly deleting and recreating the public Release and tag, then rebuilding all platform assets with the new public/internal version metadata.
+
 ## 2026-05-17 - p0.1.5a67-status-estcost-label
 
 - Scope: make the `/status` estimated-cost row unambiguous.

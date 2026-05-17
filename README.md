@@ -73,7 +73,7 @@ weclaw start -f
 
 | Version | Affected area | Previous behavior | Current behavior |
 | --- | --- | --- | --- |
-| v0.1.9-alpha | CoDeepSeedeX telemetry integration | `/effort` and `/status` could only rely on partial local state or placeholders. | `/effort max` uses the dsproxy profile contract, and `/status` consumes dsproxy WeClaw telemetry for model, effort, token context, token usage, estimated cost, balance, Compact/Trim and runtime paths. Requires CoDeepSeedeX >= v0.3.9-alpha when CoDeepSeedeX integration is used. |
+| v0.1.9-alpha | CoDeepSeedeX telemetry integration | `/effort` and `/status` could only rely on partial local state or placeholders. | `/effort max` uses the dsproxy profile contract. `/status` consumes dsproxy WeClaw telemetry and now shows model, effort, token context, token usage, `EstCost`, balance, pricing source/update state, compaction policy, Compact/Trim, proxy and runtime paths. Requires CoDeepSeedeX >= v0.3.9-alpha when CoDeepSeedeX integration is used. |
 | v0.1.7-alpha | Background logs | Background stdout/stderr required explicit setup in many flows. | `weclaw start` keeps a default background log at `~/.weclaw/weclaw.log`, with bounded trimming. |
 | v0.1.7-alpha | Session resume | `resume` usually required an explicit ACP/Codex session ID. | `weclaw start deepseek-thinking resume` may omit the session ID and reuse the latest ACP/Codex session for that profile. |
 | v0.1.7-alpha | Managed start | Starting an already running managed WeClaw process could be confusing. | `weclaw start ...` is idempotent and reports the existing managed process instead of replacing it. |

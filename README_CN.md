@@ -73,7 +73,7 @@ weclaw start -f
 
 | 版本 | 影响对象 | 此前行为 | 当前行为 |
 | --- | --- | --- | --- |
-| v0.1.9-alpha | CoDeepSeedeX telemetry集成 | `/effort`和`/status`只能依赖部分本地状态或占位字段。 | `/effort max`使用dsproxy profile契约，`/status`读取dsproxy WeClaw telemetry，用于展示model、effort、token context、token usage、estimated cost、balance、Compact/Trim和运行路径。使用CoDeepSeedeX集成时要求CoDeepSeedeX >= v0.3.9-alpha。 |
+| v0.1.9-alpha | CoDeepSeedeX telemetry集成 | `/effort`和`/status`只能依赖部分本地状态或占位字段。 | `/effort max`使用dsproxy profile契约。`/status`读取dsproxy WeClaw telemetry，并展示model、effort、token context、token usage、`EstCost`、balance、pricing来源和更新时间、compaction策略、Compact/Trim、proxy和运行路径。使用CoDeepSeedeX集成时要求CoDeepSeedeX >= v0.3.9-alpha。 |
 | v0.1.7-alpha | 后台日志 | 很多后台运行场景需要显式配置stdout/stderr保存。 | `weclaw start`默认将后台日志写入`~/.weclaw/weclaw.log`，并带有有限裁剪。 |
 | v0.1.7-alpha | 会话恢复 | `resume`通常需要显式填写ACP/Codex session ID。 | `weclaw start deepseek-thinking resume`可以省略session ID，默认使用该profile最近一次ACP/Codex会话。 |
 | v0.1.7-alpha | 受管启动 | 已有受管WeClaw进程运行时，再次start容易造成理解混乱。 | `weclaw start ...`保持幂等，报告已有受管进程，不直接替换。 |
