@@ -1012,7 +1012,7 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 		"Balance  5.83 CNY",
 		"87/750k",
 		"Pricing  hit $0.0028/M miss $0.14/M out $0.28/M · updated 2026-05-17",
-		"Policy   adaptive · trigger 1.2M chars · target 750k · keep ⤒24 msgs",
+		"Policy   adaptive · trigger 1.2M chars · target 750k chars · keep ⤒24 msgs",
 		"Compact [",
 		"Proxy    thinking · 127.0.0.1:8001 · reachable",
 		"Paths    cfg ~/.weclaw/config.json · log ~/.weclaw/weclaw.log",
@@ -1063,23 +1063,15 @@ func TestRuntimeControlStatusDebugAliasesAreRemoved(t *testing.T) {
 	}
 }
 
-func TestCommandProgressBarUsesRightEndcapAndKeepsOriginalStyle(t *testing.T) {
+func TestCommandProgressBarUsesOriginalStyleAndKeepsRightEndcapCandidate(t *testing.T) {
 	got := formatCommandProgressBar(1, 20, 20)
-	if got != "━╸──────────────────" {
-		t.Fatalf("right-endcap progress bar = %q", got)
-	}
-	if strings.Contains(got, "█") || strings.Contains(got, "░") {
-		t.Fatalf("right-endcap progress bar should not use original block glyphs: %q", got)
+	if got != "█░░░░░░░░░░░░░░░░░░░" {
+		t.Fatalf("original active progress bar = %q", got)
 	}
 
-	half := formatCommandProgressBar(10, 20, 20)
-	if half != "━━━━━━━━━━╸─────────" {
-		t.Fatalf("half right-endcap progress bar = %q", half)
-	}
-
-	original := formatCommandProgressBarOriginal(1, 20, 20)
-	if original != "█░░░░░░░░░░░░░░░░░░░" {
-		t.Fatalf("original progress bar = %q", original)
+	rightEnd := formatCommandProgressBarRightEnd(1, 20, 20)
+	if rightEnd != "━╸──────────────────" {
+		t.Fatalf("right-endcap candidate progress bar = %q", rightEnd)
 	}
 }
 

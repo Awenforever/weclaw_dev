@@ -1,5 +1,9 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a83 original progress and policy target unit
+
+p0.1.5a83 keeps the original block progress style `█░` as the active `/status` progress bar. The right-endcap line style remains in code as a candidate formatter, but it is not active. The Policy row now includes the unit for the target value: `target 750k chars`.
+
 ## p0.1.5a82 right-endcap progress bar trial
 
 p0.1.5a82 switches the active `/status` progress bar style from the original block style `█░` to a right-endcap line style such as `━╸──────────────────`, while keeping the original block formatter in code as `formatCommandProgressBarOriginal` for quick rollback after real WeChat rendering review.

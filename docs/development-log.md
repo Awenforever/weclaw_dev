@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a83-original-progress-final
+
+- Decision: keep the original block progress style `█░` as the active `/status` progress bar.
+- Change: keep the right-endcap line style as an inactive candidate formatter.
+- Fix: add the missing `chars` unit to the Policy target display, for example `target 750k chars`.
+- Fix: remove the Details local-estimate suffix from the Details row.
+- Boundary: display-only changes; telemetry semantics are unchanged.
+
+
 ## p0.1.5a82-right-endcap-progress
 
 - Change: switched the active `/status` progress bars to a right-endcap line style, for example `━╸──────────────────`.

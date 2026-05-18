@@ -1,3 +1,8 @@
+## p0.1.5a83 原始进度条与Policy target单位
+
+p0.1.5a83保留原始块状`█░`作为当前启用的`/status`进度条。右端头线条样式仍作为候选formatter保留在代码中，但不启用。Policy行现在为target值补充单位：`target 750k chars`。
+
+
 ## p0.1.5a82 右端头进度条试用
 
 p0.1.5a82将`/status`当前启用的进度条从原始块状`█░`切换为右端头线条样式，例如`━╸──────────────────`，同时在代码中保留原始块状格式函数`formatCommandProgressBarOriginal`，便于根据微信真实渲染结果快速回退。

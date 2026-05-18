@@ -1619,7 +1619,7 @@ func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
 		parts = append(parts, "trigger "+formatCompactStatusNumber(trigger)+" chars")
 	}
 	if target > 0 {
-		parts = append(parts, "target "+formatCompactStatusNumber(target))
+		parts = append(parts, "target "+formatCompactStatusNumber(target)+" chars")
 	}
 	if keep > 0 {
 		parts = append(parts, fmt.Sprintf("keep ⤒%d msgs", keep))
@@ -2581,7 +2581,15 @@ func currentProcessUptime() string {
 }
 
 func formatCommandProgressBar(current, total int64, width int) string {
-	return formatCommandProgressBarRightEnd(current, total, width)
+	return formatCommandProgressBarOriginal(current, total, width)
+}
+
+func formatCommandProgressBarOriginal(current, total int64, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	filled := commandProgressFilledCells(current, total, width)
+	return strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
 }
 
 func formatCommandProgressBarRightEnd(current, total int64, width int) string {
@@ -2596,14 +2604,6 @@ func formatCommandProgressBarRightEnd(current, total int64, width int) string {
 		return strings.Repeat("━", width)
 	}
 	return strings.Repeat("━", filled) + "╸" + strings.Repeat("─", width-filled-1)
-}
-
-func formatCommandProgressBarOriginal(current, total int64, width int) string {
-	if width <= 0 {
-		return ""
-	}
-	filled := commandProgressFilledCells(current, total, width)
-	return strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
 }
 
 func commandProgressFilledCells(current, total int64, width int) int {
