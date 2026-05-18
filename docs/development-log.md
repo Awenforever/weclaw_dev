@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a82-right-endcap-progress
+
+- Change: switched the active `/status` progress bars to a right-endcap line style, for example `━╸──────────────────`.
+- Change: retained the original block style `█░` in code as `formatCommandProgressBarOriginal` for easy rollback after WeChat rendering review.
+- Boundary: display-only trial; no telemetry semantics changed.
+
+
 ## p0.1.5a80-status-details-cost-format
 
 - Change: added `/status` `Details` row for dsproxy `tokens.prompt_subcategory_split.categories` when available.

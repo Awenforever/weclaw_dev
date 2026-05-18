@@ -1,3 +1,10 @@
+## p0.1.5a82 右端头进度条试用
+
+p0.1.5a82将`/status`当前启用的进度条从原始块状`█░`切换为右端头线条样式，例如`━╸──────────────────`，同时在代码中保留原始块状格式函数`formatCommandProgressBarOriginal`，便于根据微信真实渲染结果快速回退。
+
+这是纯展示层试用，不改变Context、Compact、Trim、token、cost、pricing或dsproxy遥测语义。
+
+
 ## p0.1.5a80 status Details与Cost格式
 
 p0.1.5a80在微信`/status`中新增`Details`行，只消费`dsproxy status <route> --weclaw-json`返回的`tokens.prompt_subcategory_split.categories`。WeClaw不得本地tokenize，不得按字符数估算，不得读取debug文件，也不得把session累计tokens当成context窗口占用。

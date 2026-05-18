@@ -1,5 +1,11 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a82 right-endcap progress bar trial
+
+p0.1.5a82 switches the active `/status` progress bar style from the original block style `█░` to a right-endcap line style such as `━╸──────────────────`, while keeping the original block formatter in code as `formatCommandProgressBarOriginal` for quick rollback after real WeChat rendering review.
+
+This is a display-only trial. It must not change Context, Compact, Trim, token, cost, pricing, or dsproxy telemetry semantics.
+
 ## p0.1.5a80 status Details and Cost format
 
 p0.1.5a80 adds a WeChat `/status` `Details` row that consumes only `tokens.prompt_subcategory_split.categories` from `dsproxy status <route> --weclaw-json`. WeClaw must not tokenize locally, derive estimates from character counts, read debug files, or treat session totals as context-window usage.

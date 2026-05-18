@@ -2580,27 +2580,47 @@ func currentProcessUptime() string {
 	return formatTurnDuration(time.Duration(seconds) * time.Second)
 }
 
-func formatCommandProgressBar(used, window int64, width int) string {
+func formatCommandProgressBar(current, total int64, width int) string {
+	return formatCommandProgressBarRightEnd(current, total, width)
+}
+
+func formatCommandProgressBarRightEnd(current, total int64, width int) string {
 	if width <= 0 {
-		width = 20
+		return ""
 	}
-	if used < 0 {
-		used = 0
+	filled := commandProgressFilledCells(current, total, width)
+	if filled <= 0 {
+		return strings.Repeat("─", width)
 	}
-	if window <= 0 {
-		return strings.Repeat("░", width)
+	if filled >= width {
+		return strings.Repeat("━", width)
 	}
-	if used > window {
-		used = window
+	return strings.Repeat("━", filled) + "╸" + strings.Repeat("─", width-filled-1)
+}
+
+func formatCommandProgressBarOriginal(current, total int64, width int) string {
+	if width <= 0 {
+		return ""
 	}
-	filled := int((used*int64(width) + window/2) / window)
-	if filled < 0 {
-		filled = 0
+	filled := commandProgressFilledCells(current, total, width)
+	return strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
+}
+
+func commandProgressFilledCells(current, total int64, width int) int {
+	if width <= 0 || total <= 0 || current <= 0 {
+		return 0
+	}
+	if current >= total {
+		return width
+	}
+	filled := int((current*int64(width) + total/2) / total)
+	if filled < 1 {
+		return 1
 	}
 	if filled > width {
-		filled = width
+		return width
 	}
-	return strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
+	return filled
 }
 
 func compactCommandOutput(text string, limit int) string {

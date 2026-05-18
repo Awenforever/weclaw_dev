@@ -1063,6 +1063,26 @@ func TestRuntimeControlStatusDebugAliasesAreRemoved(t *testing.T) {
 	}
 }
 
+func TestCommandProgressBarUsesRightEndcapAndKeepsOriginalStyle(t *testing.T) {
+	got := formatCommandProgressBar(1, 20, 20)
+	if got != "━╸──────────────────" {
+		t.Fatalf("right-endcap progress bar = %q", got)
+	}
+	if strings.Contains(got, "█") || strings.Contains(got, "░") {
+		t.Fatalf("right-endcap progress bar should not use original block glyphs: %q", got)
+	}
+
+	half := formatCommandProgressBar(10, 20, 20)
+	if half != "━━━━━━━━━━╸─────────" {
+		t.Fatalf("half right-endcap progress bar = %q", half)
+	}
+
+	original := formatCommandProgressBarOriginal(1, 20, 20)
+	if original != "█░░░░░░░░░░░░░░░░░░░" {
+		t.Fatalf("original progress bar = %q", original)
+	}
+}
+
 func TestDsproxyDetailsLineShowsPromptSubcategories(t *testing.T) {
 	payload := map[string]any{
 		"tokens": map[string]any{
