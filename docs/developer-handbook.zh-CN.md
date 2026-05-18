@@ -1,5 +1,11 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a86累计版v0.1.9-alpha release notes
+
+p0.1.5a86修正p85中的release note流程错误。v0.1.9-alpha notes必须是从v0.1.8-alpha以来的累计说明，而不是只覆盖最后一个补丁的窄范围草案。Release body必须基于GitHub已有Release body继续更新，并覆盖v0.1.8-alpha以来所有用户可见变化，包括a72-a79遥测/release工作，以及a80-a84 Details/Cost/Pricing后续精修。
+
+累计版Release notes会写入脚本日志记录的路径。p86不会移动公开tag `v0.1.9-alpha`；真正更新Release仍是后续单独显式步骤。
+
 ## p0.1.5a85文档与v0.1.9-alpha release note准备
 
 公开pre-release更新前的可信状态：

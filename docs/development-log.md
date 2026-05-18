@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a86-cumulative-release-notes
+
+- Fix: corrected the v0.1.9-alpha release-note preparation process after p85 generated a too-narrow release-note draft.
+- Release notes are now cumulative from v0.1.8-alpha and include the a72-a79 telemetry/release work plus a80-a84 Details/Cost/Pricing refinements.
+- Output: cumulative release body written to `/tmp/weclaw-v0.1.9-alpha-cumulative-release-notes-20260518-221341.md`.
+- Boundary: public tag `v0.1.9-alpha` is not moved in p86; GitHub Release update remains a separate explicit step.
+
 ## p0.1.5a85-docs-release-notes
 
 - Documentation: synchronized README.md, README_CN.md, developer handbooks, and development log for the p84 `/status` display closeout.

@@ -1,5 +1,11 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a86 cumulative v0.1.9-alpha release notes
+
+p0.1.5a86 corrects the release-note process after p85. The v0.1.9-alpha notes must be cumulative from v0.1.8-alpha, not a narrow draft for only the last patch. The release body must be updated from the existing GitHub Release body and must cover all user-visible changes since v0.1.8-alpha, including the a72-a79 telemetry/release work and the a80-a84 Details/Cost/Pricing refinements.
+
+The generated cumulative Release notes are stored at the path recorded in the script log. Public tag `v0.1.9-alpha` is intentionally not moved in p86; the actual Release update remains a separate explicit step.
+
 ## p0.1.5a85 docs and v0.1.9-alpha release note preparation
 
 Trusted state before public pre-release update:

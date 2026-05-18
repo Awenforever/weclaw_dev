@@ -607,13 +607,21 @@ weclaw start deepseek-thinking
 - Slash command output uses Markdown as a visual design system: quotes as callouts, code fences as status panels, tables for compact structured data, and lists for mobile readability.
 
 <!-- WECLAW_V019_STATUS_DISPLAY_START -->
-### Status display update for v0.1.9-alpha
+### v0.1.9-alpha status display update
 
-The WeChat `/status` output now uses a compact status card for the DeepSeek Thinking profile. It includes Context, Tokens, Details, Cost, Balance, Pricing, Policy, Compact, Trim, Proxy, and Paths rows.
+`/status` now provides a compact telemetry card for CoDeepSeedeX-backed profiles. It shows profile/model/session, Context, Tokens, Details, Cost, Balance, Pricing, Policy, Compact, Trim, Proxy, and Paths.
 
-Cost and Pricing are displayed in RMB/CNY using `￥`. Cost shows `session`, `last`, `aux`, and trailing `total`. Pricing shows per-million-token prices such as `hit ￥0.02/M miss ￥1/M out ￥2/M`.
+Cost, Pricing, and Balance are displayed in RMB/CNY using `￥`. Cost shows `session`, `last`, `aux`, and trailing `total`. Pricing shows per-million-token prices such as `hit ￥0.02/M miss ￥1/M out ￥2/M`.
 
-WeClaw only formats dsproxy structured telemetry. It does not query provider prices, convert currencies, split reasoning cost, or recompute session cost from the current model.
+WeClaw only formats dsproxy structured telemetry. It does not query provider prices, convert currencies, split reasoning cost, retokenize prompts, read debug files, or recompute session cost from the current model.
 
-Requires CoDeepSeedeX v0.3.9-alpha or newer. For CNY Cost/Pricing rows, dsproxy must expose the CNY pricing telemetry contract from `p2.10a70-pricing-cny-primary-source` or later.
+Pre-release install command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
+```
+
+Existing users can use `weclaw upgrade --alpha`.
+
+Requires CoDeepSeedeX v0.3.9-alpha or newer. CNY Cost/Pricing rows require the dsproxy CNY pricing telemetry contract from `p2.10a70-pricing-cny-primary-source` or later.
 <!-- WECLAW_V019_STATUS_DISPLAY_END -->
