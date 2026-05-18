@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a84-cny-cost-pricing-total
+
+- Change: `/status` Cost now displays `session`, `last`, `aux`, and trailing `total` using dsproxy structured CNY cost fields.
+- Change: `/status` Pricing now displays CNY per-million-token prices with `￥`.
+- Change: `/status` Balance now renders CNY balances as `￥...`.
+- Boundary: WeClaw does not query prices, convert currencies, split reasoning cost, or recompute session cost from the current model.
+
+
 ## p0.1.5a83-original-progress-final
 
 - Decision: keep the original block progress style `█░` as the active `/status` progress bar.

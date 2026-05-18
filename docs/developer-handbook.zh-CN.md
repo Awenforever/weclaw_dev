@@ -1,3 +1,10 @@
+## p0.1.5a84 CNY Cost与Pricing展示
+
+p0.1.5a84消费dsproxy结构化CNY pricing和cost字段。`/status`展示`Cost     session~￥...  last~￥...  aux~￥...  total~￥...`，其中`total`放在最后，作为dsproxy总预估消费字段的WeClaw展示标签。`Pricing`使用dsproxy返回的CNY每百万token价格，`Balance`将CNY余额渲染为`￥...`。
+
+WeClaw不得自行查价格、换算币种、拆分reasoning费用或用当前模型价格重算session费用，只负责格式化dsproxy结构化字段。
+
+
 ## p0.1.5a83 原始进度条与Policy target单位
 
 p0.1.5a83保留原始块状`█░`作为当前启用的`/status`进度条。右端头线条样式仍作为候选formatter保留在代码中，但不启用。Policy行现在为target值补充单位：`target 750k chars`。

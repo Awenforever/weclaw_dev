@@ -126,11 +126,12 @@ func sampleWeClawTelemetryJSON() string {
   },
   "cost": {
     "available": true,
-    "currency": "USD",
+    "currency": "CNY",
     "is_estimated": true,
     "last_turn_estimated_cost": 0.0001540728,
     "session_estimated_cost": 0.5992581266,
     "auxiliary_estimated_cost": 0.0093673598,
+    "cash_estimated_cost": 0.6086254864,
     "usage_available": true,
     "pricing_available": true,
     "pricing_stale": false,
@@ -303,11 +304,12 @@ func sampleWeClawTelemetryRound3JSON() string {
   },
   "cost": {
     "available": true,
-    "currency": "USD",
+    "currency": "CNY",
     "is_estimated": true,
     "last_turn_estimated_cost": 0.0001540728,
     "session_estimated_cost": 0.5992747866,
     "auxiliary_estimated_cost": 0.0093673598,
+    "cash_estimated_cost": 0.6086254864,
     "usage_available": true,
     "pricing_available": true,
     "pricing_source_kind": "bundled_official_docs_snapshot",
@@ -326,9 +328,9 @@ func sampleWeClawTelemetryRound3JSON() string {
     "updated_at": "2026-05-17T00:00:00Z",
     "snapshot_created_at": "2026-05-17T00:00:00Z",
     "prices": {
-      "input_cache_hit": 0.0028,
-      "input_cache_miss": 0.14,
-      "output": 0.28
+      "input_cache_hit": 0.02,
+      "input_cache_miss": 1.0,
+      "output": 2.0
     },
     "pricing_source_state": {
       "cost_uses_current_prices": true,
@@ -960,8 +962,8 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 		"—/750k",
 		"Tokens   last 50.2k  session 9.1M  aux 648.2k",
 		"Details  n/a · tokenizer unavailable",
-		"Cost     session~$0.5993  last~$0.000154  aux~$0.009367",
-		"Balance  5.83 CNY",
+		"Cost     session~￥0.5993  last~￥0.000154  aux~￥0.0094  total~￥0.6086",
+		"Balance  ￥5.83",
 		"Compact [",
 		"58/1.2M chars · not triggered",
 		"Trim    [",
@@ -1008,10 +1010,10 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 		"Context  [",
 		"Tokens   last 50.2k  session 9.1M  aux 648.2k",
 		"Details  n/a · waiting first prompt",
-		"Cost     session~$0.5993  last~$0.000154  aux~$0.009367",
-		"Balance  5.83 CNY",
+		"Cost     session~￥0.5993  last~￥0.000154  aux~￥0.0094  total~￥0.6086",
+		"Balance  ￥5.83",
 		"87/750k",
-		"Pricing  hit $0.0028/M miss $0.14/M out $0.28/M · updated 2026-05-17",
+		"Pricing  hit ￥0.02/M miss ￥1/M out ￥2/M · updated 2026-05-17",
 		"Policy   adaptive · trigger 1.2M chars · target 750k chars · keep ⤒24 msgs",
 		"Compact [",
 		"Proxy    thinking · 127.0.0.1:8001 · reachable",
@@ -1060,6 +1062,62 @@ func TestRuntimeControlStatusDebugAliasesAreRemoved(t *testing.T) {
 				t.Fatalf("%s usage reply = %q, should not contain %q", command, reply, forbidden)
 			}
 		}
+	}
+}
+
+func TestDsproxyCostLineDisplaysCNYTotalLast(t *testing.T) {
+	payload := map[string]any{
+		"cost": map[string]any{
+			"available":                true,
+			"display_currency":         "CNY",
+			"session_estimated_cost":   float64(5.260047639839999),
+			"last_turn_estimated_cost": float64(0.007171960320000001),
+			"auxiliary_estimated_cost": float64(0.08404211376000001),
+			"cash_estimated_cost":      float64(5.260047639839999),
+		},
+	}
+	got := formatDsproxyCostLine(payload)
+	want := "Cost     session~￥5.26  last~￥0.0072  aux~￥0.084  total~￥5.26"
+	if got != want {
+		t.Fatalf("cost line = %q, want %q", got, want)
+	}
+}
+
+func TestDsproxyPricingSummaryDisplaysCNYPrices(t *testing.T) {
+	payload := map[string]any{
+		"pricing": map[string]any{
+			"available":        true,
+			"display_currency": "CNY",
+			"source_kind":      "bundled_official_docs_snapshot",
+			"updated_at":       "2026-05-18T00:00:00Z",
+			"prices_display": map[string]any{
+				"input_cache_hit":  float64(0.02),
+				"input_cache_miss": float64(1.0),
+				"output":           float64(2.0),
+				"currency":         "CNY",
+			},
+		},
+	}
+	got := formatDsproxyPricingSummaryLine(payload)
+	want := "Pricing  hit ￥0.02/M miss ￥1/M out ￥2/M · updated 2026-05-18"
+	if got != want {
+		t.Fatalf("pricing line = %q, want %q", got, want)
+	}
+}
+
+func TestDsproxyBalanceLineDisplaysCNYSymbol(t *testing.T) {
+	payload := map[string]any{
+		"balance": map[string]any{
+			"available": true,
+			"currency":  "CNY",
+			"amount":    float64(4.5),
+			"display":   "4.50 CNY",
+		},
+	}
+	got := formatDsproxyBalanceLine(payload)
+	want := "Balance  ￥4.50"
+	if got != want {
+		t.Fatalf("balance line = %q, want %q", got, want)
 	}
 }
 
@@ -1199,9 +1257,9 @@ func TestDsproxyPricingSummaryShowsSnapshotPrices(t *testing.T) {
 	}
 	line := formatDsproxyPricingSummaryLine(payload)
 	for _, want := range []string{
-		"Pricing  hit $0.0028/M",
-		"miss $0.14/M",
-		"out $0.28/M",
+		"Pricing  hit ￥0.02/M",
+		"miss ￥1/M",
+		"out ￥2/M",
 		"updated 2026-05-17",
 	} {
 		if !strings.Contains(line, want) {

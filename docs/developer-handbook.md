@@ -1,5 +1,11 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a84 CNY Cost and Pricing display
+
+p0.1.5a84 consumes dsproxy structured CNY pricing and cost fields. `/status` displays `Cost     session~￥...  last~￥...  aux~￥...  total~￥...`, with `total` shown last as the user-facing summary label for dsproxy's total estimated spend field. `Pricing` uses CNY per-million-token values from dsproxy, and `Balance` renders CNY balances as `￥...`.
+
+WeClaw must not query prices, convert currencies, split reasoning cost, or recompute session cost from the current model. It only formats dsproxy structured fields.
+
 ## p0.1.5a83 original progress and policy target unit
 
 p0.1.5a83 keeps the original block progress style `█░` as the active `/status` progress bar. The right-endcap line style remains in code as a candidate formatter, but it is not active. The Policy row now includes the unit for the target value: `target 750k chars`.

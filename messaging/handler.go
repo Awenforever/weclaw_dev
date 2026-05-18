@@ -1520,13 +1520,30 @@ func formatDsproxyPricingSummaryLine(payload map[string]any) string {
 }
 
 func pricingPricesSummary(pricing map[string]any) string {
-	prices, ok := nestedMap(pricing, "prices")
+	prices, ok := nestedMap(pricing, "prices_display")
+	if !ok {
+		prices, ok = nestedMap(pricing, "prices")
+	}
 	if !ok {
 		return ""
 	}
-	currency := nestedStringDefault(pricing, "USD", "currency")
-	parts := make([]string, 0, 4)
 
+	// WeClaw displays pricing in CNY for DeepSeek status rows. dsproxy p2.10a70+
+	// provides CNY primary pricing values for this contract; the top-level
+	// historical source currency may still be USD, so do not let it override the
+	// display currency here.
+	currency := nestedStringDefault(pricing, "", "display_currency")
+	if currency == "" {
+		currency = nestedStringDefault(prices, "", "display_currency")
+	}
+	if currency == "" {
+		currency = nestedStringDefault(prices, "", "currency")
+	}
+	if currency == "" || strings.EqualFold(currency, "USD") {
+		currency = "CNY"
+	}
+
+	parts := make([]string, 0, 4)
 	if value, ok := pricingFloatValue(prices, "input_cache_hit"); ok {
 		parts = append(parts, "hit "+formatPerMillionPrice(value, currency))
 	}
@@ -1573,7 +1590,18 @@ func pricingFloatValue(root map[string]any, keys ...string) (float64, bool) {
 }
 
 func formatPerMillionPrice(value float64, currency string) string {
-	return formatMoney(value, currency) + "/M"
+	currency = strings.ToUpper(strings.TrimSpace(currency))
+	amount := trimMoneyDecimal(value)
+	switch currency {
+	case "CNY", "RMB", "CNH":
+		return "￥" + amount + "/M"
+	case "USD":
+		return "$" + amount + "/M"
+	case "":
+		return amount + "/M"
+	default:
+		return currency + " " + amount + "/M"
+	}
 }
 
 func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
@@ -1873,27 +1901,46 @@ func formatTokenBucket(label string, bucket map[string]any) string {
 
 func formatDsproxyCostLine(payload map[string]any) string {
 	cost, ok := nestedMap(payload, "cost")
-	if !ok {
-		return "Cost     session~n/a  last~n/a  aux~n/a"
+	if !ok || !nestedBoolDefault(cost, false, "available") {
+		return "Cost     session~n/a  last~n/a  aux~n/a  total~n/a"
 	}
-	currency := nestedStringDefault(cost, "USD", "currency")
-	if !nestedBoolDefault(cost, false, "available") {
-		return "Cost     session~n/a  last~n/a  aux~n/a"
+
+	currency := nestedStringDefault(cost, nestedStringDefault(cost, "USD", "currency"), "display_currency")
+	if currency == "" {
+		currency = "CNY"
 	}
+
 	session := nestedFloat64Default(cost, 0, "session_estimated_cost")
 	last := nestedFloat64Default(cost, 0, "last_turn_estimated_cost")
 	aux := nestedFloat64Default(cost, 0, "auxiliary_estimated_cost")
+
+	totalText := "n/a"
+	if total, ok := pricingFloatValue(cost, "total_estimated_cost"); ok {
+		totalText = formatMoney(total, currency)
+	} else if total, ok := pricingFloatValue(cost, "cash_estimated_cost"); ok {
+		totalText = formatMoney(total, currency)
+	} else if amount, ok := nestedMap(cost, "amounts", "cash"); ok {
+		amountCurrency := nestedStringDefault(amount, currency, "display_currency")
+		if total, ok := pricingFloatValue(amount, "amount"); ok {
+			totalText = formatMoney(total, amountCurrency)
+		}
+	}
+
 	return fmt.Sprintf(
-		"Cost     session~%s  last~%s  aux~%s",
+		"Cost     session~%s  last~%s  aux~%s  total~%s",
 		formatMoney(session, currency),
 		formatMoney(last, currency),
 		formatMoney(aux, currency),
+		totalText,
 	)
 }
 
 func formatMoney(value float64, currency string) string {
+	return formatCurrencyAmount(formatMoneyDisplayAmount(value), currency)
+}
+
+func formatCurrencyAmount(amount string, currency string) string {
 	currency = strings.ToUpper(strings.TrimSpace(currency))
-	amount := trimMoneyDecimal(value)
 	switch currency {
 	case "USD":
 		return "$" + amount
@@ -1904,6 +1951,32 @@ func formatMoney(value float64, currency string) string {
 	default:
 		return currency + " " + amount
 	}
+}
+
+func formatMoneyDisplayAmount(value float64) string {
+	abs := value
+	if abs < 0 {
+		abs = -abs
+	}
+	switch {
+	case abs == 0:
+		return "0"
+	case abs < 0.001:
+		return trimTrailingMoneyZeros(fmt.Sprintf("%.6f", value))
+	case abs < 1:
+		return trimTrailingMoneyZeros(fmt.Sprintf("%.4f", value))
+	default:
+		return fmt.Sprintf("%.2f", value)
+	}
+}
+
+func trimTrailingMoneyZeros(value string) string {
+	value = strings.TrimRight(value, "0")
+	value = strings.TrimRight(value, ".")
+	if value == "-0" {
+		return "0"
+	}
+	return value
 }
 
 func trimMoneyDecimal(value float64) string {
@@ -1942,7 +2015,21 @@ func formatDsproxyBalanceLine(payload map[string]any) string {
 	if !nestedBoolDefault(balance, false, "available") {
 		return "Balance  n/a"
 	}
-	if text := nestedStringDefault(balance, "", "display"); text != "" {
+
+	currency := nestedStringDefault(balance, "CNY", "currency")
+	if amount, ok := pricingFloatValue(balance, "amount"); ok {
+		return "Balance  " + formatMoney(amount, currency)
+	}
+	if amount, ok := pricingFloatValue(balance, "total_balance"); ok {
+		return "Balance  " + formatMoney(amount, currency)
+	}
+	if text := strings.TrimSpace(nestedStringDefault(balance, "", "display")); text != "" {
+		fields := strings.Fields(text)
+		if len(fields) == 2 {
+			if amount, err := strconv.ParseFloat(fields[0], 64); err == nil {
+				return "Balance  " + formatMoney(amount, fields[1])
+			}
+		}
 		return "Balance  " + compactCommandOutput(text, 64)
 	}
 	if value := nestedStringDefault(balance, "", "balance"); value != "" {
