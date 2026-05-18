@@ -625,3 +625,35 @@ Existing users can use `weclaw upgrade --alpha`.
 
 Requires CoDeepSeedeX v0.3.9-alpha or newer. CNY Cost/Pricing rows require the dsproxy CNY pricing telemetry contract from `p2.10a70-pricing-cny-primary-source` or later.
 <!-- WECLAW_V019_STATUS_DISPLAY_END -->
+
+<!-- WECLAW_V019_LATEST_CLOSEOUT_START -->
+### v0.1.9-alpha Latest closeout
+
+`v0.1.9-alpha` is now the ordinary GitHub Latest Release, not a pre-release. Standard install and upgrade paths resolve to this version.
+
+Runtime release state:
+
+- Public Release: `v0.1.9-alpha`
+- Release commit: `82ba8ca`
+- Internal runtime version: `p0.1.5a86-cumulative-release-notes`
+- Release status: `draft=false`, `prerelease=false`, Latest
+- Assets: linux amd64, linux arm64, darwin amd64, darwin arm64, windows amd64
+
+Validated user path:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+weclaw upgrade
+weclaw version
+weclaw start deepseek-thinking resume
+```
+
+Expected version:
+
+```text
+weclaw public version: v0.1.9-alpha | 82ba8ca
+weclaw internal version: p0.1.5a86-cumulative-release-notes | 82ba8ca
+```
+
+This closes the v0.1.9-alpha `/status` display line unless new requirements arrive.
+<!-- WECLAW_V019_LATEST_CLOSEOUT_END -->

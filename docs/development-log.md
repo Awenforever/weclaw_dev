@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a87-v019-latest-closeout-docs
+
+- Closeout: documented that `v0.1.9-alpha` is now the ordinary Latest Release, not a pre-release.
+- Release state: `v0.1.9-alpha` points to `82ba8ca`, with public runtime internal version `p0.1.5a86-cumulative-release-notes | 82ba8ca`.
+- Validation: VM Latest install/upgrade/run path passed; `weclaw upgrade` returned already up to date; runtime start succeeded.
+- Status line: `/status` display work is closed with CNY Cost/Pricing/Balance, trailing Cost total, Policy target chars, original block progress bars, and no Details local-estimate suffix.
+- Boundary: p87 is docs-only and does not move the public Release tag or upload assets.
+- Mainline: v0.1.9-alpha is closed unless a new concrete WeClaw requirement arrives.
+
 ## p0.1.5a86-cumulative-release-notes
 
 - Fix: corrected the v0.1.9-alpha release-note preparation process after p85 generated a too-narrow release-note draft.

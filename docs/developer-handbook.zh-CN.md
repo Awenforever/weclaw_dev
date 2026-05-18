@@ -1,5 +1,41 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## v0.1.9-alpha Latest收口后的当前可信状态
+
+运行时Release状态：
+
+- 公开Release：`v0.1.9-alpha`
+- 公开Release commit：`82ba8ca`
+- 公开资产对应内部运行时版本：`p0.1.5a86-cumulative-release-notes | 82ba8ca`
+- GitHub Release状态：`draft=false`，`prerelease=false`，Latest
+- Release资产：`weclaw_linux_amd64`、`weclaw_linux_arm64`、`weclaw_darwin_amd64`、`weclaw_darwin_arm64`、`weclaw_windows_amd64.exe`
+- Release更新时的`main`和`origin/main`：`82ba8ca`
+- p87仅为文档收口，不移动公开Release tag。
+
+VM验证状态：
+
+- Latest Release API返回`v0.1.9-alpha`且`prerelease=false`。
+- 从`main/install.sh`走标准安装路径会解析到`v0.1.9-alpha`。
+- 已安装同版本时安装器正确短路。
+- `weclaw upgrade`返回`Already up to date (v0.1.9-alpha)`。
+- `weclaw start deepseek-thinking resume`可成功启动运行时。
+- 先前从`v0.1.9-alpha`误提示到`v0.1.8-alpha`的降级提示，在标记`v0.1.9-alpha`为Latest后未复现。若后续VM或用户报告再次出现，再作为源码级更新提示缺陷重新打开。
+
+已闭环的`/status`主线：
+
+- 保留原始`█░`进度条。
+- Details行不再显示本地估算后缀。
+- Policy target已补充`chars`单位。
+- Cost、Pricing和Balance以人民币/CNY口径显示并使用`￥`。
+- Cost展示`session`、`last`、`aux`和最后的`total`。
+- Pricing展示dsproxy提供的CNY每百万token价格。
+- WeClaw只作为dsproxy结构化遥测的展示消费者，不自行查询价格、不换算币种、不拆分reasoning费用、不重新tokenize、不读取debug文件，也不用当前模型价格重算session费用。
+
+主线状态：
+
+- v0.1.9-alpha发布线已闭环。
+- 除非出现新的明确需求，否则不要继续做推测性WeClaw补丁。
+
 ## p0.1.5a86累计版v0.1.9-alpha release notes
 
 p0.1.5a86修正p85中的release note流程错误。v0.1.9-alpha notes必须是从v0.1.8-alpha以来的累计说明，而不是只覆盖最后一个补丁的窄范围草案。Release body必须基于GitHub已有Release body继续更新，并覆盖v0.1.8-alpha以来所有用户可见变化，包括a72-a79遥测/release工作，以及a80-a84 Details/Cost/Pricing后续精修。

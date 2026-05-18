@@ -615,3 +615,35 @@ curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha
 
 需要CoDeepSeedeX v0.3.9-alpha或更新版本。CNY Cost/Pricing行需要dsproxy具备`p2.10a70-pricing-cny-primary-source`或更新版本中的CNY pricing telemetry契约。
 <!-- WECLAW_V019_STATUS_DISPLAY_END -->
+
+<!-- WECLAW_V019_LATEST_CLOSEOUT_START -->
+### v0.1.9-alpha Latest收口状态
+
+`v0.1.9-alpha`现在是GitHub普通Latest Release，不再是pre-release。标准安装和升级路径会解析到该版本。
+
+运行时Release状态：
+
+- 公开Release：`v0.1.9-alpha`
+- Release commit：`82ba8ca`
+- 内部运行时版本：`p0.1.5a86-cumulative-release-notes`
+- Release状态：`draft=false`，`prerelease=false`，Latest
+- 资产：linux amd64、linux arm64、darwin amd64、darwin arm64、windows amd64
+
+已验证用户路径：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
+weclaw upgrade
+weclaw version
+weclaw start deepseek-thinking resume
+```
+
+预期版本：
+
+```text
+weclaw public version: v0.1.9-alpha | 82ba8ca
+weclaw internal version: p0.1.5a86-cumulative-release-notes | 82ba8ca
+```
+
+除非出现新需求，否则v0.1.9-alpha的`/status`展示主线已闭环。
+<!-- WECLAW_V019_LATEST_CLOSEOUT_END -->

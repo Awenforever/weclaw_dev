@@ -1,5 +1,41 @@
 # WeClaw Dev Developer Handbook
 
+## Current trusted state after v0.1.9-alpha Latest closeout
+
+Runtime release state:
+
+- Public Release: `v0.1.9-alpha`
+- Public Release commit: `82ba8ca`
+- Runtime internal version for the public asset: `p0.1.5a86-cumulative-release-notes | 82ba8ca`
+- GitHub Release state: `draft=false`, `prerelease=false`, Latest
+- Release assets: `weclaw_linux_amd64`, `weclaw_linux_arm64`, `weclaw_darwin_amd64`, `weclaw_darwin_arm64`, `weclaw_windows_amd64.exe`
+- `main` and `origin/main` at the time of Release update: `82ba8ca`
+- p87 is docs-only and does not move the public Release tag.
+
+VM validation state:
+
+- Latest Release API returned `v0.1.9-alpha` with `prerelease=false`.
+- Standard install path from `main/install.sh` resolved to `v0.1.9-alpha`.
+- Existing same-version install short-circuited correctly.
+- `weclaw upgrade` returned `Already up to date (v0.1.9-alpha)`.
+- `weclaw start deepseek-thinking resume` started the runtime successfully.
+- The earlier downgrade notice from `v0.1.9-alpha` to `v0.1.8-alpha` was not reproduced after marking `v0.1.9-alpha` as Latest. If it reappears in a future VM/user report, reopen as a source-level update-notice bug.
+
+Closed `/status` line:
+
+- Original `█░` progress bars retained.
+- Details row does not display the local-estimate suffix.
+- Policy target includes the `chars` unit.
+- Cost, Pricing, and Balance display RMB/CNY with `￥`.
+- Cost displays `session`, `last`, `aux`, and trailing `total`.
+- Pricing displays CNY per-million-token values from dsproxy.
+- WeClaw remains a display consumer of dsproxy structured telemetry and must not query prices, convert currencies, split reasoning cost, retokenize prompts, read debug files, or recompute session cost from the current model.
+
+Mainline status:
+
+- The v0.1.9-alpha release line is closed.
+- Do not continue speculative WeClaw patching unless a new concrete requirement arrives.
+
 ## p0.1.5a86 cumulative v0.1.9-alpha release notes
 
 p0.1.5a86 corrects the release-note process after p85. The v0.1.9-alpha notes must be cumulative from v0.1.8-alpha, not a narrow draft for only the last patch. The release body must be updated from the existing GitHub Release body and must cover all user-visible changes since v0.1.8-alpha, including the a72-a79 telemetry/release work and the a80-a84 Details/Cost/Pricing refinements.
