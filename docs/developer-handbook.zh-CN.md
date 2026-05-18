@@ -1,5 +1,29 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a85文档与v0.1.9-alpha release note准备
+
+公开pre-release更新前的可信状态：
+
+- p85前main/origin/main目标：`6ebef06`
+- 最新内部实现tag：`p0.1.5a84-cny-cost-pricing-total`
+- 更新release前的公开pre-release tag：`v0.1.9-alpha` -> `f8ef8b0`
+- p84本机运行时验收：`/status`已显示CNY Cost/Pricing/Balance行，保留原始块状进度条，Details不再显示本地估算后缀，Policy target已补充`chars`单位。
+
+v0.1.9-alpha面向用户的release note范围：
+
+- 紧凑微信`/status`展示
+- 经微信真实渲染比较后保留原始`█░`进度条
+- Details行清理
+- Policy target单位修复
+- Cost、Pricing、Balance统一人民币/CNY展示
+- Cost展示`session`、`last`、`aux`和最后的`total`
+- 明确WeClaw只消费dsproxy结构化遥测字段
+
+兼容性说明：
+
+- 需要CoDeepSeedeX v0.3.9-alpha或更新版本。
+- CNY Cost/Pricing行需要dsproxy具备`p2.10a70-pricing-cny-primary-source`或更新版本中的CNY pricing telemetry契约。
+
 p0.1.5a84消费dsproxy结构化CNY pricing和cost字段。`/status`展示`Cost     session~￥...  last~￥...  aux~￥...  total~￥...`，其中`total`放在最后，作为dsproxy总预估消费字段的WeClaw展示标签。`Pricing`使用dsproxy返回的CNY每百万token价格，`Balance`将CNY余额渲染为`￥...`。
 
 WeClaw不得自行查价格、换算币种、拆分reasoning费用或用当前模型价格重算session费用，只负责格式化dsproxy结构化字段。

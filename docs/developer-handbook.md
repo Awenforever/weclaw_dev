@@ -1,5 +1,29 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a85 docs and v0.1.9-alpha release note preparation
+
+Trusted state before public pre-release update:
+
+- main/origin/main target before p85: `6ebef06`
+- latest internal implementation tag: `p0.1.5a84-cny-cost-pricing-total`
+- current public pre-release tag before release update: `v0.1.9-alpha` -> `f8ef8b0`
+- p84 local runtime validation: `/status` displays CNY Cost/Pricing/Balance rows, original block progress bars, no Details local-estimate suffix, and Policy target with `chars`.
+
+User-facing v0.1.9-alpha release note scope:
+
+- compact WeChat `/status` display
+- original `█░` progress bars retained after WeChat rendering review
+- Details row cleanup
+- Policy target unit fix
+- CNY/RMB Cost, Pricing, and Balance display
+- Cost `session`, `last`, `aux`, trailing `total`
+- dsproxy structured telemetry boundary
+
+Compatibility note:
+
+- Requires CoDeepSeedeX v0.3.9-alpha or newer.
+- CNY Cost/Pricing rows require the dsproxy CNY pricing telemetry contract from `p2.10a70-pricing-cny-primary-source` or later.
+
 ## p0.1.5a84 CNY Cost and Pricing display
 
 p0.1.5a84 consumes dsproxy structured CNY pricing and cost fields. `/status` displays `Cost     session~￥...  last~￥...  aux~￥...  total~￥...`, with `total` shown last as the user-facing summary label for dsproxy's total estimated spend field. `Pricing` uses CNY per-million-token values from dsproxy, and `Balance` renders CNY balances as `￥...`.

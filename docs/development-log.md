@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a85-docs-release-notes
+
+- Documentation: synchronized README.md, README_CN.md, developer handbooks, and development log for the p84 `/status` display closeout.
+- Release preparation: generated v0.1.9-alpha release notes at `/tmp/weclaw-v0.1.9-alpha-release-notes-20260518-220508.md`.
+- Trusted implementation baseline: `p0.1.5a84-cny-cost-pricing-total` at `6ebef06`.
+- Public pre-release tag is intentionally not moved in p85; release update remains a separate explicit step.
+
 ## p0.1.5a84-cny-cost-pricing-total
 
 - Change: `/status` Cost now displays `session`, `last`, `aux`, and trailing `total` using dsproxy structured CNY cost fields.

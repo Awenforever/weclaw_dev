@@ -595,3 +595,15 @@ weclaw start deepseek-thinking
 
 [MIT](LICENSE)
 - slash command输出会把Markdown当作视觉设计系统使用：引用块用于提示条，代码围栏用于状态面板，表格用于紧凑结构化数据，列表用于移动端阅读。
+
+<!-- WECLAW_V019_STATUS_DISPLAY_START -->
+### v0.1.9-alpha状态展示更新
+
+微信`/status`现在为DeepSeek Thinking profile使用更紧凑的状态卡片，包含Context、Tokens、Details、Cost、Balance、Pricing、Policy、Compact、Trim、Proxy和Paths行。
+
+Cost和Pricing统一用人民币/CNY口径，并使用`￥`符号。Cost展示`session`、`last`、`aux`和最后的`total`。Pricing展示每百万token价格，例如`hit ￥0.02/M miss ￥1/M out ￥2/M`。
+
+WeClaw只格式化dsproxy提供的结构化遥测字段，不自行查询价格、不换算币种、不拆分reasoning费用，也不用当前模型价格重算session费用。
+
+需要CoDeepSeedeX v0.3.9-alpha或更新版本。若要显示CNY Cost/Pricing行，dsproxy运行时必须提供`p2.10a70-pricing-cny-primary-source`或更新版本中的CNY pricing telemetry契约。
+<!-- WECLAW_V019_STATUS_DISPLAY_END -->
