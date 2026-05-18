@@ -5,7 +5,7 @@
 p0.1.5a80 adds a WeChat `/status` `Details` row that consumes only `tokens.prompt_subcategory_split.categories` from `dsproxy status <route> --weclaw-json`. WeClaw must not tokenize locally, derive estimates from character counts, read debug files, or treat session totals as context-window usage.
 
 Display rules:
-- when `tokens.prompt_subcategory_split.available=true`, show `Details  user~...  hist~...  tool~...  sys~...  dev~...  comp~...  other~...  local~est`
+- when `tokens.prompt_subcategory_split.available=true`, show `Details  user~...  hist~...  tool~...  sys~...  dev~...  comp~...  other~...`
 - when `tokens.prompt_subcategory_split.reason=profile_tokenizer_available_but_no_observed_prompt`, show `Details  n/a · waiting first prompt`
 - when `tokens.profile_tokenizer.available=false`, show `Details  n/a · tokenizer unavailable`
 

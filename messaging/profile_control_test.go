@@ -1094,7 +1094,7 @@ func TestDsproxyDetailsLineShowsPromptSubcategories(t *testing.T) {
 		"dev~80",
 		"comp~7k",
 		"other~600",
-		"local~est",
+		"",
 	} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("details line = %q, want %q", line, want)

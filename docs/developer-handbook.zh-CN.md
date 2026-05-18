@@ -3,7 +3,7 @@
 p0.1.5a80在微信`/status`中新增`Details`行，只消费`dsproxy status <route> --weclaw-json`返回的`tokens.prompt_subcategory_split.categories`。WeClaw不得本地tokenize，不得按字符数估算，不得读取debug文件，也不得把session累计tokens当成context窗口占用。
 
 显示规则：
-- 当`tokens.prompt_subcategory_split.available=true`时，显示`Details  user~...  hist~...  tool~...  sys~...  dev~...  comp~...  other~...  local~est`
+- 当`tokens.prompt_subcategory_split.available=true`时，显示`Details  user~...  hist~...  tool~...  sys~...  dev~...  comp~...  other~...`
 - 当`tokens.prompt_subcategory_split.reason=profile_tokenizer_available_but_no_observed_prompt`时，显示`Details  n/a · waiting first prompt`
 - 当`tokens.profile_tokenizer.available=false`时，显示`Details  n/a · tokenizer unavailable`
 

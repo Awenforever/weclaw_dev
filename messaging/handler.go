@@ -1843,7 +1843,7 @@ func formatDsproxyDetailsLine(payload map[string]any) string {
 		promptCategoryTokens(categories, "other_prompt")
 
 	return fmt.Sprintf(
-		"Details  user~%s  hist~%s  tool~%s  sys~%s  dev~%s  comp~%s  other~%s  local~est",
+		"Details  user~%s  hist~%s  tool~%s  sys~%s  dev~%s  comp~%s  other~%s",
 		formatTokenCount(user),
 		formatTokenCount(history),
 		formatTokenCount(tool),
