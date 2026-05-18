@@ -1472,6 +1472,7 @@ func buildDsproxyTelemetryPanel(payload map[string]any, proxyRoute, proxyEndpoin
 	lines := []string{
 		formatDsproxyContextLine(payload),
 		formatDsproxyTokensLine(payload),
+		formatDsproxyDetailsLine(payload),
 		formatDsproxyCostLine(payload),
 		formatDsproxyBalanceLine(payload),
 	}
@@ -1803,6 +1804,60 @@ func formatDsproxyTokensLine(payload map[string]any) string {
 	)
 }
 
+func formatDsproxyDetailsLine(payload map[string]any) string {
+	tokens, ok := nestedMap(payload, "tokens")
+	if !ok {
+		return "Details  n/a"
+	}
+
+	profileTokenizer, profileOK := nestedMap(tokens, "profile_tokenizer")
+	if !profileOK || !nestedBoolDefault(profileTokenizer, false, "available") {
+		return "Details  n/a · tokenizer unavailable"
+	}
+
+	split, splitOK := nestedMap(tokens, "prompt_subcategory_split")
+	if !splitOK || !nestedBoolDefault(split, false, "available") {
+		reason := nestedStringDefault(split, "", "reason")
+		if reason == "" {
+			reason = nestedStringDefault(profileTokenizer, "", "summary", "reason")
+		}
+		if reason == "profile_tokenizer_available_but_no_observed_prompt" {
+			return "Details  n/a · waiting first prompt"
+		}
+		return "Details  n/a"
+	}
+
+	categories, ok := nestedMap(split, "categories")
+	if !ok {
+		return "Details  n/a"
+	}
+
+	user := promptCategoryTokens(categories, "user")
+	history := promptCategoryTokens(categories, "assistant_history")
+	tool := promptCategoryTokens(categories, "tool_output")
+	system := promptCategoryTokens(categories, "system")
+	developer := promptCategoryTokens(categories, "developer")
+	compaction := promptCategoryTokens(categories, "compaction_summary")
+	other := promptCategoryTokens(categories, "environment") +
+		promptCategoryTokens(categories, "runtime_injected") +
+		promptCategoryTokens(categories, "other_prompt")
+
+	return fmt.Sprintf(
+		"Details  user~%s  hist~%s  tool~%s  sys~%s  dev~%s  comp~%s  other~%s  local~est",
+		formatTokenCount(user),
+		formatTokenCount(history),
+		formatTokenCount(tool),
+		formatTokenCount(system),
+		formatTokenCount(developer),
+		formatTokenCount(compaction),
+		formatTokenCount(other),
+	)
+}
+
+func promptCategoryTokens(categories map[string]any, key string) int64 {
+	return nestedInt64Default(categories, 0, key, "tokens")
+}
+
 func formatTokenBucket(label string, bucket map[string]any) string {
 	if bucket == nil {
 		return label + " n/a"
@@ -1819,17 +1874,17 @@ func formatTokenBucket(label string, bucket map[string]any) string {
 func formatDsproxyCostLine(payload map[string]any) string {
 	cost, ok := nestedMap(payload, "cost")
 	if !ok {
-		return "EstCost n/a"
+		return "Cost     session~n/a  last~n/a  aux~n/a"
 	}
 	currency := nestedStringDefault(cost, "USD", "currency")
 	if !nestedBoolDefault(cost, false, "available") {
-		return "EstCost n/a"
+		return "Cost     session~n/a  last~n/a  aux~n/a"
 	}
 	session := nestedFloat64Default(cost, 0, "session_estimated_cost")
 	last := nestedFloat64Default(cost, 0, "last_turn_estimated_cost")
 	aux := nestedFloat64Default(cost, 0, "auxiliary_estimated_cost")
 	return fmt.Sprintf(
-		"EstCost session %s  last %s  aux %s",
+		"Cost     session~%s  last~%s  aux~%s",
 		formatMoney(session, currency),
 		formatMoney(last, currency),
 		formatMoney(aux, currency),
@@ -2352,7 +2407,7 @@ func buildCompactStatusPanel(ag agent.Agent, userID string, fallbackWindow int64
 	if balanceSummary == "" {
 		balanceSummary = "balance n/a"
 	}
-	costLine := fmt.Sprintf("%s  %s", "Cost     session n/a  last n/a", balanceSummary)
+	costLine := fmt.Sprintf("%s  %s", "Cost     session~n/a  last~n/a", balanceSummary)
 
 	lines := []string{
 		contextLine,

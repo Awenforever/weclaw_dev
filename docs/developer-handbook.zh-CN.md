@@ -1,3 +1,15 @@
+## p0.1.5a80 status Details与Cost格式
+
+p0.1.5a80在微信`/status`中新增`Details`行，只消费`dsproxy status <route> --weclaw-json`返回的`tokens.prompt_subcategory_split.categories`。WeClaw不得本地tokenize，不得按字符数估算，不得读取debug文件，也不得把session累计tokens当成context窗口占用。
+
+显示规则：
+- 当`tokens.prompt_subcategory_split.available=true`时，显示`Details  user~...  hist~...  tool~...  sys~...  dev~...  comp~...  other~...  local~est`
+- 当`tokens.prompt_subcategory_split.reason=profile_tokenizer_available_but_no_observed_prompt`时，显示`Details  n/a · waiting first prompt`
+- 当`tokens.profile_tokenizer.available=false`时，显示`Details  n/a · tokenizer unavailable`
+
+费用行标签改为`Cost`，并使用紧凑`label~value`字段：`Cost     session~...  last~...  aux~...`。`last`、`session`、`aux`和费用仍以provider usage为权威来源。Compact和Trim仍是char级runtime payload guard。
+
+
 # WeClaw Dev开发者交接手册
 
 ## p0.1.5a78 raw固定tag pre-release安装入口
@@ -64,7 +76,7 @@ p0.1.5a76在a72-a75 `/status`遥测线完成后，刷新文档并将当前`v0.1.
 | `/status`契约集成 | `/status`读取`dsproxy status <route> --weclaw-json`，并对缺失或不可用字段明确降级。 | WeClaw `p0.1.5a61-dsproxy-runtime-status-followup`加CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | verified | 2026-05-17 | 状态输出读取可用的usage/cost/balance字段，保持token级Context与usage ledger累计值分离，并恢复单行Paths。 |
 | Telemetry展示质量 | 微信移动端输出保持紧凑、Markdown优先，并展示model、effort、context window、token usage、estimated cost、balance、compaction、proxy和单行paths。 | WeClaw `p0.1.5a61-dsproxy-runtime-status-followup` | verified | 2026-05-17 | WeClaw现在读取dsproxy的`summary.total_tokens`，保留estimated cost语义，并且不把`session_total`当作context used tokens。 |
 | 证据优先审计纪律 | 源码和文档改动必须基于完整源码文件、完整主文档或完整函数/模块块级上下文，而不是孤立grep片段。 | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | grep/rg只能用于定位符号或验证标记，不能作为补丁设计的充分证据。 |
-| 跨项目反馈闭环 | 每轮WeClaw集成后，根据缺失字段、语义歧义或契约不稳定点，生成精确的CoDeepSeedeX后续需求prompt。 | WeClaw `p0.1.5a67-status-estcost-label`，CoDeepSeedeX `p2.10a59-weclaw-round3-token-attribution-plan` | in_progress | 2026-05-17 | WeClaw保留`aux`，将行尾`est`标记改为`EstCost`标签，并保持pricing、token和compaction语义不变。 |
+| 跨项目反馈闭环 | 每轮WeClaw集成后，根据缺失字段、语义歧义或契约不稳定点，生成精确的CoDeepSeedeX后续需求prompt。 | WeClaw `p0.1.5a67-status-estcost-label`，CoDeepSeedeX `p2.10a59-weclaw-round3-token-attribution-plan` | in_progress | 2026-05-17 | WeClaw保留`aux`，将行尾`est`标记改为`Cost`标签，并保持pricing、token和compaction语义不变。 |
 | Release准备 | README、开发手册、开发日志、focused tests、full tests、Release notes和五个平台资产在公开Release发布前保持一致。 | 公开pre-release `v0.1.9-alpha`位于`6a5f10f`，另有发布后文档收口`p0.1.5a70-post-release-doc-finalize` | done | 2026-05-17 | `v0.1.9-alpha`已在a69刷新并重建五个平台资产。a70只替换手册中的临时refreshing占位，不移动公开Release tag。 |
 
 ### 第二轮CoDeepSeedeX契约验收
@@ -289,7 +301,7 @@ dsproxy Codex profile状态：model_reasoning_effort="xhigh"
 
 ## p0.1.5a72 status契约展示适配
 
-p0.1.5a72适配CoDeepSeedeX `p2.10a61`的WeClaw契约。普通`/status`只在`context_window.used_tokens_available=true`时展示Context numerator，并用`est`标明估算值。Context分母来自`context_window.display_limit_tokens`或`context_window.limit_explanation.display_limit_tokens`。Pricing行展示dsproxy返回的价格来源、每100万tokens单价和更新时间。`bundled_official_docs_snapshot`必须显示为随包官方快照，不能说成实时官网缓存。Tokens、`aux`、`EstCost`、Policy、Compact、Trim、Proxy和Paths继续保持分离。
+p0.1.5a72适配CoDeepSeedeX `p2.10a61`的WeClaw契约。普通`/status`只在`context_window.used_tokens_available=true`时展示Context numerator，并用`est`标明估算值。Context分母来自`context_window.display_limit_tokens`或`context_window.limit_explanation.display_limit_tokens`。Pricing行展示dsproxy返回的价格来源、每100万tokens单价和更新时间。`bundled_official_docs_snapshot`必须显示为随包官方快照，不能说成实时官网缓存。Tokens、`aux`、`Cost`、Policy、Compact、Trim、Proxy和Paths继续保持分离。
 
 
 ## p0.1.5a73 status展示精简

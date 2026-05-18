@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a80-status-details-cost-format
+
+- Change: added `/status` `Details` row for dsproxy `tokens.prompt_subcategory_split.categories` when available.
+- Change: `Details` degrades to `n/a · waiting first prompt` when the tokenizer is available but the route has not observed an assembled prompt.
+- Change: `Details` degrades to `n/a · tokenizer unavailable` when `tokens.profile_tokenizer.available=false`.
+- Change: renamed `Cost` display to `Cost` and changed cost fields to `session~...`, `last~...`, and `aux~...`.
+- Boundary: WeClaw does not tokenize locally, infer token categories from characters, read debug files, or use session totals as context-window usage. Provider usage remains authoritative for `last`, `session`, `aux`, and cost. Compact/Trim remain char-level.
+
+
 ## 2026-05-18 - p0.1.5a79-prerelease-install-command-curl-prefix
 
 - Scope: fix the user-facing `v0.1.9-alpha` pre-release install command format after p78.
@@ -69,7 +78,7 @@
 - Scope: refresh the public `v0.1.9-alpha` pre-release after the a61-a67 CoDeepSeedeX telemetry follow-up line.
 - Release target: `v0.1.9-alpha`.
 - Required companion version: CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
-- Change: Release assets now include the final compact `/status` behavior from a61-a67, including context unavailable semantics, dsproxy summary token usage, `EstCost`, pricing source/update status, active compaction policy, Compact/Trim, proxy, and paths.
+- Change: Release assets now include the final compact `/status` behavior from a61-a67, including context unavailable semantics, dsproxy summary token usage, `Cost`, pricing source/update status, active compaction policy, Compact/Trim, proxy, and paths.
 - Change: ordinary `/status` hides low-value internal diagnostic, attribution and semantic-readiness rows while preserving user-useful pricing and compaction policy information.
 - Validation: release readiness audit confirmed `main=origin/main=d3a2112`, clean worktree, local runtime `p0.1.5a67-status-estcost-label`, and existing `v0.1.9-alpha` still pointing to the older `a02b3c9` release commit before refresh.
 - Notes or lessons: refreshing an existing alpha pre-release requires explicitly deleting and recreating the public Release and tag, then rebuilding all platform assets with the new public/internal version metadata.

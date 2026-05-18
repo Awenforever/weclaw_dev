@@ -261,10 +261,26 @@ func sampleWeClawTelemetryRound3JSON() string {
         "action": "use context_window.used_tokens when context_window.used_tokens_available is true; otherwise display an unavailable marker; never derive current context usage from session totals"
       }
     },
+    "profile_tokenizer": {
+      "available": true,
+      "unit": "tokens",
+      "precision": "local_profile_tokenizer_estimate",
+      "source_kind": "managed_resource",
+      "summary": {
+        "available": false,
+        "reason": "profile_tokenizer_available_but_no_observed_prompt"
+      },
+      "tokenizer": {
+        "tokenizer_kind": "deepseek_official_current"
+      }
+    },
     "prompt_subcategory_split": {
       "available": false,
-      "reason": "provider_usage_is_aggregate_without_prompt_subcategory_breakdown",
-      "action": "display prompt subcategory splits as unavailable until dsproxy adds an audited tokenizer or a provider-backed per-segment ledger"
+      "unit": "tokens",
+      "is_estimated": false,
+      "precision": "unavailable",
+      "reason": "profile_tokenizer_available_but_no_observed_prompt",
+      "categories": {}
     },
     "last_turn": {
       "available": true,
@@ -395,7 +411,7 @@ func TestRuntimeControlStatusReturnsDiagnostics(t *testing.T) {
 		"**Session:**",
 		"Context  [",
 		"Tokens",
-		"Cost     session n/a  last n/a",
+		"Cost     session~n/a  last~n/a",
 		"Proxy    default · 127.0.0.1:8000",
 		"Contract unavailable",
 	} {
@@ -943,7 +959,8 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 		"Session:** `thread-telemetry-1`",
 		"—/750k",
 		"Tokens   last 50.2k  session 9.1M  aux 648.2k",
-		"EstCost session $0.5993  last $0.000154  aux $0.009367",
+		"Details  n/a · tokenizer unavailable",
+		"Cost     session~$0.5993  last~$0.000154  aux~$0.009367",
 		"Balance  5.83 CNY",
 		"Compact [",
 		"58/1.2M chars · not triggered",
@@ -956,7 +973,7 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
 		}
 	}
-	for _, forbidden := range []string{"stale-agent-model", "source:", "tools:", "other:", "last turn id:", "Model    codex", "codex_profile.model_auto_compact_token_limit", "missing usage_attribution", "balance_client_unavailable", "9.1M/750k", "100.0%"} {
+	for _, forbidden := range []string{"stale-agent-model", "source:", "tools:", "other:", "last turn id:", "Model    codex", "codex_profile.model_auto_compact_token_limit", "missing usage_attribution", "balance_client_unavailable", "9.1M/750k", "100.0%", "EstCost"} {
 		if strings.Contains(reply, forbidden) {
 			t.Fatalf("status reply = %q, should not contain %q", reply, forbidden)
 		}
@@ -990,7 +1007,8 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 		"Session:** `thread-round3-compact`",
 		"Context  [",
 		"Tokens   last 50.2k  session 9.1M  aux 648.2k",
-		"EstCost session $0.5993  last $0.000154  aux $0.009367",
+		"Details  n/a · waiting first prompt",
+		"Cost     session~$0.5993  last~$0.000154  aux~$0.009367",
 		"Balance  5.83 CNY",
 		"87/750k",
 		"Pricing  hit $0.0028/M miss $0.14/M out $0.28/M · updated 2026-05-17",
@@ -1016,6 +1034,7 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 		"semantic payload compaction enabled",
 		"Pricing  default config",
 		"refresh yes",
+		"EstCost",
 	} {
 		if strings.Contains(reply, forbidden) {
 			t.Fatalf("status reply = %q, should not contain %q", reply, forbidden)
@@ -1041,6 +1060,84 @@ func TestRuntimeControlStatusDebugAliasesAreRemoved(t *testing.T) {
 				t.Fatalf("%s usage reply = %q, should not contain %q", command, reply, forbidden)
 			}
 		}
+	}
+}
+
+func TestDsproxyDetailsLineShowsPromptSubcategories(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"profile_tokenizer": map[string]any{
+				"available": true,
+			},
+			"prompt_subcategory_split": map[string]any{
+				"available": true,
+				"categories": map[string]any{
+					"user":               map[string]any{"tokens": float64(1200)},
+					"assistant_history":  map[string]any{"tokens": float64(34000)},
+					"tool_output":        map[string]any{"tokens": float64(5600)},
+					"system":             map[string]any{"tokens": float64(900)},
+					"developer":          map[string]any{"tokens": float64(80)},
+					"compaction_summary": map[string]any{"tokens": float64(7000)},
+					"environment":        map[string]any{"tokens": float64(300)},
+					"runtime_injected":   map[string]any{"tokens": float64(200)},
+					"other_prompt":       map[string]any{"tokens": float64(100)},
+				},
+			},
+		},
+	}
+	line := formatDsproxyDetailsLine(payload)
+	for _, want := range []string{
+		"Details  user~1.2k",
+		"hist~34k",
+		"tool~5.6k",
+		"sys~900",
+		"dev~80",
+		"comp~7k",
+		"other~600",
+		"local~est",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("details line = %q, want %q", line, want)
+		}
+	}
+}
+
+func TestDsproxyDetailsLineWaitingFirstPrompt(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"profile_tokenizer": map[string]any{
+				"available": true,
+				"summary": map[string]any{
+					"available": false,
+					"reason":    "profile_tokenizer_available_but_no_observed_prompt",
+				},
+			},
+			"prompt_subcategory_split": map[string]any{
+				"available": false,
+				"reason":    "profile_tokenizer_available_but_no_observed_prompt",
+			},
+		},
+	}
+	line := formatDsproxyDetailsLine(payload)
+	if line != "Details  n/a · waiting first prompt" {
+		t.Fatalf("details line = %q", line)
+	}
+}
+
+func TestDsproxyDetailsLineTokenizerUnavailable(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"profile_tokenizer": map[string]any{
+				"available": false,
+			},
+			"prompt_subcategory_split": map[string]any{
+				"available": false,
+			},
+		},
+	}
+	line := formatDsproxyDetailsLine(payload)
+	if line != "Details  n/a · tokenizer unavailable" {
+		t.Fatalf("details line = %q", line)
 	}
 }
 
@@ -1265,7 +1362,7 @@ func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
 		"16.9%",
 		"43.6k/258.4k",
 		"Tokens   in 43.2k  cached 1.2k  out 350  reason 17  last 22.3k",
-		"Cost     session n/a  last n/a",
+		"Cost     session~n/a  last~n/a",
 		"Contract unavailable",
 	} {
 		if !strings.Contains(reply, want) {
@@ -1299,7 +1396,7 @@ func TestRuntimeControlStatusShowsFallbackContextWindowWhileUsageIsWaiting(t *te
 		"0.0%",
 		"0/--",
 		"Tokens   waiting for Codex usage event",
-		"Cost     session n/a  last n/a",
+		"Cost     session~n/a  last~n/a",
 		"Contract unavailable",
 	} {
 		if !strings.Contains(reply, want) {

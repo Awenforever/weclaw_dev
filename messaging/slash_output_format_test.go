@@ -55,7 +55,7 @@ func TestCompactContextPanelDoesNotExposeSourceOrMetricTable(t *testing.T) {
 			t.Fatalf("compact status panel contains old verbose token %q in:\n%s", forbidden, got)
 		}
 	}
-	for _, want := range []string{"Context", "Tokens", "Cost     session n/a  last n/a", "￥12.34", "Proxy    thinking · 127.0.0.1:8001 · reachable", "Paths    cfg ~/.weclaw/config.json · log ~/.weclaw/weclaw.log"} {
+	for _, want := range []string{"Context", "Tokens", "Cost     session~n/a  last~n/a", "￥12.34", "Proxy    thinking · 127.0.0.1:8001 · reachable", "Paths    cfg ~/.weclaw/config.json · log ~/.weclaw/weclaw.log"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("compact status panel missing %q in:\n%s", want, got)
 		}

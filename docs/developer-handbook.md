@@ -1,5 +1,16 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a80 status Details and Cost format
+
+p0.1.5a80 adds a WeChat `/status` `Details` row that consumes only `tokens.prompt_subcategory_split.categories` from `dsproxy status <route> --weclaw-json`. WeClaw must not tokenize locally, derive estimates from character counts, read debug files, or treat session totals as context-window usage.
+
+Display rules:
+- when `tokens.prompt_subcategory_split.available=true`, show `Details  user~...  hist~...  tool~...  sys~...  dev~...  comp~...  other~...  local~est`
+- when `tokens.prompt_subcategory_split.reason=profile_tokenizer_available_but_no_observed_prompt`, show `Details  n/a · waiting first prompt`
+- when `tokens.profile_tokenizer.available=false`, show `Details  n/a · tokenizer unavailable`
+
+The cost row label is now `Cost`, with compact `label~value` fields: `Cost     session~...  last~...  aux~...`. Provider usage remains authoritative for `last`, `session`, `aux`, and cost. Compact/Trim remain char-level runtime payload guards.
+
 ## p0.1.5a78 raw fixed-tag pre-release installer
 
 p0.1.5a78 changes the published pre-release install entry from jsDelivr fixed-tag URLs to raw GitHub fixed-tag URLs because VM testing showed that jsDelivr can continue serving stale `@v0.1.9-alpha/install.sh` content even after a successful purge.
@@ -40,7 +51,7 @@ This is the canonical English handoff for starting a new AI development conversa
 - Current Latest public Release commit: `05cb93c`
 - Current public pre-release: `v0.1.9-alpha` at `<to-be-refreshed-by-p79>`.
 - Current Release internal marker: `p0.1.5a69-release-v0.1.9-alpha-refresh` at `6a5f10f`
-- Current internal development tag: `p0.1.5a79-prerelease-install-command-curl-prefix`
+- Current internal development tag: `p0.1.5a80-status-details-cost-format`
 - Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
 - Current active development line: `p0.1.5a79-prerelease-install-command-curl-prefix`
 - Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
@@ -64,7 +75,7 @@ Status vocabulary: `planned`, `in_progress`, `verified`, `blocked`, `done`, `sup
 | `/status` contract integration | `/status` consumes `dsproxy status <route> --weclaw-json` and renders returned data with explicit fallback for unavailable fields. | WeClaw `p0.1.5a61-dsproxy-runtime-status-followup` plus CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | verified | 2026-05-17 | Status output reads available usage/cost/balance fields, keeps token-level Context separate from usage ledger totals, and restores a single-line Paths row. |
 | Telemetry display quality | Mobile WeChat output remains compact and Markdown-first while showing model, effort, context window, token usage, estimated cost, balance, compaction, proxy, and a single-line paths row. | WeClaw `p0.1.5a59-status-paths-restore` | verified | 2026-05-17 | Compact `/status` hides internal diagnostics but retains user-useful runtime paths. |
 | Evidence-first audit discipline | Source and document changes are based on full source files, full canonical documents, or complete function/module blocks rather than isolated grep snippets. | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Grep/rg may help locate symbols or verify markers, but it is not sufficient evidence for patch design. |
-| Cross-project feedback loop | After each WeClaw integration round, produce a precise CoDeepSeedeX follow-up prompt for missing fields, ambiguous semantics, or unstable contract behavior. | WeClaw `p0.1.5a67-status-estcost-label`; CoDeepSeedeX `p2.10a59-weclaw-round3-token-attribution-plan` | in_progress | 2026-05-17 | WeClaw keeps `aux`, replaces the trailing `est` marker with an `EstCost` label, and leaves pricing/token/compaction semantics unchanged. |
+| Cross-project feedback loop | After each WeClaw integration round, produce a precise CoDeepSeedeX follow-up prompt for missing fields, ambiguous semantics, or unstable contract behavior. | WeClaw `p0.1.5a67-status-estcost-label`; CoDeepSeedeX `p2.10a59-weclaw-round3-token-attribution-plan` | in_progress | 2026-05-17 | WeClaw keeps `aux`, replaces the trailing `est` marker with an `Cost` label, and leaves pricing/token/compaction semantics unchanged. |
 | Release readiness | README, handbooks, development log, focused tests, full tests, Release notes, and five platform assets are consistent before public Release publication. | Public pre-release `v0.1.9-alpha` at `6a5f10f` plus post-release doc finalization `p0.1.5a70-post-release-doc-finalize` | done | 2026-05-17 | `v0.1.9-alpha` was refreshed to a69 with five rebuilt assets. a70 only replaces temporary refreshing placeholders in handbooks and must not move the public Release tag. |
 
 ### Second-round CoDeepSeedeX contract acceptance
@@ -286,7 +297,7 @@ For future WeClaw work:
 
 ## p0.1.5a72 status contract display adaptation
 
-p0.1.5a72 adapts ordinary `/status` to the CoDeepSeedeX `p2.10a61` WeClaw contract. Context now displays a numerator only when `context_window.used_tokens_available=true`, marks estimated numerators with `est`, and uses `context_window.display_limit_tokens` or `context_window.limit_explanation.display_limit_tokens` as the denominator. Pricing now displays the dsproxy pricing source label, per-1M token prices, and update date. `bundled_official_docs_snapshot` must be shown as a bundled snapshot, not as a live official cache. Tokens, `aux`, `EstCost`, Policy, Compact, Trim, Proxy, and Paths remain separate.
+p0.1.5a72 adapts ordinary `/status` to the CoDeepSeedeX `p2.10a61` WeClaw contract. Context now displays a numerator only when `context_window.used_tokens_available=true`, marks estimated numerators with `est`, and uses `context_window.display_limit_tokens` or `context_window.limit_explanation.display_limit_tokens` as the denominator. Pricing now displays the dsproxy pricing source label, per-1M token prices, and update date. `bundled_official_docs_snapshot` must be shown as a bundled snapshot, not as a live official cache. Tokens, `aux`, `Cost`, Policy, Compact, Trim, Proxy, and Paths remain separate.
 
 
 ## p0.1.5a73 status display polish
