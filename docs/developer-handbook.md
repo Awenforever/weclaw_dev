@@ -1,5 +1,17 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a91 new-session active state
+
+p0.1.5a91 fixes the `/new` active-session state path.
+
+Rules:
+
+- `/new` must clear any pending startup resume for the current profile after a new session/thread is created.
+- `/new` must ensure the active agent reports the new session id immediately.
+- The next `/status` after `/new` must use the new session id, not the previous resumed thread.
+- Runtime-state persistence records the new session id after reset.
+- This patch does not implement current-session cost or Compact/Trim information-retention semantics; those remain blocked on the dsproxy contract update.
+
 ## p0.1.5a90 new-session status fallback scope
 
 p0.1.5a90 narrows the p89 route fallback scope.

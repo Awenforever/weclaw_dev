@@ -533,6 +533,23 @@ func (h *Handler) getDefaultAgentWithName() (string, agent.Agent) {
 	return h.defaultName, h.agents[h.defaultName]
 }
 
+func (h *Handler) clearPendingResumeForProfile(profile string) {
+	profile = strings.TrimSpace(profile)
+	if profile == "" {
+		return
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.pendingResumeProfile != profile {
+		return
+	}
+	h.pendingResumeProfile = ""
+	h.pendingResumeID = ""
+	h.pendingResumeApplied = sync.Map{}
+	log.Printf("[handler] cleared pending resume for profile %s after explicit new session", profile)
+}
+
 func (h *Handler) applyPendingResume(ctx context.Context, name string, ag agent.Agent, userID string) {
 	if ag == nil || userID == "" {
 		return
@@ -3856,6 +3873,17 @@ func (h *Handler) resetDefaultSession(ctx context.Context, userID string) string
 			"Error    "+compactCommandOutput(err.Error(), 160),
 			"```",
 		)
+	}
+	if sessionID != "" {
+		h.clearPendingResumeForProfile(defaultName)
+		if current := currentAgentSessionID(ag, userID); current != sessionID {
+			if resumer, ok := ag.(agent.SessionResumer); ok {
+				if err := resumer.ResumeSession(userID, sessionID); err != nil {
+					log.Printf("[handler] failed to bind new session %s for %s: %v", sessionID, userID, err)
+				}
+			}
+		}
+		h.recordRuntimeSession(defaultName, userID, sessionID)
 	}
 	lines := []string{
 		slashBoldField("Profile", slashInlineCode(name)),

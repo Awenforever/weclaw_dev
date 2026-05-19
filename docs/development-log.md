@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a91-new-session-active-state
+
+- Fix: `/new` clears pending startup resume for the active profile so an old resumed thread cannot overwrite the newly created session.
+- Fix: `/new` binds the active agent to the newly returned session id when the agent does not already report it.
+- Fix: runtime-state persistence records the new session id after reset.
+- Boundary: current-session cost and Compact/Trim information-retention semantics still require dsproxy contract updates.
+
 ## p0.1.5a90-new-session-status-fallback-scope
 
 - Fix: narrowed route fallback for `/status` after `/new`.

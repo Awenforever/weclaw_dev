@@ -1,5 +1,17 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a91新session active state修复
+
+p0.1.5a91修复`/new`后的active-session状态路径。
+
+规则：
+
+- `/new`创建新session/thread后，必须清理当前profile的pending startup resume。
+- `/new`必须确保active agent立即报告新session id。
+- `/new`之后的下一次`/status`必须使用新session id，而不是之前resume的旧thread。
+- reset后会把新session id写入runtime-state。
+- 本补丁不实现current-session cost，也不实现Compact/Trim信息保有率语义；这两项仍等待dsproxy契约更新。
+
 ## p0.1.5a90新session status fallback范围收窄
 
 p0.1.5a90收窄p89的route fallback范围。

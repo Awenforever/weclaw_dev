@@ -538,6 +538,59 @@ func TestRuntimeControlProfileSwitchThinkingEnabled(t *testing.T) {
 	}
 }
 
+func TestRuntimeControlNewClearsPendingResumeAndBindsNewSession(t *testing.T) {
+	ag := &runtimeControlTestAgent{
+		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-flash"},
+		sessionID:        "new-thread",
+		currentSessionID: "old-thread",
+	}
+	h := NewHandler(nil, nil)
+	h.SetAgentMetas([]AgentMeta{{Name: "deepseek-thinking", Type: "acp", Command: "codex", Model: "deepseek-v4-flash"}})
+	h.SetDefaultAgent("deepseek-thinking", ag)
+	h.SetPendingResume("deepseek-thinking", "old-thread")
+
+	reply := h.resetDefaultSession(context.Background(), "user-1")
+	if !strings.Contains(reply, "Session  new-thread") {
+		t.Fatalf("reply = %q, want new-thread", reply)
+	}
+	if ag.currentSessionID != "new-thread" {
+		t.Fatalf("currentSessionID = %q, want new-thread", ag.currentSessionID)
+	}
+
+	status := h.resolveDefaultSessionForRuntimeControl(context.Background(), "user-1")
+	if status.sessionID != "new-thread" {
+		t.Fatalf("resolved session = %q, want new-thread", status.sessionID)
+	}
+	if ag.currentSessionID != "new-thread" {
+		t.Fatalf("currentSessionID after status = %q, want new-thread", ag.currentSessionID)
+	}
+}
+
+func TestRuntimeControlNewDoesNotReapplyOldPendingResume(t *testing.T) {
+	ag := &runtimeControlTestAgent{
+		info:             agent.AgentInfo{Name: "deepseek-thinking", Type: "acp", Model: "deepseek-v4-flash"},
+		sessionID:        "new-thread",
+		currentSessionID: "old-thread",
+	}
+	h := NewHandler(nil, nil)
+	h.SetAgentMetas([]AgentMeta{{Name: "deepseek-thinking", Type: "acp", Command: "codex", Model: "deepseek-v4-flash"}})
+	h.SetDefaultAgent("deepseek-thinking", ag)
+	h.SetPendingResume("deepseek-thinking", "old-thread")
+
+	reply := h.resetDefaultSession(context.Background(), "user-1")
+	if !strings.Contains(reply, "Session  new-thread") {
+		t.Fatalf("reply = %q, want new-thread", reply)
+	}
+
+	status := h.resolveDefaultSessionForRuntimeControl(context.Background(), "user-1")
+	if status.sessionID != "new-thread" {
+		t.Fatalf("resolved session after pending resume clear = %q, want new-thread", status.sessionID)
+	}
+	if ag.currentSessionID == "old-thread" {
+		t.Fatalf("old pending resume was reapplied: currentSessionID=%q", ag.currentSessionID)
+	}
+}
+
 func TestRuntimeControlRestartCurrentDefaultResetsSessionOnly(t *testing.T) {
 	old := &runtimeControlTestAgent{
 		info:      agent.AgentInfo{Name: "deepseek", Type: "acp"},
