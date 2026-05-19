@@ -1231,7 +1231,7 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 		proxyEndpoint = "127.0.0.1:8001"
 	}
 
-	if payload, _, ok := runDsproxyJSONCommand(ctx, dsproxyWeClawStatusArgsForProfile(defaultName)...); ok {
+	if payload, _, ok := runDsproxyJSONCommand(ctx, dsproxyWeClawStatusArgsForProfile(defaultName, sessionID)...); ok {
 		return h.buildStatusDiagnosticsFromDsproxyTelemetry(defaultName, agentType, agentModel, sessionID, proxyRoute, proxyEndpoint, payload)
 	}
 
@@ -1300,11 +1300,26 @@ func parseJSONMap(text string) (map[string]any, bool) {
 	return payload, true
 }
 
-func dsproxyWeClawStatusArgsForProfile(profile string) []string {
+func dsproxyWeClawStatusArgsForProfile(profile string, sessionIDs ...string) []string {
+	var args []string
 	if profile == "deepseek-thinking" {
-		return []string{"status", "thinking", "--weclaw-json"}
+		args = []string{"status", "thinking", "--weclaw-json"}
+	} else {
+		args = []string{"status", "--weclaw-json"}
 	}
-	return []string{"status", "--weclaw-json"}
+
+	sessionID := ""
+	for _, candidate := range sessionIDs {
+		candidate = strings.TrimSpace(candidate)
+		if candidate != "" {
+			sessionID = candidate
+			break
+		}
+	}
+	if sessionID != "" {
+		args = append(args, "--session-id", sessionID)
+	}
+	return args
 }
 
 func effortDisplayFromProfileStatusJSON(text, fallback string) string {
@@ -1522,16 +1537,15 @@ func formatDsproxyPricingSummaryLine(payload map[string]any) string {
 func pricingPricesSummary(pricing map[string]any) string {
 	prices, ok := nestedMap(pricing, "prices_display")
 	if !ok {
+		prices, ok = nestedMap(pricing, "effective_prices")
+	}
+	if !ok {
 		prices, ok = nestedMap(pricing, "prices")
 	}
 	if !ok {
 		return ""
 	}
 
-	// WeClaw displays pricing in CNY for DeepSeek status rows. dsproxy p2.10a70+
-	// provides CNY primary pricing values for this contract; the top-level
-	// historical source currency may still be USD, so do not let it override the
-	// display currency here.
 	currency := nestedStringDefault(pricing, "", "display_currency")
 	if currency == "" {
 		currency = nestedStringDefault(prices, "", "display_currency")
@@ -1816,20 +1830,70 @@ func tokenTotalFromMap(bucket map[string]any) (int64, bool) {
 	return 0, false
 }
 
+func dsproxyTokenSectionTotal(section map[string]any) (int64, bool) {
+	if section == nil || !nestedBoolDefault(section, true, "available") {
+		return 0, false
+	}
+	for _, keys := range [][]string{
+		{"summary", "total_tokens"},
+		{"usage", "total_tokens"},
+		{"provider_usage", "total_tokens"},
+		{"total_tokens"},
+		{"tokens"},
+	} {
+		if value, ok := pricingFloatValue(section, keys...); ok {
+			if value < 0 {
+				return 0, false
+			}
+			return int64(value + 0.5), true
+		}
+	}
+	return 0, false
+}
+
+func dsproxyTokenSectionText(section map[string]any) string {
+	if total, ok := dsproxyTokenSectionTotal(section); ok {
+		return formatTokenCount(total)
+	}
+	return "n/a"
+}
+
+func dsproxyTokenMap(payload map[string]any, keys ...string) (map[string]any, bool) {
+	return nestedMap(payload, keys...)
+}
+
 func formatDsproxyTokensLine(payload map[string]any) string {
 	tokens, ok := nestedMap(payload, "tokens")
 	if !ok {
-		return "Tokens   unavailable"
+		return "Tokens   last n/a  session n/a  aux n/a"
 	}
-	last, _ := nestedMap(tokens, "last_turn")
-	session, _ := nestedMap(tokens, "session_total")
-	aux, _ := nestedMap(tokens, "auxiliary_model_calls")
-	return fmt.Sprintf(
-		"Tokens   %s  %s  %s",
-		formatTokenBucket("last", last),
-		formatTokenBucket("session", session),
-		formatTokenBucket("aux", aux),
-	)
+
+	lastText := "n/a"
+	if section, ok := dsproxyTokenMap(tokens, "latest_primary_turn"); ok {
+		lastText = dsproxyTokenSectionText(section)
+	}
+	if lastText == "n/a" {
+		if section, ok := dsproxyTokenMap(tokens, "last_turn"); ok {
+			lastText = dsproxyTokenSectionText(section)
+		}
+	}
+
+	sessionText := "n/a"
+	if section, ok := dsproxyTokenMap(tokens, "session"); ok && nestedBoolDefault(section, false, "available") {
+		sessionText = dsproxyTokenSectionText(section)
+	}
+
+	auxText := "n/a"
+	if section, ok := dsproxyTokenMap(tokens, "auxiliary_model_calls"); ok {
+		auxText = dsproxyTokenSectionText(section)
+	}
+	if auxText == "n/a" {
+		if section, ok := dsproxyTokenMap(tokens, "latest_auxiliary_call"); ok {
+			auxText = dsproxyTokenSectionText(section)
+		}
+	}
+
+	return fmt.Sprintf("Tokens   last %s  session %s  aux %s", lastText, sessionText, auxText)
 }
 
 func formatDsproxyDetailsLine(payload map[string]any) string {
@@ -1910,25 +1974,45 @@ func formatDsproxyCostLine(payload map[string]any) string {
 		currency = "CNY"
 	}
 
-	session := nestedFloat64Default(cost, 0, "session_estimated_cost")
+	sessionText := "n/a"
+	totalText := "n/a"
+	currentSessionScope := false
+	if session, ok := nestedMap(cost, "session"); ok && nestedBoolDefault(session, false, "available") {
+		currentSessionScope = true
+		amountCurrency := nestedStringDefault(session, currency, "display_currency")
+		if value, ok := pricingFloatValue(session, "estimated_cost"); ok {
+			sessionText = formatMoney(value, amountCurrency)
+		} else if value, ok := pricingFloatValue(session, "amount"); ok {
+			sessionText = formatMoney(value, amountCurrency)
+		}
+	} else {
+		scope := strings.ToLower(strings.TrimSpace(nestedStringDefault(cost, "", "scope")))
+		ledgerScope := strings.ToLower(strings.TrimSpace(nestedStringDefault(cost, "", "ledger_scope")))
+		if scope == "current_session" || ledgerScope == "current_session" || scope == "session" || ledgerScope == "session" {
+			currentSessionScope = true
+			sessionText = formatMoney(nestedFloat64Default(cost, 0, "session_estimated_cost"), currency)
+		}
+	}
+
 	last := nestedFloat64Default(cost, 0, "last_turn_estimated_cost")
 	aux := nestedFloat64Default(cost, 0, "auxiliary_estimated_cost")
 
-	totalText := "n/a"
-	if total, ok := pricingFloatValue(cost, "total_estimated_cost"); ok {
-		totalText = formatMoney(total, currency)
-	} else if total, ok := pricingFloatValue(cost, "cash_estimated_cost"); ok {
-		totalText = formatMoney(total, currency)
-	} else if amount, ok := nestedMap(cost, "amounts", "cash"); ok {
-		amountCurrency := nestedStringDefault(amount, currency, "display_currency")
-		if total, ok := pricingFloatValue(amount, "amount"); ok {
-			totalText = formatMoney(total, amountCurrency)
+	if currentSessionScope {
+		if total, ok := pricingFloatValue(cost, "total_estimated_cost"); ok {
+			totalText = formatMoney(total, currency)
+		} else if total, ok := pricingFloatValue(cost, "cash_estimated_cost"); ok {
+			totalText = formatMoney(total, currency)
+		} else if amount, ok := nestedMap(cost, "amounts", "cash"); ok {
+			amountCurrency := nestedStringDefault(amount, currency, "display_currency")
+			if total, ok := pricingFloatValue(amount, "amount"); ok {
+				totalText = formatMoney(total, amountCurrency)
+			}
 		}
 	}
 
 	return fmt.Sprintf(
 		"Cost     session~%s  last~%s  aux~%s  total~%s",
-		formatMoney(session, currency),
+		sessionText,
 		formatMoney(last, currency),
 		formatMoney(aux, currency),
 		totalText,
@@ -2099,6 +2183,42 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 	}
 }
 
+func runtimePayloadGuardProgressValues(section map[string]any, legacyNumeratorKeys [][]string, legacyDenominatorKeys [][]string) (int64, int64, string) {
+	numerator := nestedInt64Default(section, -1, "progress_numerator_chars")
+	denominator := nestedInt64Default(section, 0, "progress_denominator_chars")
+	for _, keys := range legacyNumeratorKeys {
+		if numerator >= 0 {
+			break
+		}
+		numerator = nestedInt64Default(section, -1, keys...)
+	}
+	for _, keys := range legacyDenominatorKeys {
+		if denominator > 0 {
+			break
+		}
+		denominator = nestedInt64Default(section, 0, keys...)
+	}
+
+	percent := ""
+	if ratio, ok := pricingFloatValue(section, "progress_ratio"); ok {
+		percent = formatRuntimeProgressRatioPercent(ratio)
+	}
+	if percent == "" {
+		percent = formatStatusPercent(numerator, denominator)
+	}
+	return numerator, denominator, percent
+}
+
+func formatRuntimeProgressRatioPercent(ratio float64) string {
+	if ratio < 0 {
+		return ""
+	}
+	if ratio > 1 {
+		return fmt.Sprintf("%.1f%%", ratio)
+	}
+	return fmt.Sprintf("%.1f%%", ratio*100)
+}
+
 func formatDsproxyRuntimePayloadGuardLines(payload map[string]any) ([]string, bool) {
 	guard, ok := nestedMap(payload, "runtime_payload_guard")
 	if !ok || !nestedBoolDefault(guard, false, "available") {
@@ -2107,18 +2227,22 @@ func formatDsproxyRuntimePayloadGuardLines(payload map[string]any) ([]string, bo
 	unit := nestedStringDefault(guard, "chars", "unit")
 	lines := make([]string, 0, 2)
 
-	if compaction, ok := nestedMap(guard, "compaction"); ok && nestedBoolDefault(compaction, false, "available") {
-		current := nestedInt64Default(compaction, -1, "current_chars")
-		trigger := nestedInt64Default(compaction, 0, "trigger_chars")
-		if trigger <= 0 {
-			trigger = nestedInt64Default(compaction, 0, "effective_trigger_chars")
-		}
+	compaction, compactionOK := nestedMap(guard, "compaction")
+	if !compactionOK {
+		compaction, compactionOK = nestedMap(guard, "compact")
+	}
+	if compactionOK && nestedBoolDefault(compaction, false, "available") {
+		current, trigger, percent := runtimePayloadGuardProgressValues(
+			compaction,
+			[][]string{{"current_chars"}},
+			[][]string{{"trigger_chars"}, {"effective_trigger_chars"}},
+		)
 		if current >= 0 && trigger > 0 {
 			status := displayRuntimePayloadGuardStatus(nestedStringDefault(compaction, "unknown", "status"))
 			lines = append(lines, fmt.Sprintf(
 				"Compact [%s]  %s  %s/%s %s · %s",
 				formatCommandProgressBar(current, trigger, 20),
-				formatStatusPercent(current, trigger),
+				percent,
 				formatStatusCount(current),
 				formatContextLimit(trigger),
 				unit,
@@ -2127,15 +2251,22 @@ func formatDsproxyRuntimePayloadGuardLines(payload map[string]any) ([]string, bo
 		}
 	}
 
-	if trimming, ok := nestedMap(guard, "trimming"); ok && nestedBoolDefault(trimming, false, "available") {
-		current := nestedInt64Default(trimming, -1, "current_chars")
-		limit := nestedInt64Default(trimming, 0, "max_context_chars")
+	trimming, trimmingOK := nestedMap(guard, "trimming")
+	if !trimmingOK {
+		trimming, trimmingOK = nestedMap(guard, "trim")
+	}
+	if trimmingOK && nestedBoolDefault(trimming, false, "available") {
+		current, limit, percent := runtimePayloadGuardProgressValues(
+			trimming,
+			[][]string{{"current_chars"}},
+			[][]string{{"max_context_chars"}},
+		)
 		if current >= 0 && limit > 0 {
 			status := displayRuntimePayloadGuardStatus(nestedStringDefault(trimming, "unknown", "status"))
 			lines = append(lines, fmt.Sprintf(
 				"Trim    [%s]  %s  %s/%s %s · %s",
 				formatCommandProgressBar(current, limit, 20),
-				formatStatusPercent(current, limit),
+				percent,
 				formatStatusCount(current),
 				formatContextLimit(limit),
 				unit,

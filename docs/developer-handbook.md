@@ -1,5 +1,19 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a88 CoDeepSeedeX p2.10a74 status contract adaptation
+
+p0.1.5a88 adapts WeClaw `/status` to the CoDeepSeedeX p2.10a73/p2.10a74 contract.
+
+Rules:
+
+- Pass the active ACP/Codex session id to `dsproxy status ... --weclaw-json --session-id <id>` when available.
+- Use `tokens.latest_primary_turn` for the displayed `last` token field; auxiliary calls must not replace the primary request basis.
+- Use `tokens.session` only when `available=true`; do not label profile/route lifetime totals as current-session totals.
+- Display `Cost session` and trailing `total` only when dsproxy marks the cost ledger as current-session scoped.
+- Use `pricing.prices_display` first, then `pricing.effective_prices`, and only then legacy `pricing.prices`.
+- Use `runtime_payload_guard.*.progress_numerator_chars`, `progress_denominator_chars`, and `progress_ratio` for Compact/Trim progress.
+- Keep WeClaw display-only: no local pricing lookup, no currency conversion, no retokenization, no debug-file reads, and no recomputing session cost from current model prices.
+
 ## Current trusted state after v0.1.9-alpha Latest closeout
 
 Runtime release state:

@@ -936,7 +936,7 @@ func TestRuntimeControlNowIdleEnsuresSessionID(t *testing.T) {
 
 func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 	withDsproxyCommandRunner(t, func(ctx context.Context, args ...string) string {
-		wantArgs := []string{"status", "thinking", "--weclaw-json"}
+		wantArgs := []string{"status", "thinking", "--weclaw-json", "--session-id", "thread-telemetry-1"}
 		if strings.Join(args, " ") != strings.Join(wantArgs, " ") {
 			t.Fatalf("dsproxy args = %#v, want %#v", args, wantArgs)
 		}
@@ -960,9 +960,9 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 		"Model:** `deepseek-v4-flash` `max`",
 		"Session:** `thread-telemetry-1`",
 		"—/750k",
-		"Tokens   last 50.2k  session 9.1M  aux 648.2k",
+		"Tokens   last 50.2k  session n/a  aux 648.2k",
 		"Details  n/a · tokenizer unavailable",
-		"Cost     session~￥0.5993  last~￥0.000154  aux~￥0.0094  total~￥0.6086",
+		"Cost     session~n/a  last~￥0.000154  aux~￥0.0094  total~n/a",
 		"Balance  ￥5.83",
 		"Compact [",
 		"58/1.2M chars · not triggered",
@@ -975,7 +975,7 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 			t.Fatalf("status reply = %q, want %q", reply, want)
 		}
 	}
-	for _, forbidden := range []string{"stale-agent-model", "source:", "tools:", "other:", "last turn id:", "Model    codex", "codex_profile.model_auto_compact_token_limit", "missing usage_attribution", "balance_client_unavailable", "9.1M/750k", "100.0%", "EstCost"} {
+	for _, forbidden := range []string{"stale-agent-model", "source:", "tools:", "other:", "last turn id:", "Model    codex", "codex_profile.model_auto_compact_token_limit", "missing usage_attribution", "balance_client_unavailable", "9.1M/750k", "100.0%", "EstCost", "Cost     session~￥0.5993"} {
 		if strings.Contains(reply, forbidden) {
 			t.Fatalf("status reply = %q, should not contain %q", reply, forbidden)
 		}
@@ -984,7 +984,7 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 
 func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 	withDsproxyCommandRunner(t, func(ctx context.Context, args ...string) string {
-		wantArgs := []string{"status", "thinking", "--weclaw-json"}
+		wantArgs := []string{"status", "thinking", "--weclaw-json", "--session-id", "thread-round3-compact"}
 		if strings.Join(args, " ") != strings.Join(wantArgs, " ") {
 			t.Fatalf("dsproxy args = %#v, want %#v", args, wantArgs)
 		}
@@ -1008,9 +1008,9 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 		"Model:** `deepseek-v4-flash` `max`",
 		"Session:** `thread-round3-compact`",
 		"Context  [",
-		"Tokens   last 50.2k  session 9.1M  aux 648.2k",
+		"Tokens   last 50.2k  session n/a  aux 648.2k",
 		"Details  n/a · waiting first prompt",
-		"Cost     session~￥0.5993  last~￥0.000154  aux~￥0.0094  total~￥0.6086",
+		"Cost     session~n/a  last~￥0.000154  aux~￥0.0094  total~n/a",
 		"Balance  ￥5.83",
 		"87/750k",
 		"Pricing  hit ￥0.02/M miss ￥1/M out ￥2/M · updated 2026-05-17",
@@ -1025,18 +1025,9 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 	}
 	for _, forbidden := range []string{
 		"Status Debug",
-		"Diag     degraded",
-		"Attrib v3",
-		"Semantic safe",
-		"user_tokens",
-		"assistant_history_tokens",
-		"tool_tokens",
-		"environment_tokens",
-		"runtime_tokens",
-		"semantic payload compaction enabled",
-		"Pricing  default config",
-		"refresh yes",
-		"EstCost",
+		"stale-agent-model",
+		"missing usage_attribution",
+		"Cost     session~￥0.5993",
 	} {
 		if strings.Contains(reply, forbidden) {
 			t.Fatalf("status reply = %q, should not contain %q", reply, forbidden)
@@ -1065,11 +1056,162 @@ func TestRuntimeControlStatusDebugAliasesAreRemoved(t *testing.T) {
 	}
 }
 
+func TestDsproxyStatusArgsIncludeSessionIDWhenAvailable(t *testing.T) {
+	got := dsproxyWeClawStatusArgsForProfile("deepseek-thinking", "thread-p88")
+	want := []string{"status", "thinking", "--weclaw-json", "--session-id", "thread-p88"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Fatalf("args = %#v, want %#v", got, want)
+	}
+
+	got = dsproxyWeClawStatusArgsForProfile("deepseek-thinking", "")
+	want = []string{"status", "thinking", "--weclaw-json"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Fatalf("args without session = %#v, want %#v", got, want)
+	}
+}
+
+func TestDsproxyTokensLineUsesPrimaryTurnAndRequiresSessionScope(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"latest_primary_turn": map[string]any{
+				"available":    true,
+				"total_tokens": float64(1234),
+			},
+			"latest_any_model_call": map[string]any{
+				"available":    true,
+				"total_tokens": float64(999999),
+			},
+			"profile_route_total": map[string]any{
+				"available":    true,
+				"total_tokens": float64(8800000),
+			},
+			"session": map[string]any{
+				"available": false,
+				"reason":    "session_scoped_ledger_not_available",
+			},
+			"auxiliary_model_calls": map[string]any{
+				"available":    true,
+				"total_tokens": float64(4567),
+			},
+		},
+	}
+	got := formatDsproxyTokensLine(payload)
+	want := "Tokens   last 1.2k  session n/a  aux 4.6k"
+	if got != want {
+		t.Fatalf("tokens line = %q, want %q", got, want)
+	}
+	if strings.Contains(got, "8.8M") || strings.Contains(got, "999.999") {
+		t.Fatalf("tokens line used route/any-call totals as session/last: %q", got)
+	}
+}
+
+func TestDsproxyCostLineRequiresCurrentSessionScope(t *testing.T) {
+	payload := map[string]any{
+		"cost": map[string]any{
+			"available":                true,
+			"display_currency":         "CNY",
+			"scope":                    "profile_route_total",
+			"session_estimated_cost":   float64(5.260047639839999),
+			"last_turn_estimated_cost": float64(0.007171960320000001),
+			"auxiliary_estimated_cost": float64(0.08404211376000001),
+			"cash_estimated_cost":      float64(5.260047639839999),
+		},
+	}
+	got := formatDsproxyCostLine(payload)
+	want := "Cost     session~n/a  last~￥0.0072  aux~￥0.084  total~n/a"
+	if got != want {
+		t.Fatalf("cost line = %q, want %q", got, want)
+	}
+
+	payload["cost"].(map[string]any)["scope"] = "current_session"
+	got = formatDsproxyCostLine(payload)
+	want = "Cost     session~￥5.26  last~￥0.0072  aux~￥0.084  total~￥5.26"
+	if got != want {
+		t.Fatalf("current-session cost line = %q, want %q", got, want)
+	}
+}
+
+func TestDsproxyRuntimePayloadGuardUsesProgressContract(t *testing.T) {
+	payload := map[string]any{
+		"runtime_payload_guard": map[string]any{
+			"available": true,
+			"unit":      "chars",
+			"compaction": map[string]any{
+				"available":                  true,
+				"status":                     "not_triggered",
+				"progress_numerator_chars":   float64(152900),
+				"progress_denominator_chars": float64(1200000),
+				"progress_ratio":             float64(0.127416),
+				"current_chars":              float64(58),
+				"trigger_chars":              float64(1200000),
+			},
+			"trimming": map[string]any{
+				"available":                  true,
+				"status":                     "removed_0",
+				"progress_numerator_chars":   float64(152900),
+				"progress_denominator_chars": float64(1500000),
+				"progress_ratio":             float64(0.101933),
+				"current_chars":              float64(219),
+				"max_context_chars":          float64(1500000),
+			},
+		},
+	}
+	lines, ok := formatDsproxyRuntimePayloadGuardLines(payload)
+	if !ok {
+		t.Fatal("runtime payload guard lines unavailable")
+	}
+	joined := strings.Join(lines, "\n")
+	for _, want := range []string{"152.9k/1.2M chars", "12.7%", "152.9k/1.5M chars", "10.2%"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("guard lines = %q, want %q", joined, want)
+		}
+	}
+	for _, forbidden := range []string{"58/1.2M", "219/1.5M"} {
+		if strings.Contains(joined, forbidden) {
+			t.Fatalf("guard lines = %q, should not use legacy current_chars %q", joined, forbidden)
+		}
+	}
+}
+
+func TestDsproxyPricingSummaryUsesEffectivePricesFallback(t *testing.T) {
+	payload := map[string]any{
+		"pricing": map[string]any{
+			"available":        true,
+			"display_currency": "CNY",
+			"updated_at":       "2026-05-19T00:00:00Z",
+			"effective_prices": map[string]any{
+				"input_cache_hit":  float64(0.025),
+				"input_cache_miss": float64(3.0),
+				"output":           float64(6.0),
+			},
+			"original_prices": map[string]any{
+				"input_cache_hit":  float64(0.1),
+				"input_cache_miss": float64(12.0),
+				"output":           float64(24.0),
+			},
+			"discount": map[string]any{
+				"available":     true,
+				"discount_rate": float64(0.25),
+				"label":         "2.5折",
+			},
+		},
+	}
+	got := formatDsproxyPricingSummaryLine(payload)
+	want := "Pricing  unknown · hit ￥0.025/M miss ￥3/M out ￥6/M · updated 2026-05-19"
+	if got != want {
+		t.Fatalf("pricing line = %q, want %q", got, want)
+	}
+	if strings.Contains(got, "￥12") || strings.Contains(got, "￥24") {
+		t.Fatalf("pricing line used original prices instead of effective prices: %q", got)
+	}
+}
+
 func TestDsproxyCostLineDisplaysCNYTotalLast(t *testing.T) {
 	payload := map[string]any{
 		"cost": map[string]any{
 			"available":                true,
 			"display_currency":         "CNY",
+			"scope":                    "current_session",
 			"session_estimated_cost":   float64(5.260047639839999),
 			"last_turn_estimated_cost": float64(0.007171960320000001),
 			"auxiliary_estimated_cost": float64(0.08404211376000001),

@@ -1,5 +1,19 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a88适配CoDeepSeedeX p2.10a74状态契约
+
+p0.1.5a88将WeClaw `/status`适配到CoDeepSeedeX p2.10a73/p2.10a74契约。
+
+规则：
+
+- 当WeClaw知道当前ACP/Codex session id时，调用`dsproxy status ... --weclaw-json --session-id <id>`。
+- 展示`last` token字段时使用`tokens.latest_primary_turn`；辅助调用不能覆盖最近一次主用户请求的展示基准。
+- 只有`tokens.session.available=true`时才展示为当前session统计；不要把profile/route lifetime累计标成当前session累计。
+- 只有dsproxy明确标记cost ledger为current-session scope时，才展示`Cost session`和末尾`total`。
+- Pricing优先使用`pricing.prices_display`，其次`pricing.effective_prices`，最后才使用旧`pricing.prices`。
+- Compact/Trim进度使用`runtime_payload_guard.*.progress_numerator_chars`、`progress_denominator_chars`和`progress_ratio`。
+- WeClaw保持纯展示层：不自行查价格、不换算币种、不重新tokenize、不读取debug文件，也不用当前模型价格重算session费用。
+
 ## v0.1.9-alpha Latest收口后的当前可信状态
 
 运行时Release状态：

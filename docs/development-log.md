@@ -1,5 +1,15 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a88-codeepseedex-p210a74-adaptation
+
+- Contract: adapted `/status` to CoDeepSeedeX p2.10a73/p2.10a74.
+- Change: pass active session id to `dsproxy status ... --weclaw-json --session-id <id>` when available.
+- Change: display `tokens.latest_primary_turn` for `last` and only display current `session` when `tokens.session.available=true`.
+- Change: display Cost session/total only when dsproxy marks the cost ledger as current-session scoped.
+- Change: use `pricing.prices_display` / `pricing.effective_prices` for discount-aware effective CNY pricing.
+- Change: use `runtime_payload_guard.*.progress_*` for Compact/Trim progress.
+- Boundary: WeClaw remains display-only and does not infer pricing, session scope, tokenization, or Compact/Trim semantics locally.
+
 ## p0.1.5a87-v019-latest-closeout-docs
 
 - Closeout: documented that `v0.1.9-alpha` is now the ordinary Latest Release, not a pre-release.
