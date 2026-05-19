@@ -1,5 +1,16 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a90 new-session status fallback scope
+
+p0.1.5a90 narrows the p89 route fallback scope.
+
+Rules:
+
+- Session-filtered `/status` remains the source of truth for Context, Details, Tokens, Cost, Compact, and Trim.
+- No-session route fallback is allowed only for route-level metadata such as Pricing, Balance, Proxy, Paths, health, diagnostics, and a sanitized Policy subset.
+- `/new` followed by `/status` must not display the previous session's Context, Details, Compact, or Trim.
+- WeClaw must still not synthesize current-session cost or reinterpret Compact/Trim retention semantics. Those remain blocked on the dsproxy contract update.
+
 ## p0.1.5a89 dsproxy route startup and safe status fallback
 
 p0.1.5a89 fixes the runtime failure mode found after p88:

@@ -1321,6 +1321,51 @@ func dsproxyWeClawPayloadNeedsRouteFallback(payload map[string]any) bool {
 	return false
 }
 
+func dsproxyRoutePolicyFallback(routePayload map[string]any) (map[string]any, bool) {
+	compaction, ok := nestedMap(routePayload, "compaction")
+	if !ok {
+		return nil, false
+	}
+
+	allowed := map[string]bool{
+		"available":               true,
+		"policy":                  true,
+		"compaction_policy":       true,
+		"context_policy":          true,
+		"trigger_chars":           true,
+		"effective_trigger_chars": true,
+		"target_chars":            true,
+		"target_context_chars":    true,
+		"min_target_chars":        true,
+		"max_target_chars":        true,
+		"keep_last_messages":      true,
+		"keep_last_n_messages":    true,
+		"keep_messages":           true,
+		"min_new_chars":           true,
+		"min_turns":               true,
+		"unit":                    true,
+		"reason":                  true,
+		"action":                  true,
+		"source":                  true,
+		"source_kind":             true,
+		"used_chars_available":    true,
+		"trigger_chars_available": true,
+		"target_chars_available":  true,
+		"keep_messages_available": true,
+	}
+
+	filtered := make(map[string]any)
+	for key, value := range compaction {
+		if allowed[key] {
+			filtered[key] = value
+		}
+	}
+	if len(filtered) == 0 {
+		return nil, false
+	}
+	return filtered, true
+}
+
 func mergeDsproxyRouteFallbackPayload(sessionPayload map[string]any, routePayload map[string]any) map[string]any {
 	if sessionPayload == nil {
 		sessionPayload = map[string]any{}
@@ -1330,10 +1375,11 @@ func mergeDsproxyRouteFallbackPayload(sessionPayload map[string]any, routePayloa
 		merged[key] = value
 	}
 
+	// Route fallback is intentionally limited to route-level metadata. Do not
+	// fallback Context, Details, Tokens, Cost, Compact, or Trim because those
+	// fields would make a newly created session look as if it inherited the
+	// previous session's observed prompt and payload state.
 	for _, key := range []string{
-		"context_window",
-		"runtime_payload_guard",
-		"compaction",
 		"pricing",
 		"balance",
 		"proxy",
@@ -1344,6 +1390,9 @@ func mergeDsproxyRouteFallbackPayload(sessionPayload map[string]any, routePayloa
 		if value, ok := routePayload[key]; ok {
 			merged[key] = value
 		}
+	}
+	if policy, ok := dsproxyRoutePolicyFallback(routePayload); ok {
+		merged["compaction"] = policy
 	}
 
 	return merged

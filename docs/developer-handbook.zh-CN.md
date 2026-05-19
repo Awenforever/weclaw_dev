@@ -1,5 +1,16 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a90新session status fallback范围收窄
+
+p0.1.5a90收窄p89的route fallback范围。
+
+规则：
+
+- 带session过滤的`/status`仍然是Context、Details、Tokens、Cost、Compact和Trim的唯一展示来源。
+- 无session route fallback只允许用于route级元数据，例如Pricing、Balance、Proxy、Paths、health、diagnostics以及经过过滤的Policy子集。
+- `/new`之后立即执行`/status`时，不得显示旧session的Context、Details、Compact或Trim。
+- WeClaw仍然不自行合成current-session cost，也不自行重新解释Compact/Trim信息保有率语义。这两项等待dsproxy契约更新。
+
 ## p0.1.5a89 dsproxy路由启动与安全status fallback
 
 p0.1.5a89修复p88后暴露的运行态问题：

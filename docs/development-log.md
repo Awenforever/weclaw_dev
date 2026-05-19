@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a90-new-session-status-fallback-scope
+
+- Fix: narrowed route fallback for `/status` after `/new`.
+- Change: no-session route fallback no longer supplies Context, Details, Tokens, Cost, Compact, or Trim.
+- Change: fallback is limited to Pricing, Balance, Proxy, Paths, health, diagnostics, and a sanitized Policy subset.
+- Boundary: current-session cost and Compact/Trim information-retention semantics still require dsproxy contract updates.
+
 ## p0.1.5a89-start-route-and-status-fallback
 
 - Fix: `weclaw start deepseek/deepseek-thinking` now ensures the matching dsproxy route before ACP startup.

@@ -970,9 +970,9 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 		"Cost     session~n/a  last~￥0.000154  aux~￥0.0094  total~n/a",
 		"Balance  ￥5.83",
 		"Compact [",
-		"58/1.2M chars · not triggered",
+		"--/-- chars · no report",
 		"Trim    [",
-		"219/1.5M chars · removed 0",
+		"--/-- chars · no report",
 		"Proxy    thinking · 127.0.0.1:8001 · reachable",
 		"Paths    cfg ~/.weclaw/config.json · log ~/.weclaw/weclaw.log",
 	} {
@@ -1077,8 +1077,20 @@ func TestDsproxyRouteFallbackPreservesSessionScopedUnavailableFields(t *testing.
 			"used_tokens":                  nil,
 		},
 		"tokens": map[string]any{
+			"profile_tokenizer": map[string]any{
+				"available": true,
+				"summary": map[string]any{
+					"available": false,
+					"reason":    "profile_tokenizer_available_but_no_observed_prompt",
+				},
+			},
 			"latest_primary_turn": map[string]any{"available": false},
 			"session":             map[string]any{"available": false},
+			"prompt_subcategory_split": map[string]any{
+				"available":  false,
+				"reason":     "profile_tokenizer_available_but_no_observed_prompt",
+				"categories": map[string]any{},
+			},
 		},
 		"cost": map[string]any{
 			"available": false,
@@ -1097,6 +1109,14 @@ func TestDsproxyRouteFallbackPreservesSessionScopedUnavailableFields(t *testing.
 			"profile_route_total": map[string]any{
 				"available":    true,
 				"total_tokens": float64(1234567),
+			},
+			"prompt_subcategory_split": map[string]any{
+				"available": true,
+				"categories": map[string]any{
+					"user":              float64(3),
+					"assistant_history": float64(5600),
+					"tool_output":       float64(25300),
+				},
 			},
 		},
 		"cost": map[string]any{
@@ -1139,12 +1159,24 @@ func TestDsproxyRouteFallbackPreservesSessionScopedUnavailableFields(t *testing.
 			"currency":  "CNY",
 			"amount":    float64(4.23),
 		},
+		"compaction": map[string]any{
+			"available":          true,
+			"policy":             "adaptive",
+			"trigger_chars":      float64(1200000),
+			"target_chars":       float64(750000),
+			"keep_last_messages": float64(24),
+			"observed_chars":     float64(157000),
+			"last_compact_chars": float64(157000),
+		},
 	}
 
 	merged := mergeDsproxyRouteFallbackPayload(sessionPayload, routePayload)
 
-	if got := formatDsproxyContextLine(merged); !strings.Contains(got, "57.8k/750k") {
-		t.Fatalf("context line = %q, want route fallback context", got)
+	if got := formatDsproxyContextLine(merged); strings.Contains(got, "57.8k/750k") {
+		t.Fatalf("context line = %q, should not fallback old route context", got)
+	}
+	if got := formatDsproxyDetailsLine(merged); !strings.Contains(got, "waiting first prompt") {
+		t.Fatalf("details line = %q, want waiting first prompt from session payload", got)
 	}
 	if got := formatDsproxyTokensLine(merged); got != "Tokens   last n/a  session n/a  aux n/a" {
 		t.Fatalf("tokens line = %q, want session-scoped values preserved as n/a", got)
@@ -1155,15 +1187,14 @@ func TestDsproxyRouteFallbackPreservesSessionScopedUnavailableFields(t *testing.
 	if got := formatDsproxyPricingSummaryLine(merged); !strings.Contains(got, "hit ￥0.02/M miss ￥1/M out ￥2/M") {
 		t.Fatalf("pricing line = %q, want route fallback pricing", got)
 	}
-	guardLines, ok := formatDsproxyRuntimePayloadGuardLines(merged)
-	if !ok {
-		t.Fatal("guard lines unavailable after fallback")
-	}
-	joined := strings.Join(guardLines, "\n")
-	for _, want := range []string{"157k/1.2M chars", "13.1%", "1.7k/1.5M chars"} {
-		if !strings.Contains(joined, want) {
-			t.Fatalf("guard lines = %q, want %q", joined, want)
+	guardText := strings.Join(formatDsproxyCompactionLines(merged), "\n")
+	for _, forbidden := range []string{"157k/1.2M chars", "1.7k/1.5M chars", "13.1%"} {
+		if strings.Contains(guardText, forbidden) {
+			t.Fatalf("guard lines = %q, should not fallback old route guard %q", guardText, forbidden)
 		}
+	}
+	if strings.Contains(guardText, "user~3") || strings.Contains(guardText, "hist~5.6k") {
+		t.Fatalf("guard/details text = %q, should not include old route details", guardText)
 	}
 }
 
