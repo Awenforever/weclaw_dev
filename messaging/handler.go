@@ -2029,6 +2029,43 @@ func formatDsproxyTokensLine(payload map[string]any) string {
 	return fmt.Sprintf("Tokens   last %s  session %s  aux %s", lastText, sessionText, auxText)
 }
 
+func dsproxyMapScope(mapValue map[string]any) string {
+	for _, key := range []string{"scope", "ledger_scope"} {
+		value := strings.ToLower(strings.TrimSpace(nestedStringDefault(mapValue, "", key)))
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func dsproxyMapScopeIsCurrentSession(mapValue map[string]any) bool {
+	scope := dsproxyMapScope(mapValue)
+	return scope == "current_session" || scope == "session"
+}
+
+func dsproxySessionIDsMatch(expected string, actual string) bool {
+	expected = strings.TrimSpace(expected)
+	actual = strings.TrimSpace(actual)
+	return expected == "" || actual == "" || expected == actual
+}
+
+func dsproxyPromptSplitMatchesCurrentSession(tokens map[string]any, split map[string]any) bool {
+	if !dsproxyMapScopeIsCurrentSession(split) {
+		return false
+	}
+	splitSessionID := nestedStringDefault(split, "", "session_id")
+	sessionID := nestedStringDefault(tokens, "", "session", "session_id")
+	if sessionID == "" {
+		sessionID = nestedStringDefault(tokens, "", "session_total", "session_id")
+	}
+	return dsproxySessionIDsMatch(sessionID, splitSessionID)
+}
+
+func dsproxyCostCurrentSessionScope(cost map[string]any, session map[string]any) bool {
+	return dsproxyMapScopeIsCurrentSession(cost) || dsproxyMapScopeIsCurrentSession(session)
+}
+
 func formatDsproxyDetailsLine(payload map[string]any) string {
 	tokens, ok := nestedMap(payload, "tokens")
 	if !ok {
@@ -2049,6 +2086,10 @@ func formatDsproxyDetailsLine(payload map[string]any) string {
 		if reason == "profile_tokenizer_available_but_no_observed_prompt" {
 			return "Details  n/a · waiting first prompt"
 		}
+		return "Details  n/a"
+	}
+
+	if !dsproxyPromptSplitMatchesCurrentSession(tokens, split) {
 		return "Details  n/a"
 	}
 
@@ -2080,7 +2121,15 @@ func formatDsproxyDetailsLine(payload map[string]any) string {
 }
 
 func promptCategoryTokens(categories map[string]any, key string) int64 {
-	return nestedInt64Default(categories, 0, key, "tokens")
+	if value := nestedInt64Default(categories, -1, key); value >= 0 {
+		return value
+	}
+	for _, field := range []string{"tokens", "token_count", "total_tokens"} {
+		if value := nestedInt64Default(categories, -1, key, field); value >= 0 {
+			return value
+		}
+	}
+	return 0
 }
 
 func formatTokenBucket(label string, bucket map[string]any) string {
@@ -2110,21 +2159,22 @@ func formatDsproxyCostLine(payload map[string]any) string {
 	sessionText := "n/a"
 	totalText := "n/a"
 	currentSessionScope := false
-	if session, ok := nestedMap(cost, "session"); ok && nestedBoolDefault(session, false, "available") {
+	if session, ok := nestedMap(cost, "session"); ok && nestedBoolDefault(session, false, "available") && dsproxyCostCurrentSessionScope(cost, session) {
 		currentSessionScope = true
 		amountCurrency := nestedStringDefault(session, currency, "display_currency")
 		if value, ok := pricingFloatValue(session, "estimated_cost"); ok {
 			sessionText = formatMoney(value, amountCurrency)
+		} else if amount, ok := nestedMap(session, "amount"); ok {
+			amountCurrency = nestedStringDefault(amount, amountCurrency, "display_currency")
+			if value, ok := pricingFloatValue(amount, "amount"); ok {
+				sessionText = formatMoney(value, amountCurrency)
+			}
 		} else if value, ok := pricingFloatValue(session, "amount"); ok {
 			sessionText = formatMoney(value, amountCurrency)
 		}
-	} else {
-		scope := strings.ToLower(strings.TrimSpace(nestedStringDefault(cost, "", "scope")))
-		ledgerScope := strings.ToLower(strings.TrimSpace(nestedStringDefault(cost, "", "ledger_scope")))
-		if scope == "current_session" || ledgerScope == "current_session" || scope == "session" || ledgerScope == "session" {
-			currentSessionScope = true
-			sessionText = formatMoney(nestedFloat64Default(cost, 0, "session_estimated_cost"), currency)
-		}
+	} else if dsproxyMapScopeIsCurrentSession(cost) {
+		currentSessionScope = true
+		sessionText = formatMoney(nestedFloat64Default(cost, 0, "session_estimated_cost"), currency)
 	}
 
 	last := nestedFloat64Default(cost, 0, "last_turn_estimated_cost")
@@ -2317,13 +2367,26 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 }
 
 func runtimePayloadGuardProgressValues(section map[string]any, legacyNumeratorKeys [][]string, legacyDenominatorKeys [][]string) (int64, int64, string) {
-	numerator := nestedInt64Default(section, -1, "progress_numerator_chars")
-	denominator := nestedInt64Default(section, 0, "progress_denominator_chars")
+	numerator := nestedInt64Default(section, -1, "display_numerator_chars")
+	if numerator < 0 {
+		numerator = nestedInt64Default(section, -1, "progress_numerator_chars")
+	}
+	if numerator < 0 {
+		numerator = nestedInt64Default(section, -1, "retention_numerator_chars")
+	}
 	for _, keys := range legacyNumeratorKeys {
 		if numerator >= 0 {
 			break
 		}
 		numerator = nestedInt64Default(section, -1, keys...)
+	}
+
+	denominator := nestedInt64Default(section, 0, "display_denominator_chars")
+	if denominator <= 0 {
+		denominator = nestedInt64Default(section, 0, "progress_denominator_chars")
+	}
+	if denominator <= 0 {
+		denominator = nestedInt64Default(section, 0, "retention_denominator_chars")
 	}
 	for _, keys := range legacyDenominatorKeys {
 		if denominator > 0 {
@@ -2333,8 +2396,11 @@ func runtimePayloadGuardProgressValues(section map[string]any, legacyNumeratorKe
 	}
 
 	percent := ""
-	if ratio, ok := pricingFloatValue(section, "progress_ratio"); ok {
-		percent = formatRuntimeProgressRatioPercent(ratio)
+	for _, key := range []string{"display_ratio", "progress_ratio", "retention_ratio"} {
+		if ratio, ok := pricingFloatValue(section, key); ok {
+			percent = formatRuntimeProgressRatioPercent(ratio)
+			break
+		}
 	}
 	if percent == "" {
 		percent = formatStatusPercent(numerator, denominator)

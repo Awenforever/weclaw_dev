@@ -1476,18 +1476,25 @@ func TestDsproxyDetailsLineShowsPromptSubcategories(t *testing.T) {
 			"profile_tokenizer": map[string]any{
 				"available": true,
 			},
+			"session": map[string]any{
+				"available":  true,
+				"scope":      "current_session",
+				"session_id": "session-a",
+			},
 			"prompt_subcategory_split": map[string]any{
-				"available": true,
+				"available":  true,
+				"scope":      "current_session",
+				"session_id": "session-a",
 				"categories": map[string]any{
-					"user":               map[string]any{"tokens": float64(1200)},
-					"assistant_history":  map[string]any{"tokens": float64(34000)},
-					"tool_output":        map[string]any{"tokens": float64(5600)},
-					"system":             map[string]any{"tokens": float64(900)},
-					"developer":          map[string]any{"tokens": float64(80)},
-					"compaction_summary": map[string]any{"tokens": float64(7000)},
-					"environment":        map[string]any{"tokens": float64(300)},
-					"runtime_injected":   map[string]any{"tokens": float64(200)},
-					"other_prompt":       map[string]any{"tokens": float64(100)},
+					"user":               float64(1234),
+					"assistant_history":  float64(456),
+					"tool_output":        float64(789),
+					"system":             float64(11),
+					"developer":          float64(22),
+					"compaction_summary": float64(33),
+					"environment":        float64(44),
+					"runtime_injected":   float64(55),
+					"other_prompt":       float64(66),
 				},
 			},
 		},
@@ -1495,16 +1502,135 @@ func TestDsproxyDetailsLineShowsPromptSubcategories(t *testing.T) {
 	line := formatDsproxyDetailsLine(payload)
 	for _, want := range []string{
 		"Details  user~1.2k",
-		"hist~34k",
-		"tool~5.6k",
-		"sys~900",
-		"dev~80",
-		"comp~7k",
-		"other~600",
-		"",
+		"hist~456",
+		"tool~789",
+		"sys~11",
+		"dev~22",
+		"comp~33",
+		"other~165",
 	} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("details line = %q, want %q", line, want)
+		}
+	}
+}
+
+func TestDsproxyDetailsLineRequiresCurrentSessionScope(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"profile_tokenizer": map[string]any{
+				"available": true,
+			},
+			"session": map[string]any{
+				"available":  true,
+				"scope":      "current_session",
+				"session_id": "session-a",
+			},
+			"prompt_subcategory_split": map[string]any{
+				"available": true,
+				"scope":     "profile_route_history",
+				"categories": map[string]any{
+					"user": float64(3),
+				},
+			},
+		},
+	}
+	if got := formatDsproxyDetailsLine(payload); got != "Details  n/a" {
+		t.Fatalf("details line = %q, want n/a for non-current-session split", got)
+	}
+}
+
+func TestDsproxyDetailsLineRequiresMatchingSessionID(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"profile_tokenizer": map[string]any{
+				"available": true,
+			},
+			"session": map[string]any{
+				"available":  true,
+				"scope":      "current_session",
+				"session_id": "session-a",
+			},
+			"prompt_subcategory_split": map[string]any{
+				"available":  true,
+				"scope":      "current_session",
+				"session_id": "session-b",
+				"categories": map[string]any{
+					"user": float64(3),
+				},
+			},
+		},
+	}
+	if got := formatDsproxyDetailsLine(payload); got != "Details  n/a" {
+		t.Fatalf("details line = %q, want n/a for mismatched session split", got)
+	}
+}
+
+func TestDsproxyCostLineIgnoresSessionObjectWithoutCurrentSessionScope(t *testing.T) {
+	payload := map[string]any{
+		"cost": map[string]any{
+			"available":                true,
+			"display_currency":         "CNY",
+			"scope":                    "profile_route_total",
+			"last_turn_estimated_cost": float64(0.0014),
+			"auxiliary_estimated_cost": float64(0),
+			"total_estimated_cost":     float64(9.99),
+			"session": map[string]any{
+				"available":        true,
+				"scope":            "profile_route_total",
+				"estimated_cost":   float64(9.99),
+				"display_currency": "CNY",
+			},
+		},
+	}
+	want := "Cost     session~n/a  last~￥0.0014  aux~￥0  total~n/a"
+	if got := formatDsproxyCostLine(payload); got != want {
+		t.Fatalf("cost line = %q, want %q", got, want)
+	}
+}
+
+func TestDsproxyRuntimePayloadGuardPrefersDisplayRetentionFields(t *testing.T) {
+	payload := map[string]any{
+		"runtime_payload_guard": map[string]any{
+			"available": true,
+			"unit":      "chars",
+			"compaction": map[string]any{
+				"available":                  true,
+				"status":                     "not_triggered",
+				"display_numerator_chars":    float64(53500),
+				"display_denominator_chars":  float64(53500),
+				"display_ratio":              float64(1.0),
+				"progress_numerator_chars":   float64(100),
+				"progress_denominator_chars": float64(1200000),
+				"progress_ratio":             float64(0.000083),
+				"trigger_chars":              float64(1200000),
+			},
+			"trimming": map[string]any{
+				"available":                   true,
+				"status":                      "not_triggered",
+				"retention_numerator_chars":   float64(3900),
+				"retention_denominator_chars": float64(3900),
+				"retention_ratio":             float64(1.0),
+				"max_context_chars":           float64(1500000),
+			},
+		},
+	}
+	lines, ok := formatDsproxyRuntimePayloadGuardLines(payload)
+	if !ok {
+		t.Fatal("runtime payload guard lines unavailable")
+	}
+	joined := strings.Join(lines, "\n")
+	for _, want := range []string{
+		"Compact [████████████████████]  100.0%  53.5k/53.5k chars",
+		"Trim    [████████████████████]  100.0%  3.9k/3.9k chars",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("guard lines = %q, want %q", joined, want)
+		}
+	}
+	for _, forbidden := range []string{"100/1.2M", " 0.0%  100/1.2M"} {
+		if strings.Contains(joined, forbidden) {
+			t.Fatalf("guard lines = %q, should not use capacity fallback %q", joined, forbidden)
 		}
 	}
 }

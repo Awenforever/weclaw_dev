@@ -1,5 +1,17 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a92对齐CoDeepSeedeX p2.10a75契约
+
+p0.1.5a92将WeClaw `/status`对齐到CoDeepSeedeX p2.10a75契约。
+
+规则：
+
+- 只有current-session scope的cost才能显示为`Cost session`和末尾`Cost total`。
+- 仅有`cost.session.available=true`还不够；`cost.scope`、`cost.ledger_scope`或`cost.session.scope`必须明确为`current_session`。
+- 只有`tokens.prompt_subcategory_split.available=true`、`scope=current_session`，且split session id与`tokens.session.session_id`兼容时，才显示Details。
+- Compact/Trim主进度行消费display/retention/progress字段作为信息保有率，不作为容量触发进度。
+- 容量/触发进度是dsproxy的独立语义，不用于WeClaw主Compact/Trim行。
+
 ## p0.1.5a91新session active state修复
 
 p0.1.5a91修复`/new`后的active-session状态路径。

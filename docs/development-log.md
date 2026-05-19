@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a92-codeepseedex-p210a75-contract
+
+- Change: aligned `/status` with CoDeepSeedeX p2.10a75 current-session cost, session-scoped Details, and Compact/Trim retention semantics.
+- Fix: `Cost session` and trailing `Cost total` now require an explicit current-session cost scope.
+- Fix: Details now requires current-session prompt split scope and compatible session ids when present.
+- Change: Compact/Trim display now prefers display/retention fields and treats progress fields as information-retention display values, not capacity-trigger progress.
+
 ## p0.1.5a91-new-session-active-state
 
 - Fix: `/new` clears pending startup resume for the active profile so an old resumed thread cannot overwrite the newly created session.

@@ -1,5 +1,17 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a92 CoDeepSeedeX p2.10a75 contract alignment
+
+p0.1.5a92 aligns WeClaw `/status` with the CoDeepSeedeX p2.10a75 contract.
+
+Rules:
+
+- `Cost session` and trailing `Cost total` are displayed only for current-session scoped cost.
+- A nested `cost.session.available=true` object is not enough by itself; `cost.scope`, `cost.ledger_scope`, or `cost.session.scope` must indicate `current_session`.
+- `Details` is displayed only when `tokens.prompt_subcategory_split.available=true`, `scope=current_session`, and the split session id is compatible with `tokens.session.session_id` when both are present.
+- Compact/Trim main progress consumes display/retention/progress fields as information-retention values, not capacity-trigger progress.
+- Capacity/trigger progress remains a separate dsproxy concern and is not used for the main WeClaw Compact/Trim row.
+
 ## p0.1.5a91 new-session active state
 
 p0.1.5a91 fixes the `/new` active-session state path.
