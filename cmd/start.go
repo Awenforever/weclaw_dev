@@ -408,6 +408,43 @@ func runMonitorWithRestart(ctx context.Context, creds *ilink.Credentials, handle
 
 // createAgentByName creates and starts an agent by its config name.
 // Returns nil if the agent is not configured or fails to start.
+func dsproxyStartArgsForProfile(profile string) ([]string, bool) {
+	switch profile {
+	case "deepseek-thinking":
+		return []string{"start", "thinking"}, true
+	case "deepseek":
+		return []string{"start"}, true
+	default:
+		return nil, false
+	}
+}
+
+func ensureDsproxyRouteForProfile(ctx context.Context, profile string) error {
+	args, ok := dsproxyStartArgsForProfile(profile)
+	if !ok {
+		return nil
+	}
+
+	ensureCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ensureCtx, "dsproxy", args...)
+	output, err := cmd.CombinedOutput()
+	trimmed := strings.TrimSpace(string(output))
+	if err != nil {
+		if trimmed != "" {
+			return fmt.Errorf("dsproxy %s failed: %w: %s", strings.Join(args, " "), err, trimmed)
+		}
+		return fmt.Errorf("dsproxy %s failed: %w", strings.Join(args, " "), err)
+	}
+	if trimmed != "" {
+		log.Printf("[dsproxy] ensured route for profile %s: %s", profile, trimmed)
+	} else {
+		log.Printf("[dsproxy] ensured route for profile %s", profile)
+	}
+	return nil
+}
+
 func createAgentByName(ctx context.Context, cfg *config.Config, name string) agent.Agent {
 	agCfg, ok := cfg.Agents[name]
 	if !ok {
@@ -417,6 +454,10 @@ func createAgentByName(ctx context.Context, cfg *config.Config, name string) age
 
 	switch agCfg.Type {
 	case "acp":
+		if err := ensureDsproxyRouteForProfile(ctx, name); err != nil {
+			log.Printf("[agent] failed to ensure dsproxy route for %q: %v", name, err)
+		}
+
 		ag := agent.NewACPAgent(agent.ACPAgentConfig{
 			Command:       agCfg.Command,
 			Args:          agCfg.Args,

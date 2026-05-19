@@ -129,3 +129,24 @@ func TestTrimBackgroundLogKeepsNewestLinesInOrder(t *testing.T) {
 		t.Fatalf("newest log lines not retained in order: %q", text)
 	}
 }
+
+func TestDsproxyStartArgsForProfile(t *testing.T) {
+	tests := []struct {
+		profile string
+		want    []string
+		ok      bool
+	}{
+		{profile: "deepseek-thinking", want: []string{"start", "thinking"}, ok: true},
+		{profile: "deepseek", want: []string{"start"}, ok: true},
+		{profile: "codex", want: nil, ok: false},
+	}
+	for _, tt := range tests {
+		got, ok := dsproxyStartArgsForProfile(tt.profile)
+		if ok != tt.ok {
+			t.Fatalf("dsproxyStartArgsForProfile(%q) ok = %v, want %v", tt.profile, ok, tt.ok)
+		}
+		if strings.Join(got, " ") != strings.Join(tt.want, " ") {
+			t.Fatalf("dsproxyStartArgsForProfile(%q) = %#v, want %#v", tt.profile, got, tt.want)
+		}
+	}
+}

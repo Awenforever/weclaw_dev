@@ -1,5 +1,15 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a89 dsproxy路由启动与安全status fallback
+
+p0.1.5a89修复p88后暴露的运行态问题：
+
+- 启动`deepseek`或`deepseek-thinking`前先确保对应dsproxy route已启动。
+- `/status`优先使用active session id查询dsproxy。
+- 如果session-scoped status在第一次模型请求前处于降级状态，WeClaw只允许对非session字段使用无session route status fallback：Context、Pricing、Balance、Policy、Compact/Trim、proxy/paths诊断。
+- WeClaw绝不能从route/profile/global累计fallback出`Tokens session`、`Cost session`或末尾`Cost total`。
+- 如果真实请求后current-session cost仍不可用，这是dsproxy契约缺口，不应由WeClaw展示层计算。
+
 ## p0.1.5a88适配CoDeepSeedeX p2.10a74状态契约
 
 p0.1.5a88将WeClaw `/status`适配到CoDeepSeedeX p2.10a73/p2.10a74契约。

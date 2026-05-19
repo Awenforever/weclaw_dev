@@ -935,10 +935,15 @@ func TestRuntimeControlNowIdleEnsuresSessionID(t *testing.T) {
 }
 
 func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
+	calls := 0
 	withDsproxyCommandRunner(t, func(ctx context.Context, args ...string) string {
+		calls++
 		wantArgs := []string{"status", "thinking", "--weclaw-json", "--session-id", "thread-telemetry-1"}
+		if calls > 1 {
+			wantArgs = []string{"status", "thinking", "--weclaw-json"}
+		}
 		if strings.Join(args, " ") != strings.Join(wantArgs, " ") {
-			t.Fatalf("dsproxy args = %#v, want %#v", args, wantArgs)
+			t.Fatalf("dsproxy args call %d = %#v, want %#v", calls, args, wantArgs)
 		}
 		return sampleWeClawTelemetryJSON()
 	})
@@ -983,10 +988,15 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 }
 
 func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
+	calls := 0
 	withDsproxyCommandRunner(t, func(ctx context.Context, args ...string) string {
+		calls++
 		wantArgs := []string{"status", "thinking", "--weclaw-json", "--session-id", "thread-round3-compact"}
+		if calls > 1 {
+			wantArgs = []string{"status", "thinking", "--weclaw-json"}
+		}
 		if strings.Join(args, " ") != strings.Join(wantArgs, " ") {
-			t.Fatalf("dsproxy args = %#v, want %#v", args, wantArgs)
+			t.Fatalf("dsproxy args call %d = %#v, want %#v", calls, args, wantArgs)
 		}
 		return sampleWeClawTelemetryRound3JSON()
 	})
@@ -1052,6 +1062,107 @@ func TestRuntimeControlStatusDebugAliasesAreRemoved(t *testing.T) {
 			if strings.Contains(reply, forbidden) {
 				t.Fatalf("%s usage reply = %q, should not contain %q", command, reply, forbidden)
 			}
+		}
+	}
+}
+
+func TestDsproxyRouteFallbackPreservesSessionScopedUnavailableFields(t *testing.T) {
+	sessionPayload := map[string]any{
+		"runtime_status": map[string]any{
+			"available": true,
+		},
+		"context_window": map[string]any{
+			"effective_safe_window_tokens": float64(750000),
+			"used_tokens_available":        false,
+			"used_tokens":                  nil,
+		},
+		"tokens": map[string]any{
+			"latest_primary_turn": map[string]any{"available": false},
+			"session":             map[string]any{"available": false},
+		},
+		"cost": map[string]any{
+			"available": false,
+		},
+		"runtime_payload_guard": map[string]any{
+			"available": false,
+		},
+	}
+	routePayload := map[string]any{
+		"context_window": map[string]any{
+			"effective_safe_window_tokens": float64(750000),
+			"used_tokens_available":        true,
+			"used_tokens":                  float64(57800),
+		},
+		"tokens": map[string]any{
+			"profile_route_total": map[string]any{
+				"available":    true,
+				"total_tokens": float64(1234567),
+			},
+		},
+		"cost": map[string]any{
+			"available":              true,
+			"display_currency":       "CNY",
+			"scope":                  "profile_route_total",
+			"session_estimated_cost": float64(9.99),
+			"cash_estimated_cost":    float64(9.99),
+		},
+		"pricing": map[string]any{
+			"available":        true,
+			"display_currency": "CNY",
+			"updated_at":       "2026-05-19T00:00:00Z",
+			"effective_prices": map[string]any{
+				"input_cache_hit":  float64(0.02),
+				"input_cache_miss": float64(1.0),
+				"output":           float64(2.0),
+			},
+		},
+		"runtime_payload_guard": map[string]any{
+			"available": true,
+			"unit":      "chars",
+			"compaction": map[string]any{
+				"available":                  true,
+				"status":                     "not_triggered",
+				"progress_numerator_chars":   float64(157000),
+				"progress_denominator_chars": float64(1200000),
+				"progress_ratio":             float64(0.1308),
+			},
+			"trimming": map[string]any{
+				"available":                  true,
+				"status":                     "not_triggered",
+				"progress_numerator_chars":   float64(1700),
+				"progress_denominator_chars": float64(1500000),
+				"progress_ratio":             float64(0.0011),
+			},
+		},
+		"balance": map[string]any{
+			"available": true,
+			"currency":  "CNY",
+			"amount":    float64(4.23),
+		},
+	}
+
+	merged := mergeDsproxyRouteFallbackPayload(sessionPayload, routePayload)
+
+	if got := formatDsproxyContextLine(merged); !strings.Contains(got, "57.8k/750k") {
+		t.Fatalf("context line = %q, want route fallback context", got)
+	}
+	if got := formatDsproxyTokensLine(merged); got != "Tokens   last n/a  session n/a  aux n/a" {
+		t.Fatalf("tokens line = %q, want session-scoped values preserved as n/a", got)
+	}
+	if got := formatDsproxyCostLine(merged); got != "Cost     session~n/a  last~n/a  aux~n/a  total~n/a" {
+		t.Fatalf("cost line = %q, want no route/global cost fallback", got)
+	}
+	if got := formatDsproxyPricingSummaryLine(merged); !strings.Contains(got, "hit ￥0.02/M miss ￥1/M out ￥2/M") {
+		t.Fatalf("pricing line = %q, want route fallback pricing", got)
+	}
+	guardLines, ok := formatDsproxyRuntimePayloadGuardLines(merged)
+	if !ok {
+		t.Fatal("guard lines unavailable after fallback")
+	}
+	joined := strings.Join(guardLines, "\n")
+	for _, want := range []string{"157k/1.2M chars", "13.1%", "1.7k/1.5M chars"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("guard lines = %q, want %q", joined, want)
 		}
 	}
 }

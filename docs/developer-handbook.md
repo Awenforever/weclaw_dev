@@ -1,5 +1,15 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a89 dsproxy route startup and safe status fallback
+
+p0.1.5a89 fixes the runtime failure mode found after p88:
+
+- Starting `deepseek` or `deepseek-thinking` ensures the matching dsproxy route first.
+- `/status` first queries dsproxy with the active session id.
+- If that session-scoped status is degraded before the first model request, WeClaw may fallback to the no-session route status only for non-session fields: Context, Pricing, Balance, Policy, Compact/Trim, proxy/paths diagnostics.
+- WeClaw must never fallback `Tokens session`, `Cost session`, or trailing `Cost total` from route/profile/global totals.
+- If current-session cost remains unavailable after a real request, that is a dsproxy contract gap, not a WeClaw display-layer calculation target.
+
 ## p0.1.5a88 CoDeepSeedeX p2.10a74 status contract adaptation
 
 p0.1.5a88 adapts WeClaw `/status` to the CoDeepSeedeX p2.10a73/p2.10a74 contract.

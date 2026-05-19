@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a89-start-route-and-status-fallback
+
+- Fix: `weclaw start deepseek/deepseek-thinking` now ensures the matching dsproxy route before ACP startup.
+- Fix: `/status` keeps session-scoped token/cost semantics while allowing safe route fallback for non-session fields when a resumed session has no observed scoped request yet.
+- Boundary: no route/profile/global fallback for `Tokens session`, `Cost session`, or trailing `Cost total`.
+- Validation target: first `/status` after resume should show reachable route/pricing/policy/guard where available; after a real request, session tokens should appear if dsproxy reports them.
+
 ## p0.1.5a88-codeepseedex-p210a74-adaptation
 
 - Contract: adapted `/status` to CoDeepSeedeX p2.10a73/p2.10a74.

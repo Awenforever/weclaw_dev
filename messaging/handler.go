@@ -1231,7 +1231,7 @@ func (h *Handler) buildStatusDiagnostics(ctx context.Context, userID string) str
 		proxyEndpoint = "127.0.0.1:8001"
 	}
 
-	if payload, _, ok := runDsproxyJSONCommand(ctx, dsproxyWeClawStatusArgsForProfile(defaultName, sessionID)...); ok {
+	if payload, ok := runDsproxyWeClawStatusPayload(ctx, defaultName, sessionID); ok {
 		return h.buildStatusDiagnosticsFromDsproxyTelemetry(defaultName, agentType, agentModel, sessionID, proxyRoute, proxyEndpoint, payload)
 	}
 
@@ -1280,6 +1280,73 @@ func runDsproxyCommandForHandler(ctx context.Context, args ...string) string {
 		return fmt.Sprintf("dsproxy %s unavailable during tests", strings.Join(args, " "))
 	}
 	return dsproxyCommandRunner(ctx, args...)
+}
+
+func runDsproxyWeClawStatusPayload(ctx context.Context, profile string, sessionID string) (map[string]any, bool) {
+	payload, _, ok := runDsproxyJSONCommand(ctx, dsproxyWeClawStatusArgsForProfile(profile, sessionID)...)
+	if !ok {
+		return payload, false
+	}
+	if strings.TrimSpace(sessionID) == "" || !dsproxyWeClawPayloadNeedsRouteFallback(payload) {
+		return payload, true
+	}
+
+	routePayload, _, routeOK := runDsproxyJSONCommand(ctx, dsproxyWeClawStatusArgsForProfile(profile)...)
+	if !routeOK {
+		return payload, true
+	}
+	return mergeDsproxyRouteFallbackPayload(payload, routePayload), true
+}
+
+func dsproxyWeClawPayloadNeedsRouteFallback(payload map[string]any) bool {
+	runtimeStatus, ok := nestedMap(payload, "runtime_status")
+	if ok && !nestedBoolDefault(runtimeStatus, false, "available") {
+		return false
+	}
+
+	contextLine := formatDsproxyContextLine(payload)
+	if strings.Contains(contextLine, " n/a ") || strings.Contains(contextLine, "—/") {
+		return true
+	}
+
+	guardLines := formatDsproxyCompactionLines(payload)
+	if len(guardLines) == 0 {
+		return true
+	}
+	for _, line := range guardLines {
+		if strings.Contains(line, " n/a ") || strings.Contains(line, "--/") || strings.Contains(line, "no report") {
+			return true
+		}
+	}
+	return false
+}
+
+func mergeDsproxyRouteFallbackPayload(sessionPayload map[string]any, routePayload map[string]any) map[string]any {
+	if sessionPayload == nil {
+		sessionPayload = map[string]any{}
+	}
+	merged := make(map[string]any, len(sessionPayload)+8)
+	for key, value := range sessionPayload {
+		merged[key] = value
+	}
+
+	for _, key := range []string{
+		"context_window",
+		"runtime_payload_guard",
+		"compaction",
+		"pricing",
+		"balance",
+		"proxy",
+		"paths",
+		"health",
+		"diagnostics",
+	} {
+		if value, ok := routePayload[key]; ok {
+			merged[key] = value
+		}
+	}
+
+	return merged
 }
 
 func runDsproxyJSONCommand(ctx context.Context, args ...string) (map[string]any, string, bool) {
