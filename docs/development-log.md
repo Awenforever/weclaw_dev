@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a95-latest-release-refresh
+
+- Release: refreshed public `v0.1.9-alpha` as the Latest ordinary GitHub Release from current mainline.
+- Docs: synchronized developer handbooks and release notes for p0.1.5a89 through p0.1.5a94.
+- Assets: rebuilt and uploaded Linux, macOS, and Windows release binaries with public/internal version metadata aligned to the refreshed public tag.
+- Boundary: WeClaw does not move CoDeepSeedeX public tags; full Details origin breakdown depends on a dsproxy runtime with the CoDeepSeedeX p2.10a79 contract.
+
 ## p0.1.5a94-codeepseedex-p210a79-details-origin-breakdown
 
 - Change: Details now prefers CoDeepSeedeX p2.10a79 `tokens.prompt_reconciliation.details_origin_breakdown`.

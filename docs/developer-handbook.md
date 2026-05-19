@@ -1,5 +1,17 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a95 Latest release refresh
+
+p0.1.5a95 refreshes the public `v0.1.9-alpha` Latest release to the current mainline.
+
+Release boundary:
+
+- Public release tag: `v0.1.9-alpha`.
+- Internal release-refresh tag: `p0.1.5a95-latest-release-refresh`.
+- Latest mainline includes p0.1.5a89 through p0.1.5a94: route-safe status fallback, `/new` active-session binding, current-session cost, CNY pricing, auxiliary token zero objects, Compact/Trim retention display, and Details origin breakdown.
+- `Cost` remains based on dsproxy/provider usage accounting. Details is explanatory token-origin metadata and is not used by WeClaw to recompute cost.
+- Full Details origin breakdown requires a dsproxy runtime exposing the CoDeepSeedeX p2.10a79 contract; older runtimes use safe fallback behavior.
+
 ## p0.1.5a94 CoDeepSeedeX p2.10a79 Details origin breakdown
 
 p0.1.5a94 consumes `tokens.prompt_reconciliation.details_origin_breakdown` from CoDeepSeedeX p2.10a79.

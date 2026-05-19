@@ -1,5 +1,17 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a95 Latest发布刷新
+
+p0.1.5a95将公开`v0.1.9-alpha` Latest Release刷新到当前mainline。
+
+发布边界：
+
+- 公开Release tag：`v0.1.9-alpha`。
+- 内部发布刷新tag：`p0.1.5a95-latest-release-refresh`。
+- 当前mainline包含p0.1.5a89到p0.1.5a94：route安全status fallback、`/new` active-session绑定、current-session cost、CNY pricing、辅助token零对象、Compact/Trim信息保有率展示，以及Details来源拆分。
+- `Cost`仍以dsproxy/provider usage账本为准。Details只是解释性的token来源元数据，WeClaw不基于Details重新计算费用。
+- 完整Details来源拆分需要dsproxy运行时暴露CoDeepSeedeX p2.10a79契约；旧运行时走安全fallback。
+
 ## p0.1.5a94接入CoDeepSeedeX p2.10a79 Details来源拆分
 
 p0.1.5a94消费CoDeepSeedeX p2.10a79新增的`tokens.prompt_reconciliation.details_origin_breakdown`。
