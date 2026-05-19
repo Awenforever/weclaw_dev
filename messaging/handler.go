@@ -2075,6 +2075,105 @@ func dsproxyCostCurrentSessionScope(cost map[string]any, session map[string]any)
 	return dsproxyMapScopeIsCurrentSession(cost) || dsproxyMapScopeIsCurrentSession(session)
 }
 
+func dsproxyOriginComponentTokens(components map[string]any, key string) int64 {
+	if value := nestedInt64Default(components, -1, key); value >= 0 {
+		return value
+	}
+	for _, field := range []string{"tokens", "token_count", "total_tokens"} {
+		if value := nestedInt64Default(components, -1, key, field); value >= 0 {
+			return value
+		}
+	}
+	return 0
+}
+
+func dsproxyOriginComponentAbsTokens(components map[string]any, key string) int64 {
+	if value := nestedInt64Default(components, -1, key, "abs_tokens"); value >= 0 {
+		return value
+	}
+	value := dsproxyOriginComponentTokens(components, key)
+	if value < 0 {
+		return -value
+	}
+	return value
+}
+
+func dsproxyOriginComponentWithinTolerance(components map[string]any, key string) bool {
+	if nestedBoolDefault(components, false, key, "within_tolerance") {
+		return true
+	}
+	if nestedBoolDefault(components, false, key, "is_within_tolerance") {
+		return true
+	}
+	if nestedBoolDefault(components, false, key, "hide_when_within_tolerance") {
+		return dsproxyOriginComponentAbsTokens(components, key) == 0
+	}
+	return false
+}
+
+func dsproxyDetailsOriginBreakdownMatchesCurrentSession(tokens map[string]any, breakdown map[string]any) bool {
+	if !nestedBoolDefault(breakdown, false, "available") {
+		return false
+	}
+	if nestedStringDefault(breakdown, "", "display_semantics") != "token_origin_breakdown_not_classified_total" {
+		return false
+	}
+	if !dsproxyMapScopeIsCurrentSession(breakdown) {
+		return false
+	}
+	breakdownSessionID := nestedStringDefault(breakdown, "", "session_id")
+	sessionID := nestedStringDefault(tokens, "", "session", "session_id")
+	if sessionID == "" {
+		sessionID = nestedStringDefault(tokens, "", "session_total", "session_id")
+	}
+	return dsproxySessionIDsMatch(sessionID, breakdownSessionID)
+}
+
+func formatDsproxyDetailsOriginBreakdownLine(tokens map[string]any) (string, bool) {
+	breakdown, ok := nestedMap(tokens, "prompt_reconciliation", "details_origin_breakdown")
+	if !ok || !dsproxyDetailsOriginBreakdownMatchesCurrentSession(tokens, breakdown) {
+		return "", false
+	}
+	components, ok := nestedMap(breakdown, "components")
+	if !ok {
+		return "", false
+	}
+
+	user := dsproxyOriginComponentTokens(components, "user")
+	history := dsproxyOriginComponentTokens(components, "history")
+	system := dsproxyOriginComponentTokens(components, "system")
+	developer := dsproxyOriginComponentTokens(components, "developer")
+	compaction := dsproxyOriginComponentTokens(components, "compaction_summary")
+	environment := dsproxyOriginComponentTokens(components, "environment") +
+		dsproxyOriginComponentTokens(components, "runtime_injected") +
+		dsproxyOriginComponentTokens(components, "other_prompt")
+	tools := dsproxyOriginComponentTokens(components, "tool_output") +
+		dsproxyOriginComponentTokens(components, "tools_schema")
+	overhead := dsproxyOriginComponentTokens(components, "message_protocol_overhead")
+
+	parts := []string{
+		"Details",
+		fmt.Sprintf("user~%s", formatTokenCount(user)),
+		fmt.Sprintf("hist~%s", formatTokenCount(history)),
+		fmt.Sprintf("sys~%s", formatTokenCount(system)),
+		fmt.Sprintf("env~%s", formatTokenCount(environment)),
+		fmt.Sprintf("tools~%s", formatTokenCount(tools)),
+		fmt.Sprintf("overhead~%s", formatTokenCount(overhead)),
+	}
+	if developer > 0 {
+		parts = append(parts, fmt.Sprintf("dev~%s", formatTokenCount(developer)))
+	}
+	if compaction > 0 {
+		parts = append(parts, fmt.Sprintf("comp~%s", formatTokenCount(compaction)))
+	}
+	if residual := dsproxyOriginComponentTokens(components, "provider_residual"); residual > 0 &&
+		!dsproxyOriginComponentWithinTolerance(components, "provider_residual") {
+		parts = append(parts, fmt.Sprintf("resid~%s", formatTokenCount(residual)))
+	}
+
+	return strings.Join(parts, "  "), true
+}
+
 func dsproxyDetailsCoverageSuffix(split map[string]any) string {
 	categoriesSum := nestedInt64Default(split, -1, "categories_sum_tokens")
 	providerReference := nestedInt64Default(split, 0, "provider_reference_tokens")
@@ -2092,6 +2191,10 @@ func formatDsproxyDetailsLine(payload map[string]any) string {
 	tokens, ok := nestedMap(payload, "tokens")
 	if !ok {
 		return "Details  n/a"
+	}
+
+	if line, ok := formatDsproxyDetailsOriginBreakdownLine(tokens); ok {
+		return line
 	}
 
 	profileTokenizer, profileOK := nestedMap(tokens, "profile_tokenizer")

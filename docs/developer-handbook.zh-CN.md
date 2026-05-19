@@ -1,5 +1,18 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a94接入CoDeepSeedeX p2.10a79 Details来源拆分
+
+p0.1.5a94消费CoDeepSeedeX p2.10a79新增的`tokens.prompt_reconciliation.details_origin_breakdown`。
+
+规则：
+
+- Details优先读取origin components，而不是旧的`prompt_subcategory_split`。
+- 新Details行表示token来源拆分，不是classified total reconciliation。
+- 当`details_origin_breakdown`可用时，WeClaw不得显示`classified~`、`partial~`或`covered~`。
+- `tools`等于`tool_output + tools_schema`。
+- `env`等于`environment + runtime_injected + other_prompt`。
+- `provider_residual`绝不并入`other_prompt`；只有非零且未标记为容差内时，才显示为`resid~...`。
+
 ## p0.1.5a93接入CoDeepSeedeX p2.10a76 aux与覆盖率契约
 
 p0.1.5a93消费CoDeepSeedeX p2.10a76的token覆盖率契约。

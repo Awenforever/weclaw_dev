@@ -1,5 +1,18 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a94 CoDeepSeedeX p2.10a79 Details origin breakdown
+
+p0.1.5a94 consumes `tokens.prompt_reconciliation.details_origin_breakdown` from CoDeepSeedeX p2.10a79.
+
+Rules:
+
+- Details reads origin components before legacy `prompt_subcategory_split`.
+- The new Details line is a token-origin breakdown, not a classified-total reconciliation.
+- WeClaw must not display `classified~`, `partial~`, or `covered~` when `details_origin_breakdown` is available.
+- `tools` is `tool_output + tools_schema`.
+- `env` is `environment + runtime_injected + other_prompt`.
+- `provider_residual` is never merged into `other_prompt`; it is displayed as `resid~...` only when non-zero and not marked within tolerance.
+
 ## p0.1.5a93 CoDeepSeedeX p2.10a76 aux and coverage contract
 
 p0.1.5a93 consumes the CoDeepSeedeX p2.10a76 token coverage contract.

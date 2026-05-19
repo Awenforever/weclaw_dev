@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a94-codeepseedex-p210a79-details-origin-breakdown
+
+- Change: Details now prefers CoDeepSeedeX p2.10a79 `tokens.prompt_reconciliation.details_origin_breakdown`.
+- Change: Details displays token origins such as `user`, `hist`, `sys`, `env`, `tools`, and `overhead`.
+- Change: legacy `partial~.../...` and `covered~.../...` are no longer shown when origin breakdown is available.
+- Boundary: provider residual is never merged into `other_prompt`; non-tolerated residual is displayed separately as `resid~...`.
+
 ## p0.1.5a93-codeepseedex-p210a76-aux-coverage
 
 - Change: `/status` now displays current-session `Tokens aux 0` when dsproxy reports `tokens.auxiliary_model_calls.available=true,total_tokens=0`.

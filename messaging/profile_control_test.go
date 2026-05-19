@@ -1525,6 +1525,159 @@ func TestDsproxyTokensLineRejectsNonCurrentSessionAuxiliaryModelCalls(t *testing
 	}
 }
 
+func TestDsproxyDetailsLinePrefersOriginBreakdown(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"profile_tokenizer": map[string]any{
+				"available": true,
+			},
+			"session": map[string]any{
+				"available":  true,
+				"scope":      "current_session",
+				"session_id": "session-a",
+			},
+			"prompt_reconciliation": map[string]any{
+				"details_origin_breakdown": map[string]any{
+					"available":                       true,
+					"scope":                           "current_session",
+					"session_id":                      "session-a",
+					"should_display_classified_total": false,
+					"display_semantics":               "token_origin_breakdown_not_classified_total",
+					"components": map[string]any{
+						"user": map[string]any{
+							"tokens": float64(15),
+						},
+						"history": map[string]any{
+							"tokens": float64(6),
+						},
+						"system": map[string]any{
+							"tokens": float64(8300),
+						},
+						"environment": map[string]any{
+							"tokens": float64(5300),
+						},
+						"tools_schema": map[string]any{
+							"tokens": float64(7400),
+						},
+						"message_protocol_overhead": map[string]any{
+							"tokens": float64(700),
+						},
+						"provider_residual": map[string]any{
+							"tokens":     float64(0),
+							"abs_tokens": float64(0),
+						},
+					},
+				},
+			},
+			"prompt_subcategory_split": map[string]any{
+				"available":                 true,
+				"scope":                     "current_session",
+				"session_id":                "session-a",
+				"categories_sum_tokens":     float64(13500),
+				"provider_reference_tokens": float64(21600),
+				"coverage_complete":         false,
+				"categories": map[string]any{
+					"user": float64(999),
+				},
+			},
+		},
+	}
+	line := formatDsproxyDetailsLine(payload)
+	for _, want := range []string{
+		"Details",
+		"user~15",
+		"hist~6",
+		"sys~8.3k",
+		"env~5.3k",
+		"tools~7.4k",
+		"overhead~700",
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("details line = %q, want %q", line, want)
+		}
+	}
+	for _, forbidden := range []string{"partial~", "covered~", "classified~", "other~", "tool~999"} {
+		if strings.Contains(line, forbidden) {
+			t.Fatalf("details line = %q, should not contain %q", line, forbidden)
+		}
+	}
+}
+
+func TestDsproxyDetailsLineShowsProviderResidualWhenNonTolerance(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"session": map[string]any{
+				"available":  true,
+				"scope":      "current_session",
+				"session_id": "session-a",
+			},
+			"prompt_reconciliation": map[string]any{
+				"details_origin_breakdown": map[string]any{
+					"available":         true,
+					"scope":             "current_session",
+					"session_id":        "session-a",
+					"display_semantics": "token_origin_breakdown_not_classified_total",
+					"components": map[string]any{
+						"user": map[string]any{
+							"tokens": float64(1),
+						},
+						"provider_residual": map[string]any{
+							"tokens":     float64(1200),
+							"abs_tokens": float64(1200),
+						},
+					},
+				},
+			},
+		},
+	}
+	line := formatDsproxyDetailsLine(payload)
+	if !strings.Contains(line, "resid~1.2k") {
+		t.Fatalf("details line = %q, want provider residual", line)
+	}
+	if strings.Contains(line, "other~1.2k") {
+		t.Fatalf("details line = %q, provider residual must not be merged into other", line)
+	}
+}
+
+func TestDsproxyDetailsLineRejectsOriginBreakdownSessionMismatch(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"profile_tokenizer": map[string]any{
+				"available": true,
+				"summary": map[string]any{
+					"available": false,
+					"reason":    "profile_tokenizer_available_but_no_observed_prompt",
+				},
+			},
+			"session": map[string]any{
+				"available":  true,
+				"scope":      "current_session",
+				"session_id": "session-a",
+			},
+			"prompt_reconciliation": map[string]any{
+				"details_origin_breakdown": map[string]any{
+					"available":         true,
+					"scope":             "current_session",
+					"session_id":        "session-b",
+					"display_semantics": "token_origin_breakdown_not_classified_total",
+					"components": map[string]any{
+						"user": map[string]any{
+							"tokens": float64(100),
+						},
+					},
+				},
+			},
+			"prompt_subcategory_split": map[string]any{
+				"available": false,
+				"reason":    "profile_tokenizer_available_but_no_observed_prompt",
+			},
+		},
+	}
+	if got := formatDsproxyDetailsLine(payload); got != "Details  n/a · waiting first prompt" {
+		t.Fatalf("details line = %q, want fallback waiting first prompt", got)
+	}
+}
+
 func TestDsproxyDetailsLineShowsCoveredCoverageSuffix(t *testing.T) {
 	payload := map[string]any{
 		"tokens": map[string]any{
