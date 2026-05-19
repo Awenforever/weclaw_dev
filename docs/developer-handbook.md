@@ -1,5 +1,17 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a93 CoDeepSeedeX p2.10a76 aux and coverage contract
+
+p0.1.5a93 consumes the CoDeepSeedeX p2.10a76 token coverage contract.
+
+Rules:
+
+- `Tokens aux` displays `0` only when `tokens.auxiliary_model_calls.available=true` and the auxiliary token ledger is current-session scoped.
+- Route/profile auxiliary totals must not be displayed as current-session `aux`.
+- `Details` appends `partial~<categories_sum>/<provider_reference>` when dsproxy reports incomplete prompt-subcategory coverage.
+- `Details` appends `covered~<categories_sum>/<provider_reference>` when dsproxy reports complete prompt-subcategory coverage.
+- WeClaw does not assign `delta_tokens` to `other`; the coverage suffix uses dsproxy-provided coverage fields directly.
+
 ## p0.1.5a92 CoDeepSeedeX p2.10a75 contract alignment
 
 p0.1.5a92 aligns WeClaw `/status` with the CoDeepSeedeX p2.10a75 contract.

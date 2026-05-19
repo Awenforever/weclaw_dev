@@ -1985,6 +1985,11 @@ func dsproxyTokenSectionTotal(section map[string]any) (int64, bool) {
 }
 
 func dsproxyTokenSectionText(section map[string]any) string {
+	for _, key := range []string{"total_tokens", "total", "tokens", "provider_total_tokens"} {
+		if value := nestedInt64Default(section, -1, key); value >= 0 {
+			return formatTokenCount(value)
+		}
+	}
 	if total, ok := dsproxyTokenSectionTotal(section); ok {
 		return formatTokenCount(total)
 	}
@@ -2017,11 +2022,15 @@ func formatDsproxyTokensLine(payload map[string]any) string {
 	}
 
 	auxText := "n/a"
-	if section, ok := dsproxyTokenMap(tokens, "auxiliary_model_calls"); ok {
+	if section, ok := dsproxyTokenMap(tokens, "auxiliary_model_calls"); ok &&
+		nestedBoolDefault(section, false, "available") &&
+		dsproxyMapScopeIsCurrentSession(section) {
 		auxText = dsproxyTokenSectionText(section)
 	}
 	if auxText == "n/a" {
-		if section, ok := dsproxyTokenMap(tokens, "latest_auxiliary_call"); ok {
+		if section, ok := dsproxyTokenMap(tokens, "latest_auxiliary_call"); ok &&
+			nestedBoolDefault(section, false, "available") &&
+			dsproxyMapScopeIsCurrentSession(section) {
 			auxText = dsproxyTokenSectionText(section)
 		}
 	}
@@ -2066,6 +2075,19 @@ func dsproxyCostCurrentSessionScope(cost map[string]any, session map[string]any)
 	return dsproxyMapScopeIsCurrentSession(cost) || dsproxyMapScopeIsCurrentSession(session)
 }
 
+func dsproxyDetailsCoverageSuffix(split map[string]any) string {
+	categoriesSum := nestedInt64Default(split, -1, "categories_sum_tokens")
+	providerReference := nestedInt64Default(split, 0, "provider_reference_tokens")
+	if categoriesSum < 0 || providerReference <= 0 {
+		return ""
+	}
+	label := "partial"
+	if nestedBoolDefault(split, false, "coverage_complete") {
+		label = "covered"
+	}
+	return fmt.Sprintf("  %s~%s/%s", label, formatTokenCount(categoriesSum), formatTokenCount(providerReference))
+}
+
 func formatDsproxyDetailsLine(payload map[string]any) string {
 	tokens, ok := nestedMap(payload, "tokens")
 	if !ok {
@@ -2107,9 +2129,10 @@ func formatDsproxyDetailsLine(payload map[string]any) string {
 	other := promptCategoryTokens(categories, "environment") +
 		promptCategoryTokens(categories, "runtime_injected") +
 		promptCategoryTokens(categories, "other_prompt")
+	coverageSuffix := dsproxyDetailsCoverageSuffix(split)
 
 	return fmt.Sprintf(
-		"Details  user~%s  hist~%s  tool~%s  sys~%s  dev~%s  comp~%s  other~%s",
+		"Details  user~%s  hist~%s  tool~%s  sys~%s  dev~%s  comp~%s  other~%s%s",
 		formatTokenCount(user),
 		formatTokenCount(history),
 		formatTokenCount(tool),
@@ -2117,6 +2140,7 @@ func formatDsproxyDetailsLine(payload map[string]any) string {
 		formatTokenCount(developer),
 		formatTokenCount(compaction),
 		formatTokenCount(other),
+		coverageSuffix,
 	)
 }
 

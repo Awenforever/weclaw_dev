@@ -1018,7 +1018,7 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 		"Model:** `deepseek-v4-flash` `max`",
 		"Session:** `thread-telemetry-1`",
 		"—/750k",
-		"Tokens   last 50.2k  session n/a  aux 648.2k",
+		"Tokens   last 50.2k  session n/a  aux n/a",
 		"Details  n/a · tokenizer unavailable",
 		"Cost     session~n/a  last~￥0.000154  aux~￥0.0094  total~n/a",
 		"Balance  ￥5.83",
@@ -1071,7 +1071,7 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 		"Model:** `deepseek-v4-flash` `max`",
 		"Session:** `thread-round3-compact`",
 		"Context  [",
-		"Tokens   last 50.2k  session n/a  aux 648.2k",
+		"Tokens   last 50.2k  session n/a  aux n/a",
 		"Details  n/a · waiting first prompt",
 		"Cost     session~n/a  last~￥0.000154  aux~￥0.0094  total~n/a",
 		"Balance  ￥5.83",
@@ -1286,6 +1286,8 @@ func TestDsproxyTokensLineUsesPrimaryTurnAndRequiresSessionScope(t *testing.T) {
 			},
 			"auxiliary_model_calls": map[string]any{
 				"available":    true,
+				"scope":        "current_session",
+				"ledger_scope": "current_session",
 				"total_tokens": float64(4567),
 			},
 		},
@@ -1470,6 +1472,90 @@ func TestCommandProgressBarUsesOriginalStyleAndKeepsRightEndcapCandidate(t *test
 	}
 }
 
+func TestDsproxyTokensLineDisplaysZeroAuxiliaryModelCallsCurrentSession(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"latest_primary_turn": map[string]any{
+				"available":    true,
+				"total_tokens": float64(21600),
+			},
+			"session": map[string]any{
+				"available":    true,
+				"scope":        "current_session",
+				"total_tokens": float64(21600),
+			},
+			"auxiliary_model_calls": map[string]any{
+				"available":        true,
+				"scope":            "current_session",
+				"ledger_scope":     "current_session",
+				"total_tokens":     float64(0),
+				"model_call_count": float64(0),
+				"reason":           "no_auxiliary_model_call_in_current_session",
+			},
+		},
+	}
+	want := "Tokens   last 21.6k  session 21.6k  aux 0"
+	if got := formatDsproxyTokensLine(payload); got != want {
+		t.Fatalf("tokens line = %q, want %q", got, want)
+	}
+}
+
+func TestDsproxyTokensLineRejectsNonCurrentSessionAuxiliaryModelCalls(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"latest_primary_turn": map[string]any{
+				"available":    true,
+				"total_tokens": float64(21600),
+			},
+			"session": map[string]any{
+				"available":    true,
+				"scope":        "current_session",
+				"total_tokens": float64(21600),
+			},
+			"auxiliary_model_calls": map[string]any{
+				"available":    true,
+				"scope":        "profile_route_total",
+				"total_tokens": float64(999999),
+			},
+		},
+	}
+	want := "Tokens   last 21.6k  session 21.6k  aux n/a"
+	if got := formatDsproxyTokensLine(payload); got != want {
+		t.Fatalf("tokens line = %q, want %q", got, want)
+	}
+}
+
+func TestDsproxyDetailsLineShowsCoveredCoverageSuffix(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"profile_tokenizer": map[string]any{
+				"available": true,
+			},
+			"session": map[string]any{
+				"available":  true,
+				"scope":      "current_session",
+				"session_id": "session-a",
+			},
+			"prompt_subcategory_split": map[string]any{
+				"available":                 true,
+				"scope":                     "current_session",
+				"session_id":                "session-a",
+				"categories_sum_tokens":     float64(21600),
+				"provider_reference_tokens": float64(21600),
+				"coverage_complete":         true,
+				"categories": map[string]any{
+					"user": map[string]any{
+						"tokens": float64(21600),
+					},
+				},
+			},
+		},
+	}
+	if got := formatDsproxyDetailsLine(payload); !strings.Contains(got, "covered~21.6k/21.6k") {
+		t.Fatalf("details line = %q, want covered suffix", got)
+	}
+}
+
 func TestDsproxyDetailsLineShowsPromptSubcategories(t *testing.T) {
 	payload := map[string]any{
 		"tokens": map[string]any{
@@ -1482,9 +1568,12 @@ func TestDsproxyDetailsLineShowsPromptSubcategories(t *testing.T) {
 				"session_id": "session-a",
 			},
 			"prompt_subcategory_split": map[string]any{
-				"available":  true,
-				"scope":      "current_session",
-				"session_id": "session-a",
+				"available":                 true,
+				"scope":                     "current_session",
+				"session_id":                "session-a",
+				"categories_sum_tokens":     float64(2710),
+				"provider_reference_tokens": float64(21600),
+				"coverage_complete":         false,
 				"categories": map[string]any{
 					"user":               float64(1234),
 					"assistant_history":  float64(456),
@@ -1508,6 +1597,7 @@ func TestDsproxyDetailsLineShowsPromptSubcategories(t *testing.T) {
 		"dev~22",
 		"comp~33",
 		"other~165",
+		"partial~2.7k/21.6k",
 	} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("details line = %q, want %q", line, want)

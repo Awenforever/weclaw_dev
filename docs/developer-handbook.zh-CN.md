@@ -1,5 +1,17 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a93接入CoDeepSeedeX p2.10a76 aux与覆盖率契约
+
+p0.1.5a93消费CoDeepSeedeX p2.10a76的token覆盖率契约。
+
+规则：
+
+- 只有`tokens.auxiliary_model_calls.available=true`且auxiliary token ledger为current-session scope时，`Tokens aux`才显示`0`或具体token数。
+- route/profile级auxiliary累计不能显示为当前session的`aux`。
+- dsproxy报告prompt子类覆盖不完整时，`Details`追加`partial~<categories_sum>/<provider_reference>`。
+- dsproxy报告prompt子类覆盖完整时，`Details`追加`covered~<categories_sum>/<provider_reference>`。
+- WeClaw不把`delta_tokens`自行归入`other`，覆盖率后缀只使用dsproxy显式返回的覆盖率字段。
+
 ## p0.1.5a92对齐CoDeepSeedeX p2.10a75契约
 
 p0.1.5a92将WeClaw `/status`对齐到CoDeepSeedeX p2.10a75契约。

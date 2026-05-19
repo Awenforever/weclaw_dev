@@ -1,5 +1,11 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a93-codeepseedex-p210a76-aux-coverage
+
+- Change: `/status` now displays current-session `Tokens aux 0` when dsproxy reports `tokens.auxiliary_model_calls.available=true,total_tokens=0`.
+- Change: Details now appends `partial~.../...` or `covered~.../...` from dsproxy prompt-subcategory coverage fields.
+- Boundary: WeClaw does not assign `delta_tokens` to `other`; it only displays dsproxy-provided coverage totals.
+
 ## p0.1.5a92-codeepseedex-p210a75-contract
 
 - Change: aligned `/status` with CoDeepSeedeX p2.10a75 current-session cost, session-scoped Details, and Compact/Trim retention semantics.
