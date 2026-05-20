@@ -1,5 +1,18 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a96 CoDeepSeedeX p2.10a83 cache-aware token display
+
+p0.1.5a96 consumes provider-authoritative DeepSeek cache accounting from CoDeepSeedeX p2.10a83.
+
+Rules:
+
+- `Tokens` displays cache-aware current-session fields as `last hit~<ratio>/total~<tokens>  session hit~<ratio>/total~<tokens>  aux hit~<ratio>/total~<tokens>`.
+- `hit` is the provider cache hit ratio from dsproxy, not a local segment-level attribution.
+- `total` is the prompt-token total for that cache object, aligned with provider prompt cache hit/miss accounting.
+- `aux` remains visible and uses `tokens.cache.auxiliary_model_calls` or current-session `tokens.auxiliary_model_calls.cache` when available.
+- WeClaw does not recompute Cost from cache fields. Cost remains the dsproxy ledger output, and dsproxy is responsible for applying hit/miss pricing.
+- Details origin breakdown remains local explanatory metadata and must not be interpreted as provider cache attribution.
+
 ## p0.1.5a95 Latest release refresh
 
 p0.1.5a95 refreshes the public `v0.1.9-alpha` Latest release to the current mainline.

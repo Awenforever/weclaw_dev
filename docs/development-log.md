@@ -1,5 +1,11 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a96-cache-aware-token-display
+
+- Change: `/status` Tokens now displays provider cache hit ratios and prompt-token totals for last, session, and aux sections when dsproxy exposes the CoDeepSeedeX p2.10a83 cache contract.
+- Boundary: WeClaw does not recompute Cost from cache fields; Cost remains dsproxy ledger output using provider hit/miss usage when available.
+- Boundary: Details origin components remain explanatory token-origin metadata and are not provider cache attribution.
+
 ## p0.1.5a95-latest-release-refresh
 
 - Release: refreshed public `v0.1.9-alpha` as the Latest ordinary GitHub Release from current mainline.

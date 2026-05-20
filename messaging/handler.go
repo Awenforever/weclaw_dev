@@ -2000,6 +2000,99 @@ func dsproxyTokenMap(payload map[string]any, keys ...string) (map[string]any, bo
 	return nestedMap(payload, keys...)
 }
 
+func dsproxyCacheSectionHasProviderFields(section map[string]any) bool {
+	if section == nil {
+		return false
+	}
+	if _, ok := pricingFloatValue(section, "cache_hit_ratio"); ok {
+		return true
+	}
+	for _, key := range []string{"prompt_cache_hit_tokens", "prompt_cache_miss_tokens", "cached_tokens", "prompt_tokens"} {
+		if nestedInt64Default(section, -1, key) >= 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func dsproxyCacheSectionFor(tokens map[string]any, key string) (map[string]any, bool) {
+	if section, ok := nestedMap(tokens, "cache", key); ok &&
+		nestedBoolDefault(section, false, "available") &&
+		dsproxyMapScopeIsCurrentSession(section) &&
+		dsproxyCacheSectionHasProviderFields(section) {
+		return section, true
+	}
+	if section, ok := dsproxyTokenMap(tokens, key); ok &&
+		nestedBoolDefault(section, false, "available") &&
+		dsproxyMapScopeIsCurrentSession(section) {
+		if cache, ok := nestedMap(section, "cache"); ok &&
+			nestedBoolDefault(cache, false, "available") &&
+			dsproxyCacheSectionHasProviderFields(cache) {
+			return cache, true
+		}
+		if dsproxyCacheSectionHasProviderFields(section) {
+			return section, true
+		}
+	}
+	return nil, false
+}
+
+func dsproxyCacheTotalPromptTokens(section map[string]any) int64 {
+	for _, key := range []string{"prompt_tokens", "provider_prompt_tokens", "input_tokens"} {
+		if value := nestedInt64Default(section, -1, key); value >= 0 {
+			return value
+		}
+	}
+	if hit := nestedInt64Default(section, -1, "prompt_cache_hit_tokens"); hit >= 0 {
+		miss := nestedInt64Default(section, 0, "prompt_cache_miss_tokens")
+		return hit + miss
+	}
+	if cached := nestedInt64Default(section, -1, "cached_tokens"); cached >= 0 {
+		miss := nestedInt64Default(section, 0, "prompt_cache_miss_tokens")
+		return cached + miss
+	}
+	for _, key := range []string{"total_tokens", "total", "tokens", "provider_total_tokens"} {
+		if value := nestedInt64Default(section, -1, key); value >= 0 {
+			return value
+		}
+	}
+	return -1
+}
+
+func dsproxyCacheHitPercentText(section map[string]any) string {
+	if ratio, ok := pricingFloatValue(section, "cache_hit_ratio"); ok && ratio >= 0 {
+		if ratio <= 1 {
+			ratio *= 100
+		}
+		return fmt.Sprintf("%.1f%%", ratio)
+	}
+	total := dsproxyCacheTotalPromptTokens(section)
+	if total == 0 {
+		return "0.0%"
+	}
+	hit := nestedInt64Default(section, -1, "prompt_cache_hit_tokens")
+	if hit < 0 {
+		hit = nestedInt64Default(section, -1, "cached_tokens")
+	}
+	if total > 0 && hit >= 0 {
+		return fmt.Sprintf("%.1f%%", float64(hit)*100/float64(total))
+	}
+	return "n/a"
+}
+
+func dsproxyCacheAwareTokenText(section map[string]any) string {
+	if section == nil || !nestedBoolDefault(section, true, "available") {
+		return "hit~n/a/total~n/a"
+	}
+	hitText := dsproxyCacheHitPercentText(section)
+	total := dsproxyCacheTotalPromptTokens(section)
+	totalText := "n/a"
+	if total >= 0 {
+		totalText = formatTokenCount(total)
+	}
+	return fmt.Sprintf("hit~%s/total~%s", hitText, totalText)
+}
+
 func formatDsproxyTokensLine(payload map[string]any) string {
 	tokens, ok := nestedMap(payload, "tokens")
 	if !ok {
@@ -2007,32 +2100,38 @@ func formatDsproxyTokensLine(payload map[string]any) string {
 	}
 
 	lastText := "n/a"
-	if section, ok := dsproxyTokenMap(tokens, "latest_primary_turn"); ok {
+	if section, ok := dsproxyCacheSectionFor(tokens, "latest_primary_turn"); ok {
+		lastText = dsproxyCacheAwareTokenText(section)
+	} else if section, ok := dsproxyCacheSectionFor(tokens, "last_turn"); ok {
+		lastText = dsproxyCacheAwareTokenText(section)
+	} else if section, ok := dsproxyTokenMap(tokens, "latest_primary_turn"); ok {
 		lastText = dsproxyTokenSectionText(section)
-	}
-	if lastText == "n/a" {
-		if section, ok := dsproxyTokenMap(tokens, "last_turn"); ok {
-			lastText = dsproxyTokenSectionText(section)
-		}
+	} else if section, ok := dsproxyTokenMap(tokens, "last_turn"); ok {
+		lastText = dsproxyTokenSectionText(section)
 	}
 
 	sessionText := "n/a"
-	if section, ok := dsproxyTokenMap(tokens, "session"); ok && nestedBoolDefault(section, false, "available") {
+	if section, ok := dsproxyCacheSectionFor(tokens, "session"); ok {
+		sessionText = dsproxyCacheAwareTokenText(section)
+	} else if section, ok := dsproxyCacheSectionFor(tokens, "session_total"); ok {
+		sessionText = dsproxyCacheAwareTokenText(section)
+	} else if section, ok := dsproxyTokenMap(tokens, "session"); ok && nestedBoolDefault(section, false, "available") {
 		sessionText = dsproxyTokenSectionText(section)
 	}
 
 	auxText := "n/a"
-	if section, ok := dsproxyTokenMap(tokens, "auxiliary_model_calls"); ok &&
+	if section, ok := dsproxyCacheSectionFor(tokens, "auxiliary_model_calls"); ok {
+		auxText = dsproxyCacheAwareTokenText(section)
+	} else if section, ok := dsproxyCacheSectionFor(tokens, "latest_auxiliary_call"); ok {
+		auxText = dsproxyCacheAwareTokenText(section)
+	} else if section, ok := dsproxyTokenMap(tokens, "auxiliary_model_calls"); ok &&
 		nestedBoolDefault(section, false, "available") &&
 		dsproxyMapScopeIsCurrentSession(section) {
 		auxText = dsproxyTokenSectionText(section)
-	}
-	if auxText == "n/a" {
-		if section, ok := dsproxyTokenMap(tokens, "latest_auxiliary_call"); ok &&
-			nestedBoolDefault(section, false, "available") &&
-			dsproxyMapScopeIsCurrentSession(section) {
-			auxText = dsproxyTokenSectionText(section)
-		}
+	} else if section, ok := dsproxyTokenMap(tokens, "latest_auxiliary_call"); ok &&
+		nestedBoolDefault(section, false, "available") &&
+		dsproxyMapScopeIsCurrentSession(section) {
+		auxText = dsproxyTokenSectionText(section)
 	}
 
 	return fmt.Sprintf("Tokens   last %s  session %s  aux %s", lastText, sessionText, auxText)

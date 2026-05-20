@@ -1,5 +1,18 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a96接入CoDeepSeedeX p2.10a83缓存感知Tokens展示
+
+p0.1.5a96消费CoDeepSeedeX p2.10a83提供的DeepSeek provider-authoritative缓存账本。
+
+规则：
+
+- `Tokens`以`last hit~<ratio>/total~<tokens>  session hit~<ratio>/total~<tokens>  aux hit~<ratio>/total~<tokens>`形式展示current-session缓存字段。
+- `hit`表示dsproxy返回的provider缓存命中率，不是本地segment级归因。
+- `total`表示该cache对象的prompt token总量，与provider prompt cache hit/miss口径一致。
+- `aux`继续保留；优先使用`tokens.cache.auxiliary_model_calls`或current-session的`tokens.auxiliary_model_calls.cache`。
+- WeClaw不根据cache字段重新计算Cost。Cost仍以dsproxy账本输出为准，由dsproxy负责应用hit/miss价格。
+- Details来源拆分仍是解释性本地元数据，不得解释为provider缓存归因。
+
 ## p0.1.5a95 Latest发布刷新
 
 p0.1.5a95将公开`v0.1.9-alpha` Latest Release刷新到当前mainline。
