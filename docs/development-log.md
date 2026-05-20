@@ -1,5 +1,12 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a99-latest-release-refresh
+
+- Release: refreshed public `v0.1.9-alpha` as the Latest ordinary GitHub Release from current mainline.
+- Docs: synchronized README, Chinese README, developer handbooks, development log, and cumulative release notes for p0.1.5a96 through p0.1.5a98.
+- Assets: rebuilt and uploaded Linux, macOS, and Windows release binaries with public/internal version metadata aligned to this refresh.
+- Boundary: cache-aware Tokens require CoDeepSeedeX `p2.10a83-deepseek-cache-accounting-contract` or later; WeClaw does not recompute Cost from Details or cache fields.
+
 ## p0.1.5a98-preprompt-status-guards
 
 - Fix: `/status` after `/new` but before the first real prompt no longer renders unavailable zero token placeholders as `last 0`.

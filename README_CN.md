@@ -1,5 +1,16 @@
 # WeClaw Dev
 
+## 最新`/status`遥测
+
+当前`v0.1.9-alpha`线包含最新的CoDeepSeedeX联动`/status`遥测：
+
+- `last`、`session`和`aux`的cache-aware Tokens展示；
+- current-session作用域的CNY Cost、Pricing和Balance；
+- 来自dsproxy的Details token来源拆分；
+- `/new`之后、首个prompt之前的pre-prompt保护，避免显示陈旧Tokens、Details、Compact和Trim值。
+
+完整cache-aware Tokens展示需要CoDeepSeedeX内部节点`p2.10a83-deepseek-cache-accounting-contract`或更新版本。
+
 ## 当前pre-release：v0.1.9-alpha
 
 `v0.1.9-alpha`已包含a72-a75线的WeClaw `/status`遥测刷新、a77的pre-release固定版本安装修复，以及a78的raw GitHub固定tag pre-release入口。

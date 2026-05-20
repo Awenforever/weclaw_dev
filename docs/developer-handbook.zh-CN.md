@@ -1,5 +1,17 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a99 Latest发布刷新
+
+p0.1.5a99在p0.1.5a96–p0.1.5a98之后，将公开`v0.1.9-alpha`刷新到当前mainline。
+
+发布边界：
+
+- 公开Release tag：`v0.1.9-alpha`。
+- 内部发布刷新tag：`p0.1.5a99-latest-release-refresh`。
+- 最新mainline包含cache-aware Tokens、last-turn cache优先级和pre-prompt状态保护。
+- cache-aware Tokens需要CoDeepSeedeX `p2.10a83-deepseek-cache-accounting-contract`或更新版本。
+- WeClaw仍只是显示消费者：不根据Details或cache字段重新计算Cost。
+
 ## p0.1.5a98 pre-prompt状态保护
 
 p0.1.5a98加固`/new`之后、第一次真实模型请求之前的`/status`展示。

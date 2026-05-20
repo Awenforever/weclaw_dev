@@ -1,5 +1,17 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a99 Latest release refresh
+
+p0.1.5a99 refreshes public `v0.1.9-alpha` to the current mainline after p0.1.5a96–p0.1.5a98.
+
+Release boundary:
+
+- Public release tag: `v0.1.9-alpha`.
+- Internal release-refresh tag: `p0.1.5a99-latest-release-refresh`.
+- Latest mainline includes cache-aware Tokens, last-turn cache priority, and pre-prompt status guards.
+- Cache-aware Tokens require CoDeepSeedeX `p2.10a83-deepseek-cache-accounting-contract` or later.
+- WeClaw remains a display consumer: it does not recompute Cost from Details or cache fields.
+
 ## p0.1.5a98 Pre-prompt status guards
 
 p0.1.5a98 hardens `/status` for the gap after `/new` and before the first real model request.

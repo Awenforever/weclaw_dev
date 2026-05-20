@@ -1,5 +1,16 @@
 # WeClaw Dev
 
+## Latest `/status` telemetry
+
+The current `v0.1.9-alpha` line includes the latest CoDeepSeedeX-backed `/status` telemetry:
+
+- cache-aware `Tokens` display for `last`, `session`, and `aux`;
+- current-session scoped CNY `Cost`, `Pricing`, and `Balance`;
+- token-origin `Details` from dsproxy;
+- pre-prompt guards after `/new`, avoiding stale token, Details, Compact, and Trim values.
+
+Full cache-aware token display requires CoDeepSeedeX internal checkpoint `p2.10a83-deepseek-cache-accounting-contract` or later.
+
 ## Current pre-release: v0.1.9-alpha
 
 `v0.1.9-alpha` now includes the WeClaw `/status` telemetry refresh from the a72-a75 line, the pinned pre-release installer fix from a77, and the raw GitHub fixed-tag pre-release entry from a78.
