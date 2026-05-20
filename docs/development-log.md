@@ -1,5 +1,11 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a97-last-turn-token-cache-priority
+
+- Fix: `/status` `Tokens last` now prefers `tokens.cache.last_turn` over `tokens.cache.latest_primary_turn`.
+- Clarification: first-turn `last` should match current-session totals when the session has only one real request.
+- Boundary: `session hit` remains cumulative and token-weighted across the active session.
+
 ## p0.1.5a96-cache-aware-token-display
 
 - Change: `/status` Tokens now displays provider cache hit ratios and prompt-token totals for last, session, and aux sections when dsproxy exposes the CoDeepSeedeX p2.10a83 cache contract.

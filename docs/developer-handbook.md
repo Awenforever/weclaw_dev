@@ -1,5 +1,17 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a97 Last-turn token cache priority
+
+p0.1.5a97 fixes the `/status` `Tokens last` source priority.
+
+Rules:
+
+- `Tokens last` means the latest complete turn/request usage, so WeClaw reads `tokens.cache.last_turn` before `tokens.cache.latest_primary_turn`.
+- `latest_primary_turn` remains a fallback only when `last_turn` is unavailable.
+- On the first real request of a new session, `last` should normally match the current-session totals, because the session contains exactly one turn.
+- `session hit` remains the token-weighted cumulative cache hit ratio for the whole active session.
+- WeClaw still does not recompute Cost; Cost is dsproxy ledger output based on provider hit/miss accounting.
+
 ## p0.1.5a96 CoDeepSeedeX p2.10a83 cache-aware token display
 
 p0.1.5a96 consumes provider-authoritative DeepSeek cache accounting from CoDeepSeedeX p2.10a83.

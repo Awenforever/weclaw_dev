@@ -1,5 +1,17 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a97 last-turn token cache优先级修复
+
+p0.1.5a97修复`/status`中`Tokens last`的来源优先级。
+
+规则：
+
+- `Tokens last`表示最近一次完整turn/request usage，因此WeClaw优先读取`tokens.cache.last_turn`，再fallback到`tokens.cache.latest_primary_turn`。
+- `latest_primary_turn`只在`last_turn`不可用时作为fallback。
+- 新session第一次真实请求后，`last`通常应与当前session累计值一致，因为当前session只有一轮。
+- `session hit`仍表示整个active session按token加权后的累计缓存命中率。
+- WeClaw仍不重新计算Cost；Cost以dsproxy基于provider hit/miss账本输出为准。
+
 ## p0.1.5a96接入CoDeepSeedeX p2.10a83缓存感知Tokens展示
 
 p0.1.5a96消费CoDeepSeedeX p2.10a83提供的DeepSeek provider-authoritative缓存账本。

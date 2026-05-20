@@ -1265,6 +1265,52 @@ func TestDsproxyStatusArgsIncludeSessionIDWhenAvailable(t *testing.T) {
 	}
 }
 
+func TestDsproxyTokensLinePrefersLastTurnOverLatestPrimaryTurnForLastDisplay(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"cache": map[string]any{
+				"latest_primary_turn": map[string]any{
+					"available":                true,
+					"scope":                    "current_session",
+					"provider_authoritative":   true,
+					"prompt_tokens":            float64(357),
+					"prompt_cache_hit_tokens":  float64(0),
+					"prompt_cache_miss_tokens": float64(357),
+					"cache_hit_ratio":          float64(0),
+				},
+				"last_turn": map[string]any{
+					"available":                true,
+					"scope":                    "current_session",
+					"provider_authoritative":   true,
+					"prompt_tokens":            float64(21900),
+					"prompt_cache_hit_tokens":  float64(0),
+					"prompt_cache_miss_tokens": float64(21900),
+					"cache_hit_ratio":          float64(0),
+				},
+				"session": map[string]any{
+					"available":                true,
+					"scope":                    "current_session",
+					"provider_authoritative":   true,
+					"prompt_tokens":            float64(21900),
+					"prompt_cache_hit_tokens":  float64(0),
+					"prompt_cache_miss_tokens": float64(21900),
+					"cache_hit_ratio":          float64(0),
+				},
+				"auxiliary_model_calls": map[string]any{
+					"available":     true,
+					"scope":         "current_session",
+					"ledger_scope":  "current_session",
+					"prompt_tokens": float64(0),
+				},
+			},
+		},
+	}
+	want := "Tokens   last hit~0.0%/total~21.9k  session hit~0.0%/total~21.9k  aux hit~0.0%/total~0"
+	if got := formatDsproxyTokensLine(payload); got != want {
+		t.Fatalf("tokens line = %q, want %q", got, want)
+	}
+}
+
 func TestDsproxyTokensLineShowsCacheHitRatioAndTotals(t *testing.T) {
 	payload := map[string]any{
 		"tokens": map[string]any{

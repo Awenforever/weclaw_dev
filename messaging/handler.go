@@ -2100,13 +2100,13 @@ func formatDsproxyTokensLine(payload map[string]any) string {
 	}
 
 	lastText := "n/a"
-	if section, ok := dsproxyCacheSectionFor(tokens, "latest_primary_turn"); ok {
+	if section, ok := dsproxyCacheSectionFor(tokens, "last_turn"); ok {
 		lastText = dsproxyCacheAwareTokenText(section)
-	} else if section, ok := dsproxyCacheSectionFor(tokens, "last_turn"); ok {
+	} else if section, ok := dsproxyCacheSectionFor(tokens, "latest_primary_turn"); ok {
 		lastText = dsproxyCacheAwareTokenText(section)
-	} else if section, ok := dsproxyTokenMap(tokens, "latest_primary_turn"); ok {
-		lastText = dsproxyTokenSectionText(section)
 	} else if section, ok := dsproxyTokenMap(tokens, "last_turn"); ok {
+		lastText = dsproxyTokenSectionText(section)
+	} else if section, ok := dsproxyTokenMap(tokens, "latest_primary_turn"); ok {
 		lastText = dsproxyTokenSectionText(section)
 	}
 
