@@ -1265,6 +1265,143 @@ func TestDsproxyStatusArgsIncludeSessionIDWhenAvailable(t *testing.T) {
 	}
 }
 
+func TestDsproxyTokensLineSuppressesUnavailableZeroLastBeforeFirstPrompt(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"last_turn": map[string]any{
+				"available":    false,
+				"scope":        "current_session",
+				"reason":       "usage_ledger_events_not_available_for_scope",
+				"total_tokens": float64(0),
+			},
+			"latest_primary_turn": map[string]any{
+				"available":    false,
+				"scope":        "current_session",
+				"reason":       "usage_ledger_events_not_available_for_scope",
+				"total_tokens": float64(0),
+			},
+			"session": map[string]any{
+				"available":    false,
+				"scope":        "current_session",
+				"reason":       "usage_ledger_events_not_available_for_scope",
+				"total_tokens": float64(0),
+			},
+			"auxiliary_model_calls": map[string]any{
+				"available":                true,
+				"scope":                    "current_session",
+				"ledger_scope":             "current_session",
+				"prompt_tokens":            float64(0),
+				"prompt_cache_hit_tokens":  float64(0),
+				"prompt_cache_miss_tokens": float64(0),
+				"reason":                   "no_auxiliary_model_call_in_current_session",
+			},
+		},
+	}
+	want := "Tokens   last n/a  session n/a  aux hit~0.0%/total~0"
+	if got := formatDsproxyTokensLine(payload); got != want {
+		t.Fatalf("tokens line = %q, want %q", got, want)
+	}
+}
+
+func TestDsproxyDetailsLineSuppressesZeroOriginBreakdownBeforeFirstPrompt(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"profile_tokenizer": map[string]any{
+				"available":  true,
+				"scope":      "current_session",
+				"session_id": "session-a",
+			},
+			"prompt_reconciliation": map[string]any{
+				"details_origin_breakdown": map[string]any{
+					"available":         true,
+					"scope":             "current_session",
+					"session_id":        "session-a",
+					"display_semantics": "token_origin_breakdown_not_classified_total",
+					"components": map[string]any{
+						"user": map[string]any{
+							"tokens": float64(0),
+						},
+						"system": map[string]any{
+							"tokens": float64(0),
+						},
+						"environment": map[string]any{
+							"tokens": float64(0),
+						},
+						"tools_schema": map[string]any{
+							"tokens": float64(0),
+						},
+						"message_protocol_overhead": map[string]any{
+							"tokens": float64(0),
+						},
+					},
+				},
+			},
+			"prompt_subcategory_split": map[string]any{
+				"available":  false,
+				"scope":      "current_session",
+				"session_id": "session-a",
+				"reason":     "session_scoped_prompt_segmentation_not_observed",
+			},
+		},
+	}
+	want := "Details  n/a · waiting first prompt"
+	if got := formatDsproxyDetailsLine(payload); got != want {
+		t.Fatalf("details line = %q, want %q", got, want)
+	}
+}
+
+func TestDsproxyCompactionLinesSuppressStaleGuardBeforeFirstPrompt(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"last_turn": map[string]any{
+				"available":    false,
+				"scope":        "current_session",
+				"total_tokens": float64(0),
+			},
+			"session": map[string]any{
+				"available":    false,
+				"scope":        "current_session",
+				"total_tokens": float64(0),
+			},
+		},
+		"runtime_payload_guard": map[string]any{
+			"available": true,
+			"unit":      "chars",
+			"compaction": map[string]any{
+				"available":                  true,
+				"status":                     "not_triggered",
+				"progress_numerator_chars":   float64(53620),
+				"progress_denominator_chars": float64(53620),
+				"progress_ratio":             float64(1.0),
+				"trigger_chars":              float64(1250000),
+			},
+			"trimming": map[string]any{
+				"available":                  true,
+				"status":                     "not_triggered",
+				"progress_numerator_chars":   float64(2724),
+				"progress_denominator_chars": float64(2724),
+				"progress_ratio":             float64(1.0),
+				"max_context_chars":          float64(1500000),
+			},
+		},
+	}
+	lines := formatDsproxyCompactionLines(payload)
+	joined := strings.Join(lines, "\n")
+	for _, want := range []string{
+		"Compact [░░░░░░░░░░░░░░░░░░░░]  n/a  --/-- chars · no report",
+		"Trim    [░░░░░░░░░░░░░░░░░░░░]  n/a  --/-- chars · no report",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("compaction lines = %q, want %q", joined, want)
+		}
+	}
+	for _, forbidden := range []string{"100.0%", "53.6k/53.6k", "2.7k/2.7k"} {
+		if strings.Contains(joined, forbidden) {
+			t.Fatalf("compaction lines = %q, should not contain stale guard value %q", joined, forbidden)
+		}
+	}
+}
+
 func TestDsproxyTokensLinePrefersLastTurnOverLatestPrimaryTurnForLastDisplay(t *testing.T) {
 	payload := map[string]any{
 		"tokens": map[string]any{

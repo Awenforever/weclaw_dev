@@ -1,5 +1,17 @@
 ## p0.1.5a84 CNY Cost与Pricing展示
 
+## p0.1.5a98 pre-prompt状态保护
+
+p0.1.5a98加固`/new`之后、第一次真实模型请求之前的`/status`展示。
+
+规则：
+
+- 不可用usage section里的零值占位符不得渲染为`last 0`。
+- 首个prompt尚未观测到时，全零`details_origin_breakdown`不得渲染为真实Details，而应回退为`Details n/a · waiting first prompt`。
+- active session尚未出现primary usage前，隐藏runtime payload guard快照，避免把上一session的Compact/Trim值显示到新session。
+- dsproxy明确返回`no_auxiliary_model_call_in_current_session`时，auxiliary零对象仍可展示。
+- 首次真实请求之后，p0.1.5a97的last-turn优先级和p0.1.5a96的cache-aware Tokens展示继续生效。
+
 ## p0.1.5a97 last-turn token cache优先级修复
 
 p0.1.5a97修复`/status`中`Tokens last`的来源优先级。

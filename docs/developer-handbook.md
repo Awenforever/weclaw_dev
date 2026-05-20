@@ -1,5 +1,17 @@
 # WeClaw Dev Developer Handbook
 
+## p0.1.5a98 Pre-prompt status guards
+
+p0.1.5a98 hardens `/status` for the gap after `/new` and before the first real model request.
+
+Rules:
+
+- Unavailable usage sections with zero token placeholders must not render as `last 0`.
+- A zero-valued `details_origin_breakdown` before observed prompt segmentation must not render as real Details; it falls back to `Details n/a · waiting first prompt`.
+- Runtime payload guard snapshots are suppressed before any primary usage is observed for the active session, preventing stale Compact/Trim values from previous sessions.
+- Auxiliary zero objects remain displayable when dsproxy explicitly reports `no_auxiliary_model_call_in_current_session`.
+- After the first real request, p0.1.5a97 last-turn cache priority and p0.1.5a96 cache-aware token display continue to apply.
+
 ## p0.1.5a97 Last-turn token cache priority
 
 p0.1.5a97 fixes the `/status` `Tokens last` source priority.

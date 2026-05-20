@@ -2093,6 +2093,91 @@ func dsproxyCacheAwareTokenText(section map[string]any) string {
 	return fmt.Sprintf("hit~%s/total~%s", hitText, totalText)
 }
 
+func dsproxySectionDisplayScopeAllowed(section map[string]any) bool {
+	scope := dsproxyMapScope(section)
+	return scope == "" || scope == "current_session" || scope == "session"
+}
+
+func dsproxyTokenSectionUsableForDisplay(section map[string]any) bool {
+	return nestedBoolDefault(section, false, "available") && dsproxySectionDisplayScopeAllowed(section)
+}
+
+func dsproxyTokenSectionHasPositiveUsage(section map[string]any) bool {
+	if !dsproxyTokenSectionUsableForDisplay(section) {
+		return false
+	}
+	if total := dsproxyCacheTotalPromptTokens(section); total > 0 {
+		return true
+	}
+	if total, ok := dsproxyTokenSectionTotal(section); ok && total > 0 {
+		return true
+	}
+	return false
+}
+
+func dsproxyPayloadHasObservedPrimaryUsage(payload map[string]any) bool {
+	tokens, ok := nestedMap(payload, "tokens")
+	if !ok {
+		return true
+	}
+	for _, key := range []string{"last_turn", "latest_primary_turn", "session"} {
+		if section, ok := dsproxyCacheSectionFor(tokens, key); ok && dsproxyCacheTotalPromptTokens(section) > 0 {
+			return true
+		}
+		if section, ok := dsproxyTokenMap(tokens, key); ok && dsproxyTokenSectionHasPositiveUsage(section) {
+			return true
+		}
+	}
+	return false
+}
+
+func dsproxyNoPromptGuardLines() []string {
+	bar := strings.Repeat("░", 20)
+	return []string{
+		fmt.Sprintf("Compact [%s]  n/a  --/-- chars · no report", bar),
+		fmt.Sprintf("Trim    [%s]  n/a  --/-- chars · no report", bar),
+	}
+}
+
+func dsproxyDetailsOriginBreakdownHasObservedPrompt(breakdown map[string]any, components map[string]any) bool {
+	if value := nestedInt64Default(breakdown, -1, "provider_prompt_tokens"); value > 0 {
+		return true
+	}
+	if value := nestedInt64Default(breakdown, -1, "provider_total_tokens"); value > 0 {
+		return true
+	}
+	for _, key := range []string{
+		"user",
+		"history",
+		"tool_output",
+		"system",
+		"developer",
+		"compaction_summary",
+		"environment",
+		"runtime_injected",
+		"other_prompt",
+		"tools_schema",
+		"message_protocol_overhead",
+		"provider_residual",
+	} {
+		if dsproxyOriginComponentAbsTokens(components, key) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func dsproxyWaitingFirstPromptReason(reason string) bool {
+	switch reason {
+	case "profile_tokenizer_available_but_no_observed_prompt",
+		"session_scoped_prompt_segmentation_not_observed",
+		"usage_ledger_events_not_available_for_scope":
+		return true
+	default:
+		return false
+	}
+}
+
 func formatDsproxyTokensLine(payload map[string]any) string {
 	tokens, ok := nestedMap(payload, "tokens")
 	if !ok {
@@ -2104,9 +2189,9 @@ func formatDsproxyTokensLine(payload map[string]any) string {
 		lastText = dsproxyCacheAwareTokenText(section)
 	} else if section, ok := dsproxyCacheSectionFor(tokens, "latest_primary_turn"); ok {
 		lastText = dsproxyCacheAwareTokenText(section)
-	} else if section, ok := dsproxyTokenMap(tokens, "last_turn"); ok {
+	} else if section, ok := dsproxyTokenMap(tokens, "last_turn"); ok && dsproxyTokenSectionUsableForDisplay(section) {
 		lastText = dsproxyTokenSectionText(section)
-	} else if section, ok := dsproxyTokenMap(tokens, "latest_primary_turn"); ok {
+	} else if section, ok := dsproxyTokenMap(tokens, "latest_primary_turn"); ok && dsproxyTokenSectionUsableForDisplay(section) {
 		lastText = dsproxyTokenSectionText(section)
 	}
 
@@ -2115,7 +2200,7 @@ func formatDsproxyTokensLine(payload map[string]any) string {
 		sessionText = dsproxyCacheAwareTokenText(section)
 	} else if section, ok := dsproxyCacheSectionFor(tokens, "session_total"); ok {
 		sessionText = dsproxyCacheAwareTokenText(section)
-	} else if section, ok := dsproxyTokenMap(tokens, "session"); ok && nestedBoolDefault(section, false, "available") {
+	} else if section, ok := dsproxyTokenMap(tokens, "session"); ok && dsproxyTokenSectionUsableForDisplay(section) {
 		sessionText = dsproxyTokenSectionText(section)
 	}
 
@@ -2234,7 +2319,7 @@ func formatDsproxyDetailsOriginBreakdownLine(tokens map[string]any) (string, boo
 		return "", false
 	}
 	components, ok := nestedMap(breakdown, "components")
-	if !ok {
+	if !ok || !dsproxyDetailsOriginBreakdownHasObservedPrompt(breakdown, components) {
 		return "", false
 	}
 
@@ -2307,7 +2392,7 @@ func formatDsproxyDetailsLine(payload map[string]any) string {
 		if reason == "" {
 			reason = nestedStringDefault(profileTokenizer, "", "summary", "reason")
 		}
-		if reason == "profile_tokenizer_available_but_no_observed_prompt" {
+		if dsproxyWaitingFirstPromptReason(reason) {
 			return "Details  n/a · waiting first prompt"
 		}
 		return "Details  n/a"
@@ -2532,6 +2617,10 @@ func formatDsproxyBalanceLine(payload map[string]any) string {
 }
 
 func formatDsproxyCompactionLines(payload map[string]any) []string {
+	if !dsproxyPayloadHasObservedPrimaryUsage(payload) {
+		return dsproxyNoPromptGuardLines()
+	}
+
 	if lines, ok := formatDsproxyRuntimePayloadGuardLines(payload); ok {
 		return lines
 	}

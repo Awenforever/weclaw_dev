@@ -1,5 +1,11 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a98-preprompt-status-guards
+
+- Fix: `/status` after `/new` but before the first real prompt no longer renders unavailable zero token placeholders as `last 0`.
+- Fix: zero-valued Details origin breakdowns before observed prompt segmentation now fall back to `waiting first prompt`.
+- Fix: Compact/Trim runtime guard snapshots are suppressed before active-session primary usage is observed, avoiding stale guard values from a previous session.
+
 ## p0.1.5a97-last-turn-token-cache-priority
 
 - Fix: `/status` `Tokens last` now prefers `tokens.cache.last_turn` over `tokens.cache.latest_primary_turn`.
