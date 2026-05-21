@@ -1,0 +1,142 @@
+package messaging
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestTokenFirstStatusUnitsKeepOriginalCompactTrimRows(t *testing.T) {
+	payload := map[string]any{
+		"context_window": map[string]any{
+			"display_limit_tokens":          float64(1000000),
+			"model_context_window_tokens":   float64(1000000),
+			"auto_compact_threshold_tokens": float64(750000),
+			"auto_compact_token_limit":      float64(750000),
+			"used_tokens_available":         true,
+			"used_tokens":                   float64(21577),
+		},
+		"runtime_payload_guard": map[string]any{
+			"compaction": map[string]any{
+				"policy":               "adaptive",
+				"keep_recent_messages": float64(24),
+			},
+		},
+		"compaction": map[string]any{
+			"runtime_trigger_source":   "token_first",
+			"estimated_context_tokens": float64(21577),
+			"tokens_to_auto_compact":   float64(728423),
+			"compacted":                false,
+		},
+		"token_first_runtime_trim": map[string]any{
+			"available":          true,
+			"applied":            false,
+			"before_tokens":      float64(113),
+			"after_tokens":       float64(113),
+			"tokens_removed":     float64(0),
+			"max_context_tokens": float64(750000),
+			"target_met":         true,
+		},
+	}
+
+	contextLine := formatDsproxyContextLine(payload)
+	if !strings.Contains(contextLine, "21.6k/1M") {
+		t.Fatalf("context line should use display/model context window as denominator, got: %s", contextLine)
+	}
+
+	policyLine := formatDsproxyCompactionPolicySummaryLine(payload)
+	if policyLine != "Policy   adaptive · trigger 750k tokens · keep ⤒24 msgs" {
+		t.Fatalf("policy line mismatch:\n got: %q", policyLine)
+	}
+
+	guardLines := strings.Join(formatDsproxyCompactionLines(payload), "\n")
+	for _, want := range []string{
+		"Compact [",
+		"21.6k/750k tokens · not triggered",
+		"Trim    [",
+		"113/113 tokens · not triggered",
+	} {
+		if !strings.Contains(guardLines, want) {
+			t.Fatalf("missing %q in guard lines:\n%s", want, guardLines)
+		}
+	}
+}
+
+func TestTokenFirstPolicyDoesNotInventCompactTarget(t *testing.T) {
+	payload := map[string]any{
+		"context_window": map[string]any{
+			"auto_compact_threshold_tokens": float64(900000),
+			"used_tokens_available":         true,
+			"used_tokens":                   float64(1),
+		},
+		"runtime_payload_guard": map[string]any{
+			"compaction": map[string]any{
+				"policy":               "adaptive",
+				"target_chars":         float64(750000),
+				"keep_recent_messages": float64(24),
+			},
+		},
+	}
+
+	got := formatDsproxyCompactionPolicySummaryLine(payload)
+	if strings.Contains(got, "target") {
+		t.Fatalf("token-first policy must not invent compact target from context window, trigger, or char target; got: %s", got)
+	}
+	if got != "Policy   adaptive · trigger 900k tokens · keep ⤒24 msgs" {
+		t.Fatalf("policy line mismatch: %s", got)
+	}
+}
+
+func TestTokenFirstStatusUnitsKeepPrePromptGuard(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"cache": map[string]any{
+				"last_turn": map[string]any{
+					"available":     false,
+					"scope":         "current_session",
+					"prompt_tokens": float64(0),
+				},
+				"latest_primary_turn": map[string]any{
+					"available":     false,
+					"scope":         "current_session",
+					"prompt_tokens": float64(0),
+				},
+				"session": map[string]any{
+					"available":     false,
+					"scope":         "current_session",
+					"prompt_tokens": float64(0),
+				},
+			},
+			"last_turn": map[string]any{
+				"available": false,
+				"scope":     "current_session",
+				"total":     float64(0),
+			},
+			"latest_primary_turn": map[string]any{
+				"available": false,
+				"scope":     "current_session",
+				"total":     float64(0),
+			},
+			"session": map[string]any{
+				"available": false,
+				"scope":     "current_session",
+				"total":     float64(0),
+			},
+		},
+		"context_window": map[string]any{
+			"auto_compact_threshold_tokens": float64(750000),
+			"used_tokens_available":         false,
+		},
+		"compaction": map[string]any{
+			"estimated_context_tokens": float64(21577),
+		},
+		"token_first_runtime_trim": map[string]any{
+			"available":     true,
+			"before_tokens": float64(113),
+			"after_tokens":  float64(113),
+		},
+	}
+	got := strings.Join(formatDsproxyCompactionLines(payload), "\n")
+	if !strings.Contains(got, "no report") || strings.Contains(got, "21577") || strings.Contains(got, "113/113 tokens") {
+		t.Fatalf("pre-prompt guard should suppress token-first Compact/Trim values, got:\n%s", got)
+	}
+}

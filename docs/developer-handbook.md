@@ -1,3 +1,8 @@
+## p0.1.5a100-token-first-status-units
+
+p0.1.5a100 keeps the existing `/status` layout and original `█░` progress bars. It changes the data source for Policy, Compact, and Trim from char-first runtime payload guard fields to token-first dsproxy fields when those fields are available. Context uses the full token context window denominator. Policy displays token AutoCompact trigger fields, but it does not invent a token `target`; target is shown only if dsproxy exposes an explicit compact-target token field. The pre-prompt guard remains mandatory so `/new` followed by `/status` cannot display stale Compact/Trim values from a previous prompt.
+
+
 # WeClaw Dev Developer Handbook
 
 ## p0.1.5a99 Latest release refresh

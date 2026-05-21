@@ -1,5 +1,15 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a100-token-first-status-units
+
+- Scope: token-first `/status` unit handoff for Policy, Compact, and Trim while keeping the existing WeChat layout.
+- Change: Context now uses the full token context window as the denominator when dsproxy exposes `context_window.display_limit_tokens` or `model_context_window_tokens`.
+- Change: Policy now prefers token AutoCompact trigger fields and does not invent a token `target` when dsproxy does not expose a compact-target token field.
+- Change: Compact and Trim keep the original `█░` progress-bar rows but prefer token-first dsproxy fields over char-level runtime payload guard fields.
+- Safety: pre-prompt status guards remain in place; `/status` after `/new` still suppresses stale Compact/Trim data until primary usage is observed.
+- Boundary: WeClaw remains display-only. It does not retokenize, derive compact target tokens, parse Codex profiles, or treat char fields as token denominators.
+
+
 ## p0.1.5a99-latest-release-refresh
 
 - Release: refreshed public `v0.1.9-alpha` as the Latest ordinary GitHub Release from current mainline.

@@ -1752,53 +1752,88 @@ func formatPerMillionPrice(value float64, currency string) string {
 }
 
 func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
-	compaction, ok := nestedMap(payload, "compaction")
-	if !ok || !nestedBoolDefault(compaction, false, "available") {
+	policy, ok := weclawStatusTokenFirstFirstString(payload,
+		[]string{"compaction", "policy"},
+		[]string{"runtime_payload_guard", "compaction", "policy"},
+		[]string{"runtime_compaction", "last_report", "policy"},
+		[]string{"runtime_compaction", "config", "policy"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "policy"},
+		[]string{"context_window", "runtime", "context", "compaction", "config", "policy"},
+		[]string{"compaction", "runtime_context", "compaction", "last_report", "policy"},
+		[]string{"compaction", "runtime_context", "compaction", "last_report", "policy_decision", "policy"},
+		[]string{"compaction", "runtime_context", "compaction", "config", "policy"},
+	)
+	if !ok {
 		return ""
-	}
-
-	policy := nestedStringDefault(compaction, "", "runtime_context", "compaction", "last_report", "policy")
-	if policy == "" {
-		policy = nestedStringDefault(compaction, "", "runtime_context", "compaction", "last_report", "policy_decision", "policy")
-	}
-	if policy == "" {
-		policy = nestedStringDefault(compaction, "", "runtime_context", "compaction", "config", "policy")
-	}
-	if policy == "" {
-		return ""
-	}
-
-	trigger := nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "effective_trigger_chars")
-	if trigger <= 0 {
-		trigger = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "trigger_chars")
-	}
-	if trigger <= 0 {
-		trigger = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "config", "trigger_chars")
-	}
-
-	target := nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "effective_target_chars")
-	if target <= 0 {
-		target = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "target_chars")
-	}
-	if target <= 0 {
-		target = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "config", "target_chars")
-	}
-
-	keep := nestedInt64Default(compaction, 0, "runtime_context", "compaction", "last_report", "keep_recent_messages")
-	if keep <= 0 {
-		keep = nestedInt64Default(compaction, 0, "runtime_context", "compaction", "config", "keep_recent_messages")
 	}
 
 	parts := []string{policy}
-	if trigger > 0 {
-		parts = append(parts, "trigger "+formatCompactStatusNumber(trigger)+" chars")
+
+	tokenTrigger := int64(0)
+	tokenTriggerOK := false
+	if trigger, ok := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"context_window", "auto_compact_threshold_tokens"},
+		[]string{"context_window", "auto_compact_token_limit"},
+		[]string{"context_window", "codex_profile", "auto_compact_threshold_tokens"},
+		[]string{"context_window", "codex_profile", "auto_compact_token_limit"},
+	); ok && trigger > 0 {
+		tokenTrigger = trigger
+		tokenTriggerOK = true
+		parts = append(parts, fmt.Sprintf("trigger %s tokens", formatTokenCount(trigger)))
+	} else if triggerChars, ok := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"runtime_payload_guard", "compaction", "trigger_chars"},
+		[]string{"runtime_compaction", "last_report", "effective_trigger_chars"},
+		[]string{"runtime_compaction", "last_report", "trigger_chars"},
+		[]string{"runtime_compaction", "config", "trigger_chars"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "effective_trigger_chars"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "trigger_chars"},
+		[]string{"context_window", "runtime", "context", "compaction", "config", "trigger_chars"},
+		[]string{"compaction", "runtime_context", "compaction", "last_report", "effective_trigger_chars"},
+		[]string{"compaction", "runtime_context", "compaction", "last_report", "trigger_chars"},
+		[]string{"compaction", "runtime_context", "compaction", "config", "trigger_chars"},
+	); ok && triggerChars > 0 {
+		parts = append(parts, fmt.Sprintf("trigger %s chars", formatTokenCount(triggerChars)))
 	}
-	if target > 0 {
-		parts = append(parts, "target "+formatCompactStatusNumber(target)+" chars")
+
+	if target, ok := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"compaction", "target_tokens"},
+		[]string{"compaction", "effective_target_tokens"},
+		[]string{"compaction", "compact_target_tokens"},
+		[]string{"runtime_compaction", "last_report", "target_tokens"},
+		[]string{"runtime_compaction", "last_report", "effective_target_tokens"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "target_tokens"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "effective_target_tokens"},
+	); ok && target > 0 {
+		parts = append(parts, fmt.Sprintf("target %s tokens", formatTokenCount(target)))
+	} else if targetChars, ok := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"runtime_payload_guard", "compaction", "target_chars"},
+		[]string{"runtime_compaction", "last_report", "effective_target_chars"},
+		[]string{"runtime_compaction", "last_report", "target_chars"},
+		[]string{"runtime_compaction", "config", "target_chars"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "effective_target_chars"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "target_chars"},
+		[]string{"context_window", "runtime", "context", "compaction", "config", "target_chars"},
+		[]string{"compaction", "runtime_context", "compaction", "last_report", "effective_target_chars"},
+		[]string{"compaction", "runtime_context", "compaction", "last_report", "target_chars"},
+		[]string{"compaction", "runtime_context", "compaction", "config", "target_chars"},
+	); ok && targetChars > 0 && !tokenTriggerOK {
+		parts = append(parts, fmt.Sprintf("target %s chars", formatTokenCount(targetChars)))
 	}
-	if keep > 0 {
+
+	_ = tokenTrigger
+
+	if keep, ok := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"runtime_payload_guard", "compaction", "keep_recent_messages"},
+		[]string{"runtime_compaction", "last_report", "keep_recent_messages"},
+		[]string{"runtime_compaction", "config", "keep_recent_messages"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "keep_recent_messages"},
+		[]string{"context_window", "runtime", "context", "compaction", "config", "keep_recent_messages"},
+		[]string{"compaction", "runtime_context", "compaction", "last_report", "keep_recent_messages"},
+		[]string{"compaction", "runtime_context", "compaction", "config", "keep_recent_messages"},
+	); ok && keep > 0 {
 		parts = append(parts, fmt.Sprintf("keep ⤒%d msgs", keep))
 	}
+
 	return "Policy   " + strings.Join(parts, " · ")
 }
 
@@ -1862,22 +1897,53 @@ func availabilityBoolText(value bool) string {
 }
 
 func formatDsproxyContextLine(payload map[string]any) string {
-	limit := dsproxyContextDisplayLimit(payload)
-	used, ok := dsproxyContextUsedTokens(payload)
-	if !ok {
+	window, _ := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"context_window", "display_limit_tokens"},
+		[]string{"context_window", "effective_display", "limit_tokens"},
+		[]string{"context_window", "limit_explanation", "display_limit_tokens"},
+		[]string{"context_window", "model_context_window_tokens"},
+	)
+	if window <= 0 {
+		window = dsproxyContextDisplayLimit(payload)
+	}
+
+	used, usedOK := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"context_window", "used_tokens"},
+		[]string{"context_window", "latest_upstream_prompt_tokens", "value"},
+	)
+	usedAvailable, availabilityOK := weclawStatusTokenFirstBool(payload, "context_window", "used_tokens_available")
+	if availabilityOK && !usedAvailable {
+		usedOK = false
+	}
+	if !usedOK {
+		used, usedOK = dsproxyContextUsedTokens(payload)
+	}
+
+	if window <= 0 {
+		if usedOK {
+			return fmt.Sprintf(
+				"Context  [%s]  n/a  %s/n/a",
+				formatCommandProgressBar(0, 0, 20),
+				formatTokenCount(maxInt64(used, 0)),
+			)
+		}
+		return fmt.Sprintf("Context  [%s]  n/a  n/a", formatCommandProgressBar(0, 0, 20))
+	}
+
+	if !usedOK || used < 0 {
 		return fmt.Sprintf(
 			"Context  [%s]  n/a  —/%s",
-			formatCommandProgressBar(0, limit, 20),
-			formatContextLimit(limit),
+			formatCommandProgressBar(0, window, 20),
+			formatContextLimit(window),
 		)
 	}
 
 	return fmt.Sprintf(
 		"Context  [%s]  %s  %s/%s",
-		formatCommandProgressBar(used, limit, 20),
-		formatTokenPercent(used, limit),
+		formatCommandProgressBar(used, window, 20),
+		formatTokenPercent(used, window),
 		formatTokenCount(maxInt64(used, 0)),
-		formatContextLimit(limit),
+		formatContextLimit(window),
 	)
 }
 
@@ -2621,13 +2687,132 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 		return dsproxyNoPromptGuardLines()
 	}
 
-	if lines, ok := formatDsproxyRuntimePayloadGuardLines(payload); ok {
-		return lines
+	lines := make([]string, 0, 2)
+
+	compactCurrent, currentOK := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"compaction", "estimated_context_tokens"},
+		[]string{"runtime_compaction", "last_report", "estimated_context_tokens"},
+		[]string{"context_window", "used_tokens"},
+		[]string{"context_window", "latest_upstream_prompt_tokens", "value"},
+	)
+	compactLimit, limitOK := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"context_window", "auto_compact_threshold_tokens"},
+		[]string{"context_window", "auto_compact_token_limit"},
+		[]string{"context_window", "codex_profile", "auto_compact_threshold_tokens"},
+		[]string{"context_window", "codex_profile", "auto_compact_token_limit"},
+	)
+	remaining, remainingOK := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"compaction", "tokens_to_auto_compact"},
+		[]string{"runtime_compaction", "last_report", "tokens_to_auto_compact"},
+	)
+	compacted, compactedOK := weclawStatusTokenFirstFirstBool(payload,
+		[]string{"compaction", "compacted"},
+		[]string{"runtime_compaction", "last_report", "compacted"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "compacted"},
+	)
+
+	if currentOK && limitOK && compactLimit > 0 {
+		status := "not triggered"
+		if compactedOK && compacted {
+			status = "triggered"
+		} else if remainingOK && remaining <= 0 {
+			status = "triggered"
+		} else if !remainingOK && compactCurrent >= compactLimit {
+			status = "triggered"
+		}
+		lines = append(lines, fmt.Sprintf(
+			"Compact [%s]  %s  %s/%s tokens · %s",
+			formatCommandProgressBar(compactCurrent, compactLimit, 20),
+			formatTokenPercent(compactCurrent, compactLimit),
+			formatTokenCount(maxInt64(compactCurrent, 0)),
+			formatTokenCount(compactLimit),
+			status,
+		))
+	} else if fallbackLines, ok := formatDsproxyRuntimePayloadGuardLines(payload); ok {
+		lines = append(lines, fallbackLines...)
+	} else if legacyLines, ok := formatDsproxyLegacyCompactionRuntimeLines(payload); ok {
+		lines = append(lines, legacyLines...)
 	}
 
+	if trim, ok := weclawStatusTokenFirstTrimMap(payload); ok {
+		before, beforeOK := weclawStatusTokenFirstFirstInt64(trim,
+			[]string{"before_tokens"},
+			[]string{"estimated_payload_tokens"},
+			[]string{"runtime_after_tokens"},
+		)
+		after, afterOK := weclawStatusTokenFirstFirstInt64(trim,
+			[]string{"after_tokens"},
+			[]string{"runtime_after_tokens"},
+		)
+		removed, removedOK := weclawStatusTokenFirstFirstInt64(trim,
+			[]string{"tokens_removed"},
+			[]string{"runtime_tokens_removed"},
+			[]string{"tokens_to_trim"},
+		)
+		applied, appliedOK := weclawStatusTokenFirstFirstBool(trim,
+			[]string{"applied"},
+			[]string{"runtime_applied"},
+			[]string{"trimmed"},
+		)
+		if !afterOK && beforeOK && removedOK {
+			after = before - removed
+			afterOK = true
+		}
+		if beforeOK && !afterOK {
+			after = before
+			afterOK = true
+		}
+		if beforeOK && afterOK && before > 0 {
+			status := "not triggered"
+			if appliedOK && applied {
+				status = "triggered"
+			}
+			lines = append(lines, fmt.Sprintf(
+				"Trim    [%s]  %s  %s/%s tokens · %s",
+				formatCommandProgressBar(after, before, 20),
+				formatTokenPercent(after, before),
+				formatTokenCount(maxInt64(after, 0)),
+				formatTokenCount(before),
+				status,
+			))
+		}
+	} else if len(lines) < 2 {
+		if fallbackLines, ok := formatDsproxyRuntimePayloadGuardLines(payload); ok {
+			for _, line := range fallbackLines {
+				if strings.HasPrefix(line, "Trim    ") {
+					lines = append(lines, line)
+					break
+				}
+			}
+		} else if legacyLines, ok := formatDsproxyLegacyCompactionRuntimeLines(payload); ok {
+			for _, line := range legacyLines {
+				if strings.HasPrefix(line, "Trim    ") {
+					lines = append(lines, line)
+					break
+				}
+			}
+		}
+	}
+
+	if len(lines) == 0 {
+		return []string{
+			fmt.Sprintf(
+				"Compact [%s]  n/a  --/-- chars · no report",
+				formatCommandProgressBar(0, 0, 20),
+			),
+			fmt.Sprintf(
+				"Trim    [%s]  n/a  --/-- chars · no report",
+				formatCommandProgressBar(0, 0, 20),
+			),
+		}
+	}
+	return lines
+}
+
+func formatDsproxyLegacyCompactionRuntimeLines(payload map[string]any) ([]string, bool) {
 	compaction, ok := nestedMap(payload, "compaction")
 	if !ok || !nestedBoolDefault(compaction, false, "available") {
-		return []string{"Compact n/a"}
+		return nil, false
 	}
 	unit := nestedStringDefault(compaction, "chars", "unit")
 
@@ -2659,6 +2844,10 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 		trimReason = "no report"
 	}
 
+	if trigger <= 0 && trimMax <= 0 {
+		return nil, false
+	}
+
 	return []string{
 		fmt.Sprintf(
 			"Compact [%s]  %s  %s/%s %s · %s",
@@ -2678,7 +2867,7 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 			unit,
 			displayRuntimePayloadGuardStatus(trimReason),
 		),
-	}
+	}, true
 }
 
 func runtimePayloadGuardProgressValues(section map[string]any, legacyNumeratorKeys [][]string, legacyDenominatorKeys [][]string) (int64, int64, string) {
@@ -4695,4 +4884,151 @@ func formatContextUsageLine(used, window int64, hasUsage bool) string {
 func trimFixedDecimal(value float64) string {
 	s := fmt.Sprintf("%.1f", value)
 	return strings.TrimSuffix(s, ".0")
+}
+
+func weclawStatusTokenFirstNestedMap(root map[string]any, path ...string) (map[string]any, bool) {
+	current := root
+	for _, key := range path {
+		next, ok := current[key]
+		if !ok {
+			return nil, false
+		}
+		m, ok := next.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current = m
+	}
+	return current, true
+}
+
+func weclawStatusTokenFirstNumber(root map[string]any, path ...string) (float64, bool) {
+	var current any = root
+	for _, key := range path {
+		m, ok := current.(map[string]any)
+		if !ok {
+			return 0, false
+		}
+		next, ok := m[key]
+		if !ok {
+			return 0, false
+		}
+		current = next
+	}
+	switch value := current.(type) {
+	case float64:
+		return value, true
+	case float32:
+		return float64(value), true
+	case int:
+		return float64(value), true
+	case int8:
+		return float64(value), true
+	case int16:
+		return float64(value), true
+	case int32:
+		return float64(value), true
+	case int64:
+		return float64(value), true
+	case uint:
+		return float64(value), true
+	case uint8:
+		return float64(value), true
+	case uint16:
+		return float64(value), true
+	case uint32:
+		return float64(value), true
+	case uint64:
+		return float64(value), true
+	}
+	return 0, false
+}
+
+func weclawStatusTokenFirstInt64(root map[string]any, path ...string) (int64, bool) {
+	value, ok := weclawStatusTokenFirstNumber(root, path...)
+	if !ok {
+		return 0, false
+	}
+	return int64(value + 0.5), true
+}
+
+func weclawStatusTokenFirstString(root map[string]any, path ...string) (string, bool) {
+	var current any = root
+	for _, key := range path {
+		m, ok := current.(map[string]any)
+		if !ok {
+			return "", false
+		}
+		next, ok := m[key]
+		if !ok {
+			return "", false
+		}
+		current = next
+	}
+	value, ok := current.(string)
+	if !ok {
+		return "", false
+	}
+	value = strings.TrimSpace(value)
+	return value, value != ""
+}
+
+func weclawStatusTokenFirstBool(root map[string]any, path ...string) (bool, bool) {
+	var current any = root
+	for _, key := range path {
+		m, ok := current.(map[string]any)
+		if !ok {
+			return false, false
+		}
+		next, ok := m[key]
+		if !ok {
+			return false, false
+		}
+		current = next
+	}
+	value, ok := current.(bool)
+	return value, ok
+}
+
+func weclawStatusTokenFirstFirstInt64(root map[string]any, paths ...[]string) (int64, bool) {
+	for _, path := range paths {
+		if value, ok := weclawStatusTokenFirstInt64(root, path...); ok {
+			return value, true
+		}
+	}
+	return 0, false
+}
+
+func weclawStatusTokenFirstFirstString(root map[string]any, paths ...[]string) (string, bool) {
+	for _, path := range paths {
+		if value, ok := weclawStatusTokenFirstString(root, path...); ok {
+			return value, true
+		}
+	}
+	return "", false
+}
+
+func weclawStatusTokenFirstFirstBool(root map[string]any, paths ...[]string) (bool, bool) {
+	for _, path := range paths {
+		if value, ok := weclawStatusTokenFirstBool(root, path...); ok {
+			return value, true
+		}
+	}
+	return false, false
+}
+
+func weclawStatusTokenFirstTrimMap(payload map[string]any) (map[string]any, bool) {
+	paths := [][]string{
+		{"token_first_runtime_trim"},
+		{"runtime_trimming", "last_report", "token_first_runtime_trim"},
+		{"context_window", "runtime", "context", "trimming", "last_report", "token_first_runtime_trim"},
+		{"runtime_trimming", "last_report", "token_first_trim_dry_run"},
+		{"context_window", "runtime", "context", "trimming", "last_report", "token_first_trim_dry_run"},
+	}
+	for _, path := range paths {
+		if m, ok := weclawStatusTokenFirstNestedMap(payload, path...); ok {
+			return m, true
+		}
+	}
+	return nil, false
 }
