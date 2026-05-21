@@ -612,7 +612,7 @@ weclaw start deepseek-thinking
 
 `/status`现在为CoDeepSeedeX支撑的profile提供紧凑遥测卡片，显示profile/model/session、Context、Tokens、Details、Cost、Balance、Pricing、Policy、Compact、Trim、Proxy和Paths。
 
-Cost、Pricing和Balance统一以人民币/CNY口径展示，并使用`￥`符号。Cost展示`session`、`last`、`aux`和最后的`total`。Pricing展示每百万token价格，例如`hit ￥0.02/M miss ￥1/M out ￥2/M`。
+Cost、Pricing和Balance统一以人民币/CNY口径展示，并使用`￥`符号。Cost展示`last`、`session`、`aux`和最后的`total`。Pricing展示每百万token价格，例如`hit ￥0.02/M miss ￥1/M out ￥2/M`。
 
 WeClaw只格式化dsproxy结构化遥测字段，不自行查询价格、不换算币种、不拆分reasoning费用、不重新tokenize、不读取debug文件，也不用当前模型价格重算session费用。
 

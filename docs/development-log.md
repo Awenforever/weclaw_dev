@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a102-status-cost-token-label-polish
+
+- Change: `/status` Policy now appends dsproxy-provided auto-compact migration hints such as `legacy 75%→90% · repair profile` while preserving the real active trigger value.
+- Change: `/status` Tokens cache display now omits the redundant `total~` label and uses `hit~<ratio>/<tokens>` for last, session, and aux fields.
+- Change: `/status` Cost now shows the most recent turn first: `last`, then `session`, `aux`, and trailing `total`.
+- Boundary: display-only polish. WeClaw still consumes dsproxy/provider cache ratios and dsproxy cost ledger fields without recomputing cost from Details or cache data.
+
+
 ## p0.1.5a101-compact-retention-semantics
 
 - Fix: restored Compact progress-bar semantics to retention semantics. The Compact row now displays post-compaction tokens over raw/uncompacted tokens when token-first fields are available.
@@ -126,7 +134,7 @@
 
 ## p0.1.5a84-cny-cost-pricing-total
 
-- Change: `/status` Cost now displays `session`, `last`, `aux`, and trailing `total` using dsproxy structured CNY cost fields.
+- Change: `/status` Cost now displays `last`, `session`, `aux`, and trailing `total` using dsproxy structured CNY cost fields.
 - Change: `/status` Pricing now displays CNY per-million-token prices with `￥`.
 - Change: `/status` Balance now renders CNY balances as `￥...`.
 - Boundary: WeClaw does not query prices, convert currencies, split reasoning cost, or recompute session cost from the current model.

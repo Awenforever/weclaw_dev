@@ -163,3 +163,28 @@ func TestTokenFirstCompactRetentionUsesAfterOverBeforeTokens(t *testing.T) {
 		t.Fatalf("compact row should display post-compact/raw retention tokens, got:\n%s", got)
 	}
 }
+
+func TestPolicyDisplaysAutoCompactMigrationHint(t *testing.T) {
+	payload := map[string]any{
+		"context_window": map[string]any{
+			"auto_compact_threshold_tokens": float64(750000),
+			"auto_compact_policy": map[string]any{
+				"available":       true,
+				"needs_migration": true,
+				"display_label":   "legacy 75%→90%",
+				"short_action":    "repair profile",
+			},
+		},
+		"runtime_payload_guard": map[string]any{
+			"compaction": map[string]any{
+				"policy":               "adaptive",
+				"keep_recent_messages": float64(24),
+			},
+		},
+	}
+	got := formatDsproxyCompactionPolicySummaryLine(payload)
+	want := "Policy   adaptive · trigger 750k tokens · keep ⤒24 msgs · legacy 75%→90% · repair profile"
+	if got != want {
+		t.Fatalf("policy line mismatch:\n got: %q\nwant: %q", got, want)
+	}
+}

@@ -622,7 +622,7 @@ weclaw start deepseek-thinking
 
 `/status` now provides a compact telemetry card for CoDeepSeedeX-backed profiles. It shows profile/model/session, Context, Tokens, Details, Cost, Balance, Pricing, Policy, Compact, Trim, Proxy, and Paths.
 
-Cost, Pricing, and Balance are displayed in RMB/CNY using `￥`. Cost shows `session`, `last`, `aux`, and trailing `total`. Pricing shows per-million-token prices such as `hit ￥0.02/M miss ￥1/M out ￥2/M`.
+Cost, Pricing, and Balance are displayed in RMB/CNY using `￥`. Cost shows `last`, `session`, `aux`, and trailing `total`. Pricing shows per-million-token prices such as `hit ￥0.02/M miss ￥1/M out ￥2/M`.
 
 WeClaw only formats dsproxy structured telemetry. It does not query provider prices, convert currencies, split reasoning cost, retokenize prompts, read debug files, or recompute session cost from the current model.
 

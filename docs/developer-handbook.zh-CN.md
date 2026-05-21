@@ -1,3 +1,8 @@
+## p0.1.5a102-status-cost-token-label-polish
+
+p0.1.5a102 polishes the compact `/status` card without changing dsproxy telemetry semantics. Policy also appends dsproxy-provided auto-compact migration hints such as `legacy 75%→90% · repair profile` while preserving the real active trigger value. Tokens cache sections now display `hit~<ratio>/<tokens>` instead of the older redundant-total-label form. Cost now displays `last` before `session`, followed by `aux` and trailing `total`, so the latest-turn cost is easier to scan in WeChat.
+
+
 ## p0.1.5a101-compact-retention-semantics
 
 p0.1.5a101 corrects the p0.1.5a100 Compact-row denominator. The Compact progress bar keeps its original retention meaning: the numerator is post-compaction tokens and the denominator is raw/uncompacted tokens. AutoCompact trigger tokens stay in the Policy row only. When compaction has not run, post-compaction tokens equal raw context tokens, so the Compact row shows 100% retention for the current token estimate. WeClaw must not use the trigger threshold as the Compact retention denominator.
@@ -52,9 +57,9 @@ p0.1.5a96消费CoDeepSeedeX p2.10a83提供的DeepSeek provider-authoritative缓�
 
 规则：
 
-- `Tokens`以`last hit~<ratio>/total~<tokens>  session hit~<ratio>/total~<tokens>  aux hit~<ratio>/total~<tokens>`形式展示current-session缓存字段。
+- `Tokens`以`last hit~<ratio>/<tokens>  session hit~<ratio>/<tokens>  aux hit~<ratio>/<tokens>`形式展示current-session缓存字段。
 - `hit`表示dsproxy返回的provider缓存命中率，不是本地segment级归因。
-- `total`表示该cache对象的prompt token总量，与provider prompt cache hit/miss口径一致。
+- `/`后的数值表示该cache对象的prompt token总量，与provider prompt cache hit/miss口径一致。
 - `aux`继续保留；优先使用`tokens.cache.auxiliary_model_calls`或current-session的`tokens.auxiliary_model_calls.cache`。
 - WeClaw不根据cache字段重新计算Cost。Cost仍以dsproxy账本输出为准，由dsproxy负责应用hit/miss价格。
 - Details来源拆分仍是解释性本地元数据，不得解释为provider缓存归因。
@@ -182,7 +187,7 @@ VM验证状态：
 - Details行不再显示本地估算后缀。
 - Policy target已补充`chars`单位。
 - Cost、Pricing和Balance以人民币/CNY口径显示并使用`￥`。
-- Cost展示`session`、`last`、`aux`和最后的`total`。
+- Cost展示`last`、`session`、`aux`和最后的`total`。
 - Pricing展示dsproxy提供的CNY每百万token价格。
 - WeClaw只作为dsproxy结构化遥测的展示消费者，不自行查询价格、不换算币种、不拆分reasoning费用、不重新tokenize、不读取debug文件，也不用当前模型价格重算session费用。
 
@@ -213,7 +218,7 @@ v0.1.9-alpha面向用户的release note范围：
 - Details行清理
 - Policy target单位修复
 - Cost、Pricing、Balance统一人民币/CNY展示
-- Cost展示`session`、`last`、`aux`和最后的`total`
+- Cost展示`last`、`session`、`aux`和最后的`total`
 - 明确WeClaw只消费dsproxy结构化遥测字段
 
 兼容性说明：
@@ -221,7 +226,7 @@ v0.1.9-alpha面向用户的release note范围：
 - 需要CoDeepSeedeX v0.3.9-alpha或更新版本。
 - CNY Cost/Pricing行需要dsproxy具备`p2.10a70-pricing-cny-primary-source`或更新版本中的CNY pricing telemetry契约。
 
-p0.1.5a84消费dsproxy结构化CNY pricing和cost字段。`/status`展示`Cost     session~￥...  last~￥...  aux~￥...  total~￥...`，其中`total`放在最后，作为dsproxy总预估消费字段的WeClaw展示标签。`Pricing`使用dsproxy返回的CNY每百万token价格，`Balance`将CNY余额渲染为`￥...`。
+p0.1.5a84消费dsproxy结构化CNY pricing和cost字段。`/status`展示`Cost     last~￥...  session~￥...  aux~￥...  total~￥...`，其中`total`放在最后，作为dsproxy总预估消费字段的WeClaw展示标签。`Pricing`使用dsproxy返回的CNY每百万token价格，`Balance`将CNY余额渲染为`￥...`。
 
 WeClaw不得自行查价格、换算币种、拆分reasoning费用或用当前模型价格重算session费用，只负责格式化dsproxy结构化字段。
 
@@ -247,7 +252,7 @@ p0.1.5a80在微信`/status`中新增`Details`行，只消费`dsproxy status <rou
 - 当`tokens.prompt_subcategory_split.reason=profile_tokenizer_available_but_no_observed_prompt`时，显示`Details  n/a · waiting first prompt`
 - 当`tokens.profile_tokenizer.available=false`时，显示`Details  n/a · tokenizer unavailable`
 
-费用行标签改为`Cost`，并使用紧凑`label~value`字段：`Cost     session~...  last~...  aux~...`。`last`、`session`、`aux`和费用仍以provider usage为权威来源。Compact和Trim仍是char级runtime payload guard。
+费用行标签改为`Cost`，并使用紧凑`label~value`字段：`Cost     last~...  session~...  aux~...`。`last`、`session`、`aux`和费用仍以provider usage为权威来源。Compact和Trim仍是char级runtime payload guard。
 
 
 # WeClaw Dev开发者交接手册

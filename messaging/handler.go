@@ -1751,6 +1751,34 @@ func formatPerMillionPrice(value float64, currency string) string {
 	}
 }
 
+func dsproxyAutoCompactPolicyDisplayParts(payload map[string]any) []string {
+	policyPaths := [][]string{
+		{"context_window", "auto_compact_policy"},
+		{"context_window", "codex_profile", "auto_compact_policy"},
+		{"context_window", "limit_explanation", "auto_compact_policy"},
+	}
+	for _, path := range policyPaths {
+		policy, ok := weclawStatusTokenFirstNestedMap(payload, path...)
+		if !ok {
+			continue
+		}
+		if !nestedBoolDefault(policy, false, "needs_migration") {
+			continue
+		}
+		parts := make([]string, 0, 2)
+		if label := nestedStringDefault(policy, "", "display_label"); label != "" {
+			parts = append(parts, label)
+		}
+		if action := nestedStringDefault(policy, "", "short_action"); action != "" {
+			parts = append(parts, action)
+		}
+		if len(parts) > 0 {
+			return parts
+		}
+	}
+	return nil
+}
+
 func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
 	policy, ok := weclawStatusTokenFirstFirstString(payload,
 		[]string{"compaction", "policy"},
@@ -1769,7 +1797,6 @@ func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
 
 	parts := []string{policy}
 
-	tokenTrigger := int64(0)
 	tokenTriggerOK := false
 	if trigger, ok := weclawStatusTokenFirstFirstInt64(payload,
 		[]string{"context_window", "auto_compact_threshold_tokens"},
@@ -1777,7 +1804,6 @@ func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
 		[]string{"context_window", "codex_profile", "auto_compact_threshold_tokens"},
 		[]string{"context_window", "codex_profile", "auto_compact_token_limit"},
 	); ok && trigger > 0 {
-		tokenTrigger = trigger
 		tokenTriggerOK = true
 		parts = append(parts, fmt.Sprintf("trigger %s tokens", formatTokenCount(trigger)))
 	} else if triggerChars, ok := weclawStatusTokenFirstFirstInt64(payload,
@@ -1820,8 +1846,6 @@ func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
 		parts = append(parts, fmt.Sprintf("target %s chars", formatTokenCount(targetChars)))
 	}
 
-	_ = tokenTrigger
-
 	if keep, ok := weclawStatusTokenFirstFirstInt64(payload,
 		[]string{"runtime_payload_guard", "compaction", "keep_recent_messages"},
 		[]string{"runtime_compaction", "last_report", "keep_recent_messages"},
@@ -1833,6 +1857,8 @@ func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
 	); ok && keep > 0 {
 		parts = append(parts, fmt.Sprintf("keep ⤒%d msgs", keep))
 	}
+
+	parts = append(parts, dsproxyAutoCompactPolicyDisplayParts(payload)...)
 
 	return "Policy   " + strings.Join(parts, " · ")
 }
@@ -2148,7 +2174,7 @@ func dsproxyCacheHitPercentText(section map[string]any) string {
 
 func dsproxyCacheAwareTokenText(section map[string]any) string {
 	if section == nil || !nestedBoolDefault(section, true, "available") {
-		return "hit~n/a/total~n/a"
+		return "hit~n/a/n/a"
 	}
 	hitText := dsproxyCacheHitPercentText(section)
 	total := dsproxyCacheTotalPromptTokens(section)
@@ -2156,7 +2182,7 @@ func dsproxyCacheAwareTokenText(section map[string]any) string {
 	if total >= 0 {
 		totalText = formatTokenCount(total)
 	}
-	return fmt.Sprintf("hit~%s/total~%s", hitText, totalText)
+	return fmt.Sprintf("hit~%s/%s", hitText, totalText)
 }
 
 func dsproxySectionDisplayScopeAllowed(section map[string]any) bool {
@@ -2525,7 +2551,7 @@ func formatTokenBucket(label string, bucket map[string]any) string {
 func formatDsproxyCostLine(payload map[string]any) string {
 	cost, ok := nestedMap(payload, "cost")
 	if !ok || !nestedBoolDefault(cost, false, "available") {
-		return "Cost     session~n/a  last~n/a  aux~n/a  total~n/a"
+		return "Cost     last~n/a  session~n/a  aux~n/a  total~n/a"
 	}
 
 	currency := nestedStringDefault(cost, nestedStringDefault(cost, "USD", "currency"), "display_currency")
@@ -2571,9 +2597,9 @@ func formatDsproxyCostLine(payload map[string]any) string {
 	}
 
 	return fmt.Sprintf(
-		"Cost     session~%s  last~%s  aux~%s  total~%s",
-		sessionText,
+		"Cost     last~%s  session~%s  aux~%s  total~%s",
 		formatMoney(last, currency),
+		sessionText,
 		formatMoney(aux, currency),
 		totalText,
 	)
@@ -3375,7 +3401,7 @@ func buildCompactStatusPanel(ag agent.Agent, userID string, fallbackWindow int64
 	if balanceSummary == "" {
 		balanceSummary = "balance n/a"
 	}
-	costLine := fmt.Sprintf("%s  %s", "Cost     session~n/a  last~n/a", balanceSummary)
+	costLine := fmt.Sprintf("%s  %s", "Cost     last~n/a  session~n/a", balanceSummary)
 
 	lines := []string{
 		contextLine,

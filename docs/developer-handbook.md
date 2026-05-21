@@ -1,3 +1,8 @@
+## p0.1.5a102-status-cost-token-label-polish
+
+p0.1.5a102 polishes the compact `/status` card without changing dsproxy telemetry semantics. Policy also appends dsproxy-provided auto-compact migration hints such as `legacy 75%→90% · repair profile` while preserving the real active trigger value. Tokens cache sections now display `hit~<ratio>/<tokens>` instead of the older redundant-total-label form. Cost now displays `last` before `session`, followed by `aux` and trailing `total`, so the latest-turn cost is easier to scan in WeChat.
+
+
 ## p0.1.5a101-compact-retention-semantics
 
 p0.1.5a101 corrects the p0.1.5a100 Compact-row denominator. The Compact progress bar keeps its original retention meaning: the numerator is post-compaction tokens and the denominator is raw/uncompacted tokens. AutoCompact trigger tokens stay in the Policy row only. When compaction has not run, post-compaction tokens equal raw context tokens, so the Compact row shows 100% retention for the current token estimate. WeClaw must not use the trigger threshold as the Compact retention denominator.
@@ -52,9 +57,9 @@ p0.1.5a96 consumes provider-authoritative DeepSeek cache accounting from CoDeepS
 
 Rules:
 
-- `Tokens` displays cache-aware current-session fields as `last hit~<ratio>/total~<tokens>  session hit~<ratio>/total~<tokens>  aux hit~<ratio>/total~<tokens>`.
+- `Tokens` displays cache-aware current-session fields as `last hit~<ratio>/<tokens>  session hit~<ratio>/<tokens>  aux hit~<ratio>/<tokens>`.
 - `hit` is the provider cache hit ratio from dsproxy, not a local segment-level attribution.
-- `total` is the prompt-token total for that cache object, aligned with provider prompt cache hit/miss accounting.
+- the value after `/` is the prompt-token total for that cache object, aligned with provider prompt cache hit/miss accounting.
 - `aux` remains visible and uses `tokens.cache.auxiliary_model_calls` or current-session `tokens.auxiliary_model_calls.cache` when available.
 - WeClaw does not recompute Cost from cache fields. Cost remains the dsproxy ledger output, and dsproxy is responsible for applying hit/miss pricing.
 - Details origin breakdown remains local explanatory metadata and must not be interpreted as provider cache attribution.
@@ -182,7 +187,7 @@ Closed `/status` line:
 - Details row does not display the local-estimate suffix.
 - Policy target includes the `chars` unit.
 - Cost, Pricing, and Balance display RMB/CNY with `￥`.
-- Cost displays `session`, `last`, `aux`, and trailing `total`.
+- Cost displays `last`, `session`, `aux`, and trailing `total`.
 - Pricing displays CNY per-million-token values from dsproxy.
 - WeClaw remains a display consumer of dsproxy structured telemetry and must not query prices, convert currencies, split reasoning cost, retokenize prompts, read debug files, or recompute session cost from the current model.
 
@@ -213,7 +218,7 @@ User-facing v0.1.9-alpha release note scope:
 - Details row cleanup
 - Policy target unit fix
 - CNY/RMB Cost, Pricing, and Balance display
-- Cost `session`, `last`, `aux`, trailing `total`
+- Cost `last`, `session`, `aux`, trailing `total`
 - dsproxy structured telemetry boundary
 
 Compatibility note:
@@ -223,7 +228,7 @@ Compatibility note:
 
 ## p0.1.5a84 CNY Cost and Pricing display
 
-p0.1.5a84 consumes dsproxy structured CNY pricing and cost fields. `/status` displays `Cost     session~￥...  last~￥...  aux~￥...  total~￥...`, with `total` shown last as the user-facing summary label for dsproxy's total estimated spend field. `Pricing` uses CNY per-million-token values from dsproxy, and `Balance` renders CNY balances as `￥...`.
+p0.1.5a84 consumes dsproxy structured CNY pricing and cost fields. `/status` displays `Cost     last~￥...  session~￥...  aux~￥...  total~￥...`, with `total` shown last as the user-facing summary label for dsproxy's total estimated spend field. `Pricing` uses CNY per-million-token values from dsproxy, and `Balance` renders CNY balances as `￥...`.
 
 WeClaw must not query prices, convert currencies, split reasoning cost, or recompute session cost from the current model. It only formats dsproxy structured fields.
 
@@ -246,7 +251,7 @@ Display rules:
 - when `tokens.prompt_subcategory_split.reason=profile_tokenizer_available_but_no_observed_prompt`, show `Details  n/a · waiting first prompt`
 - when `tokens.profile_tokenizer.available=false`, show `Details  n/a · tokenizer unavailable`
 
-The cost row label is now `Cost`, with compact `label~value` fields: `Cost     session~...  last~...  aux~...`. Provider usage remains authoritative for `last`, `session`, `aux`, and cost. Compact/Trim remain char-level runtime payload guards.
+The cost row label is now `Cost`, with compact `label~value` fields: `Cost     last~...  session~...  aux~...`. Provider usage remains authoritative for `last`, `session`, `aux`, and cost. Compact/Trim remain char-level runtime payload guards.
 
 ## p0.1.5a78 raw fixed-tag pre-release installer
 

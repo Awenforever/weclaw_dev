@@ -413,7 +413,7 @@ func TestRuntimeControlStatusReturnsDiagnostics(t *testing.T) {
 		"**Session:**",
 		"Context  [",
 		"Tokens",
-		"Cost     session~n/a  last~n/a",
+		"Cost     last~n/a  session~n/a",
 		"Proxy    default · 127.0.0.1:8000",
 		"Contract unavailable",
 	} {
@@ -1020,7 +1020,7 @@ func TestRuntimeControlStatusUsesDsproxyTelemetryContract(t *testing.T) {
 		"—/750k",
 		"Tokens   last 50.2k  session n/a  aux n/a",
 		"Details  n/a · tokenizer unavailable",
-		"Cost     session~n/a  last~￥0.000154  aux~￥0.0094  total~n/a",
+		"Cost     last~￥0.000154  session~n/a  aux~￥0.0094  total~n/a",
 		"Balance  ￥5.83",
 		"Compact [",
 		"--/-- chars · no report",
@@ -1073,7 +1073,7 @@ func TestRuntimeControlStatusShowsRound3CompactSummary(t *testing.T) {
 		"Context  [",
 		"Tokens   last 50.2k  session n/a  aux n/a",
 		"Details  n/a · waiting first prompt",
-		"Cost     session~n/a  last~￥0.000154  aux~￥0.0094  total~n/a",
+		"Cost     last~￥0.000154  session~n/a  aux~￥0.0094  total~n/a",
 		"Balance  ￥5.83",
 		"87/750k",
 		"Pricing  hit ￥0.02/M miss ￥1/M out ￥2/M · updated 2026-05-17",
@@ -1234,7 +1234,7 @@ func TestDsproxyRouteFallbackPreservesSessionScopedUnavailableFields(t *testing.
 	if got := formatDsproxyTokensLine(merged); got != "Tokens   last n/a  session n/a  aux n/a" {
 		t.Fatalf("tokens line = %q, want session-scoped values preserved as n/a", got)
 	}
-	if got := formatDsproxyCostLine(merged); got != "Cost     session~n/a  last~n/a  aux~n/a  total~n/a" {
+	if got := formatDsproxyCostLine(merged); got != "Cost     last~n/a  session~n/a  aux~n/a  total~n/a" {
 		t.Fatalf("cost line = %q, want no route/global cost fallback", got)
 	}
 	if got := formatDsproxyPricingSummaryLine(merged); !strings.Contains(got, "hit ￥0.02/M miss ￥1/M out ￥2/M") {
@@ -1297,7 +1297,7 @@ func TestDsproxyTokensLineSuppressesUnavailableZeroLastBeforeFirstPrompt(t *test
 			},
 		},
 	}
-	want := "Tokens   last n/a  session n/a  aux hit~0.0%/total~0"
+	want := "Tokens   last n/a  session n/a  aux hit~0.0%/0"
 	if got := formatDsproxyTokensLine(payload); got != want {
 		t.Fatalf("tokens line = %q, want %q", got, want)
 	}
@@ -1442,7 +1442,7 @@ func TestDsproxyTokensLinePrefersLastTurnOverLatestPrimaryTurnForLastDisplay(t *
 			},
 		},
 	}
-	want := "Tokens   last hit~0.0%/total~21.9k  session hit~0.0%/total~21.9k  aux hit~0.0%/total~0"
+	want := "Tokens   last hit~0.0%/21.9k  session hit~0.0%/21.9k  aux hit~0.0%/0"
 	if got := formatDsproxyTokensLine(payload); got != want {
 		t.Fatalf("tokens line = %q, want %q", got, want)
 	}
@@ -1497,7 +1497,7 @@ func TestDsproxyTokensLineShowsCacheHitRatioAndTotals(t *testing.T) {
 			},
 		},
 	}
-	want := "Tokens   last hit~99.4%/total~21.7k  session hit~91.6%/total~240.2k  aux hit~45.9%/total~21.8k"
+	want := "Tokens   last hit~99.4%/21.7k  session hit~91.6%/240.2k  aux hit~45.9%/21.8k"
 	if got := formatDsproxyTokensLine(payload); got != want {
 		t.Fatalf("tokens line = %q, want %q", got, want)
 	}
@@ -1530,7 +1530,7 @@ func TestDsproxyTokensLineShowsZeroAuxCacheObject(t *testing.T) {
 			},
 		},
 	}
-	want := "Tokens   last hit~0.0%/total~21.6k  session hit~0.0%/total~21.6k  aux hit~0.0%/total~0"
+	want := "Tokens   last hit~0.0%/21.6k  session hit~0.0%/21.6k  aux hit~0.0%/0"
 	if got := formatDsproxyTokensLine(payload); got != want {
 		t.Fatalf("tokens line = %q, want %q", got, want)
 	}
@@ -1625,14 +1625,14 @@ func TestDsproxyCostLineRequiresCurrentSessionScope(t *testing.T) {
 		},
 	}
 	got := formatDsproxyCostLine(payload)
-	want := "Cost     session~n/a  last~￥0.0072  aux~￥0.084  total~n/a"
+	want := "Cost     last~￥0.0072  session~n/a  aux~￥0.084  total~n/a"
 	if got != want {
 		t.Fatalf("cost line = %q, want %q", got, want)
 	}
 
 	payload["cost"].(map[string]any)["scope"] = "current_session"
 	got = formatDsproxyCostLine(payload)
-	want = "Cost     session~￥5.26  last~￥0.0072  aux~￥0.084  total~￥5.26"
+	want = "Cost     last~￥0.0072  session~￥5.26  aux~￥0.084  total~￥5.26"
 	if got != want {
 		t.Fatalf("current-session cost line = %q, want %q", got, want)
 	}
@@ -1726,7 +1726,7 @@ func TestDsproxyCostLineDisplaysCNYTotalLast(t *testing.T) {
 		},
 	}
 	got := formatDsproxyCostLine(payload)
-	want := "Cost     session~￥5.26  last~￥0.0072  aux~￥0.084  total~￥5.26"
+	want := "Cost     last~￥0.0072  session~￥5.26  aux~￥0.084  total~￥5.26"
 	if got != want {
 		t.Fatalf("cost line = %q, want %q", got, want)
 	}
@@ -2136,7 +2136,7 @@ func TestDsproxyCostLineIgnoresSessionObjectWithoutCurrentSessionScope(t *testin
 			},
 		},
 	}
-	want := "Cost     session~n/a  last~￥0.0014  aux~￥0  total~n/a"
+	want := "Cost     last~￥0.0014  session~n/a  aux~￥0  total~n/a"
 	if got := formatDsproxyCostLine(payload); got != want {
 		t.Fatalf("cost line = %q, want %q", got, want)
 	}
@@ -2448,7 +2448,7 @@ func TestRuntimeControlStatusReportsTokenUsage(t *testing.T) {
 		"16.9%",
 		"43.6k/258.4k",
 		"Tokens   in 43.2k  cached 1.2k  out 350  reason 17  last 22.3k",
-		"Cost     session~n/a  last~n/a",
+		"Cost     last~n/a  session~n/a",
 		"Contract unavailable",
 	} {
 		if !strings.Contains(reply, want) {
@@ -2482,7 +2482,7 @@ func TestRuntimeControlStatusShowsFallbackContextWindowWhileUsageIsWaiting(t *te
 		"0.0%",
 		"0/--",
 		"Tokens   waiting for Codex usage event",
-		"Cost     session~n/a  last~n/a",
+		"Cost     last~n/a  session~n/a",
 		"Contract unavailable",
 	} {
 		if !strings.Contains(reply, want) {
