@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a101-compact-retention-semantics
+
+- Fix: restored Compact progress-bar semantics to retention semantics. The Compact row now displays post-compaction tokens over raw/uncompacted tokens when token-first fields are available.
+- Fix: AutoCompact trigger tokens remain in the Policy row and are no longer used as the Compact progress denominator.
+- Safety: when Compact has not run, token-first Compact displays current/current tokens with 100% retention; missing Compact reports still fall back to the original `--/-- chars · no report` skeleton.
+- Boundary: WeClaw still does not derive a compact target token field. It only renders explicit dsproxy token fields or safe no-compaction equivalence.
+
+
 ## p0.1.5a100-token-first-status-units
 
 - Scope: token-first `/status` unit handoff for Policy, Compact, and Trim while keeping the existing WeChat layout.

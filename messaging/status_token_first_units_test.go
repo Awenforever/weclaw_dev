@@ -51,13 +51,16 @@ func TestTokenFirstStatusUnitsKeepOriginalCompactTrimRows(t *testing.T) {
 	guardLines := strings.Join(formatDsproxyCompactionLines(payload), "\n")
 	for _, want := range []string{
 		"Compact [",
-		"21.6k/750k tokens · not triggered",
+		"100.0%  21.6k/21.6k tokens · not triggered",
 		"Trim    [",
 		"113/113 tokens · not triggered",
 	} {
 		if !strings.Contains(guardLines, want) {
 			t.Fatalf("missing %q in guard lines:\n%s", want, guardLines)
 		}
+	}
+	if strings.Contains(guardLines, "21.6k/750k tokens") {
+		t.Fatalf("compact row must use retention semantics, not trigger-threshold semantics:\n%s", guardLines)
 	}
 }
 
@@ -138,5 +141,25 @@ func TestTokenFirstStatusUnitsKeepPrePromptGuard(t *testing.T) {
 	got := strings.Join(formatDsproxyCompactionLines(payload), "\n")
 	if !strings.Contains(got, "no report") || strings.Contains(got, "21577") || strings.Contains(got, "113/113 tokens") {
 		t.Fatalf("pre-prompt guard should suppress token-first Compact/Trim values, got:\n%s", got)
+	}
+}
+
+func TestTokenFirstCompactRetentionUsesAfterOverBeforeTokens(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"last_turn": map[string]any{
+				"available": true,
+				"total":     float64(1000),
+			},
+		},
+		"compaction": map[string]any{
+			"before_tokens": float64(100000),
+			"after_tokens":  float64(42000),
+			"compacted":     true,
+		},
+	}
+	got := strings.Join(formatDsproxyCompactionLines(payload), "\n")
+	if !strings.Contains(got, "42.0%  42k/100k tokens · triggered") {
+		t.Fatalf("compact row should display post-compact/raw retention tokens, got:\n%s", got)
 	}
 }

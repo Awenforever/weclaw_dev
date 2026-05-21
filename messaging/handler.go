@@ -2689,44 +2689,14 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 
 	lines := make([]string, 0, 2)
 
-	compactCurrent, currentOK := weclawStatusTokenFirstFirstInt64(payload,
-		[]string{"compaction", "estimated_context_tokens"},
-		[]string{"runtime_compaction", "last_report", "estimated_context_tokens"},
-		[]string{"context_window", "used_tokens"},
-		[]string{"context_window", "latest_upstream_prompt_tokens", "value"},
-	)
-	compactLimit, limitOK := weclawStatusTokenFirstFirstInt64(payload,
-		[]string{"context_window", "auto_compact_threshold_tokens"},
-		[]string{"context_window", "auto_compact_token_limit"},
-		[]string{"context_window", "codex_profile", "auto_compact_threshold_tokens"},
-		[]string{"context_window", "codex_profile", "auto_compact_token_limit"},
-	)
-	remaining, remainingOK := weclawStatusTokenFirstFirstInt64(payload,
-		[]string{"compaction", "tokens_to_auto_compact"},
-		[]string{"runtime_compaction", "last_report", "tokens_to_auto_compact"},
-	)
-	compacted, compactedOK := weclawStatusTokenFirstFirstBool(payload,
-		[]string{"compaction", "compacted"},
-		[]string{"runtime_compaction", "last_report", "compacted"},
-		[]string{"context_window", "runtime", "context", "compaction", "last_report", "compacted"},
-	)
-
-	if currentOK && limitOK && compactLimit > 0 {
-		status := "not triggered"
-		if compactedOK && compacted {
-			status = "triggered"
-		} else if remainingOK && remaining <= 0 {
-			status = "triggered"
-		} else if !remainingOK && compactCurrent >= compactLimit {
-			status = "triggered"
-		}
+	if compactAfter, compactBefore, compactStatus, ok := dsproxyTokenFirstCompactRetention(payload); ok {
 		lines = append(lines, fmt.Sprintf(
 			"Compact [%s]  %s  %s/%s tokens · %s",
-			formatCommandProgressBar(compactCurrent, compactLimit, 20),
-			formatTokenPercent(compactCurrent, compactLimit),
-			formatTokenCount(maxInt64(compactCurrent, 0)),
-			formatTokenCount(compactLimit),
-			status,
+			formatCommandProgressBar(compactAfter, compactBefore, 20),
+			formatTokenPercent(compactAfter, compactBefore),
+			formatTokenCount(maxInt64(compactAfter, 0)),
+			formatTokenCount(compactBefore),
+			compactStatus,
 		))
 	} else if fallbackLines, ok := formatDsproxyRuntimePayloadGuardLines(payload); ok {
 		lines = append(lines, fallbackLines...)
@@ -2807,6 +2777,83 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 		}
 	}
 	return lines
+}
+
+func dsproxyTokenFirstCompactRetention(payload map[string]any) (int64, int64, string, bool) {
+	after, afterOK := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"compaction", "after_tokens"},
+		[]string{"compaction", "post_compaction_tokens"},
+		[]string{"compaction", "retention_numerator_tokens"},
+		[]string{"runtime_compaction", "last_report", "after_tokens"},
+		[]string{"runtime_compaction", "last_report", "post_compaction_tokens"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "after_tokens"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "post_compaction_tokens"},
+	)
+	before, beforeOK := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"compaction", "before_tokens"},
+		[]string{"compaction", "raw_uncompressed_tokens"},
+		[]string{"compaction", "retention_denominator_tokens"},
+		[]string{"runtime_compaction", "last_report", "before_tokens"},
+		[]string{"runtime_compaction", "last_report", "raw_uncompressed_tokens"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "before_tokens"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "raw_uncompressed_tokens"},
+	)
+
+	current, currentOK := weclawStatusTokenFirstFirstInt64(payload,
+		[]string{"compaction", "estimated_context_tokens"},
+		[]string{"runtime_compaction", "last_report", "estimated_context_tokens"},
+		[]string{"context_window", "used_tokens"},
+		[]string{"context_window", "latest_upstream_prompt_tokens", "value"},
+	)
+
+	compacted, compactedOK := weclawStatusTokenFirstFirstBool(payload,
+		[]string{"compaction", "compacted"},
+		[]string{"runtime_compaction", "last_report", "compacted"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "compacted"},
+	)
+	reason, _ := weclawStatusTokenFirstFirstString(payload,
+		[]string{"compaction", "reason"},
+		[]string{"runtime_compaction", "last_report", "reason"},
+		[]string{"context_window", "runtime", "context", "compaction", "last_report", "reason"},
+	)
+
+	status := "not triggered"
+	if compactedOK && compacted {
+		status = "triggered"
+	} else if strings.Contains(reason, "triggered") && !strings.Contains(reason, "below") {
+		status = "triggered"
+	}
+
+	// Retention semantics:
+	//   denominator = raw/uncompacted token count
+	//   numerator   = post-compaction token count
+	// When Compact has not run yet, post-compaction equals raw context size.
+	if !beforeOK && currentOK && current > 0 {
+		before = current
+		beforeOK = true
+	}
+	if !afterOK && beforeOK {
+		if !compactedOK || !compacted {
+			after = before
+			afterOK = true
+		}
+	}
+	if !beforeOK && afterOK {
+		before = after
+		beforeOK = true
+	}
+
+	if !afterOK || !beforeOK || before <= 0 {
+		return 0, 0, "", false
+	}
+	if after < 0 {
+		after = 0
+	}
+	if after > before && (!compactedOK || !compacted) {
+		before = after
+	}
+
+	return after, before, status, true
 }
 
 func formatDsproxyLegacyCompactionRuntimeLines(payload map[string]any) ([]string, bool) {

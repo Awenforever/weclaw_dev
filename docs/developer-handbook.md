@@ -1,3 +1,8 @@
+## p0.1.5a101-compact-retention-semantics
+
+p0.1.5a101 corrects the p0.1.5a100 Compact-row denominator. The Compact progress bar keeps its original retention meaning: the numerator is post-compaction tokens and the denominator is raw/uncompacted tokens. AutoCompact trigger tokens stay in the Policy row only. When compaction has not run, post-compaction tokens equal raw context tokens, so the Compact row shows 100% retention for the current token estimate. WeClaw must not use the trigger threshold as the Compact retention denominator.
+
+
 ## p0.1.5a100-token-first-status-units
 
 p0.1.5a100 keeps the existing `/status` layout and original `█░` progress bars. It changes the data source for Policy, Compact, and Trim from char-first runtime payload guard fields to token-first dsproxy fields when those fields are available. Context uses the full token context window denominator. Policy displays token AutoCompact trigger fields, but it does not invent a token `target`; target is shown only if dsproxy exposes an explicit compact-target token field. The pre-prompt guard remains mandatory so `/new` followed by `/status` cannot display stale Compact/Trim values from a previous prompt.
