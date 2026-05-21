@@ -1297,7 +1297,7 @@ func TestDsproxyTokensLineSuppressesUnavailableZeroLastBeforeFirstPrompt(t *test
 			},
 		},
 	}
-	want := "Tokens   last n/a  session n/a  aux hit~0.0%/0"
+	want := "Tokens   last n/a  session n/a  aux hit~0.0%||0"
 	if got := formatDsproxyTokensLine(payload); got != want {
 		t.Fatalf("tokens line = %q, want %q", got, want)
 	}
@@ -1442,7 +1442,7 @@ func TestDsproxyTokensLinePrefersLastTurnOverLatestPrimaryTurnForLastDisplay(t *
 			},
 		},
 	}
-	want := "Tokens   last hit~0.0%/21.9k  session hit~0.0%/21.9k  aux hit~0.0%/0"
+	want := "Tokens   last hit~0.0%||21.9k  session hit~0.0%||21.9k  aux hit~0.0%||0"
 	if got := formatDsproxyTokensLine(payload); got != want {
 		t.Fatalf("tokens line = %q, want %q", got, want)
 	}
@@ -1497,7 +1497,7 @@ func TestDsproxyTokensLineShowsCacheHitRatioAndTotals(t *testing.T) {
 			},
 		},
 	}
-	want := "Tokens   last hit~99.4%/21.7k  session hit~91.6%/240.2k  aux hit~45.9%/21.8k"
+	want := "Tokens   last hit~99.4%||21.7k  session hit~91.6%||240.2k  aux hit~45.9%||21.8k"
 	if got := formatDsproxyTokensLine(payload); got != want {
 		t.Fatalf("tokens line = %q, want %q", got, want)
 	}
@@ -1530,7 +1530,7 @@ func TestDsproxyTokensLineShowsZeroAuxCacheObject(t *testing.T) {
 			},
 		},
 	}
-	want := "Tokens   last hit~0.0%/21.6k  session hit~0.0%/21.6k  aux hit~0.0%/0"
+	want := "Tokens   last hit~0.0%||21.6k  session hit~0.0%||21.6k  aux hit~0.0%||0"
 	if got := formatDsproxyTokensLine(payload); got != want {
 		t.Fatalf("tokens line = %q, want %q", got, want)
 	}

@@ -1,9 +1,15 @@
 # WeClaw Dev Development Log
 
+## p0.1.5a103-status-token-separator-hide-policy-diagnostic
+
+- Change: `/status` Tokens now use `hit~<ratio>||<tokens>` to visually separate cache-hit ratio from the provider prompt-token total.
+- Fix: normal `/status` no longer surfaces dsproxy auto-compact repair diagnostics such as legacy ratio labels. Real active trigger values remain visible; profile migration is a dsproxy/profile concern, not a WeClaw status decoration.
+- Boundary: WeClaw does not rewrite `trigger 750k` to `900k`; it displays dsproxy's real active trigger and leaves managed-profile repair to dsproxy.
+
+
 ## p0.1.5a102-status-cost-token-label-polish
 
-- Change: `/status` Policy now appends dsproxy-provided auto-compact migration hints such as `legacy 75%→90% · repair profile` while preserving the real active trigger value.
-- Change: `/status` Tokens cache display now omits the redundant `total~` label and uses `hit~<ratio>/<tokens>` for last, session, and aux fields.
+- Change: `/status` Tokens cache display now omits the redundant `total~` label and uses `hit~<ratio>||<tokens>` for last, session, and aux fields.
 - Change: `/status` Cost now shows the most recent turn first: `last`, then `session`, `aux`, and trailing `total`.
 - Boundary: display-only polish. WeClaw still consumes dsproxy/provider cache ratios and dsproxy cost ledger fields without recomputing cost from Details or cache data.
 

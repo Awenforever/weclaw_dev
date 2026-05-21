@@ -1,6 +1,11 @@
+## p0.1.5a103-status-token-separator-hide-policy-diagnostic
+
+p0.1.5a103 changes the `/status` Tokens separator to `hit~<ratio>||<tokens>` and removes user-facing auto-compact repair diagnostics from the normal Policy row. The Policy row still shows the real dsproxy active trigger, such as `trigger 750k tokens`. WeClaw must not rewrite that value to `900k`; actual legacy-profile migration belongs to dsproxy/profile repair.
+
+
 ## p0.1.5a102-status-cost-token-label-polish
 
-p0.1.5a102 polishes the compact `/status` card without changing dsproxy telemetry semantics. Policy also appends dsproxy-provided auto-compact migration hints such as `legacy 75%→90% · repair profile` while preserving the real active trigger value. Tokens cache sections now display `hit~<ratio>/<tokens>` instead of the older redundant-total-label form. Cost now displays `last` before `session`, followed by `aux` and trailing `total`, so the latest-turn cost is easier to scan in WeChat.
+p0.1.5a102 polishes the compact `/status` card without changing dsproxy telemetry semantics. Tokens cache sections now display `hit~<ratio>||<tokens>` instead of the older redundant-total-label form. Cost now displays `last` before `session`, followed by `aux` and trailing `total`, so the latest-turn cost is easier to scan in WeChat.
 
 
 ## p0.1.5a101-compact-retention-semantics
@@ -57,9 +62,9 @@ p0.1.5a96 consumes provider-authoritative DeepSeek cache accounting from CoDeepS
 
 Rules:
 
-- `Tokens` displays cache-aware current-session fields as `last hit~<ratio>/<tokens>  session hit~<ratio>/<tokens>  aux hit~<ratio>/<tokens>`.
+- `Tokens` displays cache-aware current-session fields as `last hit~<ratio>||<tokens>  session hit~<ratio>||<tokens>  aux hit~<ratio>||<tokens>`.
 - `hit` is the provider cache hit ratio from dsproxy, not a local segment-level attribution.
-- the value after `/` is the prompt-token total for that cache object, aligned with provider prompt cache hit/miss accounting.
+- the value after `||` is the prompt-token total for that cache object, aligned with provider prompt cache hit/miss accounting.
 - `aux` remains visible and uses `tokens.cache.auxiliary_model_calls` or current-session `tokens.auxiliary_model_calls.cache` when available.
 - WeClaw does not recompute Cost from cache fields. Cost remains the dsproxy ledger output, and dsproxy is responsible for applying hit/miss pricing.
 - Details origin breakdown remains local explanatory metadata and must not be interpreted as provider cache attribution.

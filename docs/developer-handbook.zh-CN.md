@@ -1,6 +1,11 @@
+## p0.1.5a103-status-token-separator-hide-policy-diagnostic
+
+p0.1.5a103 changes the `/status` Tokens separator to `hit~<ratio>||<tokens>` and removes user-facing auto-compact repair diagnostics from the normal Policy row. The Policy row still shows the real dsproxy active trigger, such as `trigger 750k tokens`. WeClaw must not rewrite that value to `900k`; actual legacy-profile migration belongs to dsproxy/profile repair.
+
+
 ## p0.1.5a102-status-cost-token-label-polish
 
-p0.1.5a102 polishes the compact `/status` card without changing dsproxy telemetry semantics. Policy also appends dsproxy-provided auto-compact migration hints such as `legacy 75%→90% · repair profile` while preserving the real active trigger value. Tokens cache sections now display `hit~<ratio>/<tokens>` instead of the older redundant-total-label form. Cost now displays `last` before `session`, followed by `aux` and trailing `total`, so the latest-turn cost is easier to scan in WeChat.
+p0.1.5a102 polishes the compact `/status` card without changing dsproxy telemetry semantics. Tokens cache sections now display `hit~<ratio>||<tokens>` instead of the older redundant-total-label form. Cost now displays `last` before `session`, followed by `aux` and trailing `total`, so the latest-turn cost is easier to scan in WeChat.
 
 
 ## p0.1.5a101-compact-retention-semantics
@@ -57,9 +62,9 @@ p0.1.5a96消费CoDeepSeedeX p2.10a83提供的DeepSeek provider-authoritative缓�
 
 规则：
 
-- `Tokens`以`last hit~<ratio>/<tokens>  session hit~<ratio>/<tokens>  aux hit~<ratio>/<tokens>`形式展示current-session缓存字段。
+- `Tokens`以`last hit~<ratio>||<tokens>  session hit~<ratio>||<tokens>  aux hit~<ratio>||<tokens>`形式展示current-session缓存字段。
 - `hit`表示dsproxy返回的provider缓存命中率，不是本地segment级归因。
-- `/`后的数值表示该cache对象的prompt token总量，与provider prompt cache hit/miss口径一致。
+- `||`后的数值表示该cache对象的prompt token总量，与provider prompt cache hit/miss口径一致。
 - `aux`继续保留；优先使用`tokens.cache.auxiliary_model_calls`或current-session的`tokens.auxiliary_model_calls.cache`。
 - WeClaw不根据cache字段重新计算Cost。Cost仍以dsproxy账本输出为准，由dsproxy负责应用hit/miss价格。
 - Details来源拆分仍是解释性本地元数据，不得解释为provider缓存归因。

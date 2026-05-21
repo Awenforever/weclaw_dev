@@ -1751,34 +1751,6 @@ func formatPerMillionPrice(value float64, currency string) string {
 	}
 }
 
-func dsproxyAutoCompactPolicyDisplayParts(payload map[string]any) []string {
-	policyPaths := [][]string{
-		{"context_window", "auto_compact_policy"},
-		{"context_window", "codex_profile", "auto_compact_policy"},
-		{"context_window", "limit_explanation", "auto_compact_policy"},
-	}
-	for _, path := range policyPaths {
-		policy, ok := weclawStatusTokenFirstNestedMap(payload, path...)
-		if !ok {
-			continue
-		}
-		if !nestedBoolDefault(policy, false, "needs_migration") {
-			continue
-		}
-		parts := make([]string, 0, 2)
-		if label := nestedStringDefault(policy, "", "display_label"); label != "" {
-			parts = append(parts, label)
-		}
-		if action := nestedStringDefault(policy, "", "short_action"); action != "" {
-			parts = append(parts, action)
-		}
-		if len(parts) > 0 {
-			return parts
-		}
-	}
-	return nil
-}
-
 func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
 	policy, ok := weclawStatusTokenFirstFirstString(payload,
 		[]string{"compaction", "policy"},
@@ -1857,8 +1829,6 @@ func formatDsproxyCompactionPolicySummaryLine(payload map[string]any) string {
 	); ok && keep > 0 {
 		parts = append(parts, fmt.Sprintf("keep ⤒%d msgs", keep))
 	}
-
-	parts = append(parts, dsproxyAutoCompactPolicyDisplayParts(payload)...)
 
 	return "Policy   " + strings.Join(parts, " · ")
 }
@@ -2174,7 +2144,7 @@ func dsproxyCacheHitPercentText(section map[string]any) string {
 
 func dsproxyCacheAwareTokenText(section map[string]any) string {
 	if section == nil || !nestedBoolDefault(section, true, "available") {
-		return "hit~n/a/n/a"
+		return "hit~n/a||n/a"
 	}
 	hitText := dsproxyCacheHitPercentText(section)
 	total := dsproxyCacheTotalPromptTokens(section)
@@ -2182,7 +2152,7 @@ func dsproxyCacheAwareTokenText(section map[string]any) string {
 	if total >= 0 {
 		totalText = formatTokenCount(total)
 	}
-	return fmt.Sprintf("hit~%s/%s", hitText, totalText)
+	return fmt.Sprintf("hit~%s||%s", hitText, totalText)
 }
 
 func dsproxySectionDisplayScopeAllowed(section map[string]any) bool {

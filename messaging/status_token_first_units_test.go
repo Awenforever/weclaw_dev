@@ -164,15 +164,15 @@ func TestTokenFirstCompactRetentionUsesAfterOverBeforeTokens(t *testing.T) {
 	}
 }
 
-func TestPolicyDisplaysAutoCompactMigrationHint(t *testing.T) {
+func TestPolicyDoesNotDisplayAutoCompactMigrationHintInStatus(t *testing.T) {
 	payload := map[string]any{
 		"context_window": map[string]any{
 			"auto_compact_threshold_tokens": float64(750000),
 			"auto_compact_policy": map[string]any{
 				"available":       true,
 				"needs_migration": true,
-				"display_label":   "legacy 75%→90%",
-				"short_action":    "repair profile",
+				"display_label":   "diagnostic label",
+				"short_action":    "diagnostic action",
 			},
 		},
 		"runtime_payload_guard": map[string]any{
@@ -183,8 +183,11 @@ func TestPolicyDisplaysAutoCompactMigrationHint(t *testing.T) {
 		},
 	}
 	got := formatDsproxyCompactionPolicySummaryLine(payload)
-	want := "Policy   adaptive · trigger 750k tokens · keep ⤒24 msgs · legacy 75%→90% · repair profile"
+	want := "Policy   adaptive · trigger 750k tokens · keep ⤒24 msgs"
 	if got != want {
-		t.Fatalf("policy line mismatch:\n got: %q\nwant: %q", got, want)
+		t.Fatalf("policy line mismatch:\\n got: %q\\nwant: %q", got, want)
+	}
+	if strings.Contains(got, "diagnostic") {
+		t.Fatalf("policy line must not surface dsproxy repair diagnostics in normal /status: %q", got)
 	}
 }
