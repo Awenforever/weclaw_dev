@@ -1,3 +1,15 @@
+## Internal version stage governance
+
+Internal `p*.*.*a*` tags are not simple build counters. They describe an active development stage plus the iteration number inside that stage. When the stage semantics become unhealthy, the task bus changes, or the `a*` suffix has grown too large to remain readable, maintainers must advance to a new `p` stage instead of continuing to stack more `a` nodes.
+
+Required rules:
+
+- Do not keep adding `a` nodes under a stale stage name just because it is mechanically possible.
+- Start a new `p` stage when the mainline topic changes, when a release has closed the prior phase, when the current stage name no longer describes the work, or when the suffix count has become semantically noisy.
+- Prefer a new stage such as `p0.1.6a1-...` over continuing from an overextended sequence such as `p0.1.5a104-...`.
+- The assistant is responsible for proposing the stage bump before generating patch commands when the current internal stage is no longer healthy.
+- Public release tags such as `v0.1.9-alpha` remain independent from internal `p` stage governance and must not be moved unless the user explicitly requests a public release update.
+
 ## p0.1.5a103-status-token-separator-hide-policy-diagnostic
 
 p0.1.5a103 changes the `/status` Tokens separator to `hit~<ratio>||<tokens>` and removes user-facing auto-compact repair diagnostics from the normal Policy row. The Policy row still shows the real dsproxy active trigger, such as `trigger 750k tokens`. WeClaw must not rewrite that value to `900k`; actual legacy-profile migration belongs to dsproxy/profile repair.

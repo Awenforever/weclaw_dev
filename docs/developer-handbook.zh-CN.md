@@ -1,3 +1,15 @@
+## 内部版本阶段治理
+
+内部`p*.*.*a*`标签不是单纯的构建流水号。它应同时表达当前开发阶段和该阶段内的迭代次数。当阶段语义已经不健康、任务主线发生变化，或者`a*`后缀已经膨胀到影响可读性时，必须推进到新的`p`阶段，而不是继续在旧阶段下堆叠更多`a`节点。
+
+强制规则：
+
+- 不要因为机械上还能继续编号，就在过期阶段名下继续追加`a`节点。
+- 当主线任务变化、前一阶段已经随Release闭合、当前阶段名已不能描述实际工作，或后缀计数已经产生语义噪声时，应开启新的`p`阶段。
+- 应优先使用类似`p0.1.6a1-...`的新阶段，而不是继续使用过度延展的`p0.1.5a104-...`。
+- 当当前内部阶段已经不健康时，助手必须在生成补丁命令前主动提出阶段推进。
+- 公开Release标签，例如`v0.1.9-alpha`，与内部`p`阶段治理相互独立；除非用户明确要求公开Release更新，否则不得移动公开标签。
+
 ## p0.1.5a103-status-token-separator-hide-policy-diagnostic
 
 p0.1.5a103 changes the `/status` Tokens separator to `hit~<ratio>||<tokens>` and removes user-facing auto-compact repair diagnostics from the normal Policy row. The Policy row still shows the real dsproxy active trigger, such as `trigger 750k tokens`. WeClaw must not rewrite that value to `900k`; actual legacy-profile migration belongs to dsproxy/profile repair.
