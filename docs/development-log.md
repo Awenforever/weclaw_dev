@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## p0.1.6a1-version-stage-governance
+
+- Documentation: added internal version stage governance to the developer handbooks.
+- Rule: internal `p*.*.*a*` tags are stage-scoped development identifiers, not endless counters.
+- Rule: when a stage becomes semantically unhealthy, the task bus changes, a public release closes the prior phase, or the `a*` suffix becomes noisy, advance to a new `p` stage instead of continuing to stack `a` nodes.
+- Boundary: public `v*` release tags remain independent and must not be moved unless a public release update is explicitly requested.
+
+
 ## p0.1.5a103-status-token-separator-hide-policy-diagnostic
 
 - Change: `/status` Tokens now use `hit~<ratio>||<tokens>` to visually separate cache-hit ratio from the provider prompt-token total.
@@ -427,18 +435,10 @@
 ## 2026-05-14 - p0.1.5a43-slash-markdown-newlines-mobile-preview
 
 - Scope: WeChat slash command Markdown rendering and runtime validation.
-- Fix: replaced accidental literal `\\n## p0.1.6a1-version-stage-governance
-
-- Documentation: added internal version stage governance to the developer handbooks.
-- Rule: internal `p*.*.*a*` tags are stage-scoped development identifiers, not endless counters.
-- Rule: when a stage becomes semantically unhealthy, the task bus changes, a public release closes the prior phase, or the `a*` suffix becomes noisy, advance to a new `p` stage instead of continuing to stack `a` nodes.
-- Boundary: public `v*` release tags remain independent and must not be moved unless a public release update is explicitly requested.
-
-n` joins with real newline joins so ClawBot can render headings, lists, fenced panels and tables.
+- Fix: replaced accidental literal `\n` joins with real newline joins so ClawBot can render headings, lists, fenced panels and tables.
 - Change: treats Markdown syntax as visual affordances rather than literal semantic names; blockquotes can be callouts, fenced text can be status panels, tables are kept for compact structured data, and mobile help uses sections and lists.
 - Runtime: local development binary should be rebuilt with p0.1.5a43 metadata and restarted without resume to avoid reusing stale invalid Codex threads.
 - Validation: focused tests, full tests and active WeChat ClawBot preview messages are required.
-
 
 ## 2026-05-14 - p0.1.5a42-slash-command-markdown-formatting
 
