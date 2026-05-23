@@ -1,34 +1,18 @@
 # WeClaw Dev
 
-## 最新`/status`遥测
+<p align="center">
+  <strong>面向Codex、DeepSeek和长对话工作流优化的微信AI Agent桥接器。</strong>
+</p>
 
-当前`v0.1.9-alpha`线包含最新的CoDeepSeedeX联动`/status`遥测：
+<p align="center">
+  <a href="README_CN.md">中文文档</a> · <a href="README.md">English</a>
+</p>
 
-- `last`、`session`和`aux`的cache-aware Tokens展示；
-- current-session作用域的CNY Cost、Pricing和Balance；
-- 来自dsproxy的Details token来源拆分；
-- `/new`之后、首个prompt之前的pre-prompt保护，避免显示陈旧Tokens、Details、Compact和Trim值。
+> `weclaw_dev`是[`fastclaw-ai/weclaw`](https://github.com/fastclaw-ai/weclaw)的开发分支。
+> 本分支保留上游“微信接入AI Agent”的核心模式，同时强化Codex、DeepSeek、命令格式化、会话连续性和微信聊天体验。
+> 本项目仅限个人学习和研究使用。
 
-完整cache-aware Tokens展示需要CoDeepSeedeX内部节点`p2.10a83-deepseek-cache-accounting-contract`或更新版本。
-
-## 当前pre-release：v0.1.9-alpha
-
-`v0.1.9-alpha`已包含a72-a75线的WeClaw `/status`遥测刷新、a77的pre-release固定版本安装修复，以及a78的raw GitHub固定tag pre-release入口。
-
-pre-release安装必须使用raw GitHub固定tag安装器，并显式传入Release tag。不要把jsDelivr固定tag URL作为pre-release安装入口，因为公开tag移动后jsDelivr可能继续返回旧内容。
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
-```
-
-`v0.1.9-alpha`重点：
-
-- Context显示dsproxy返回的上下文窗口numerator和显示上限。
-- Pricing显示当前每100万tokens价格和价格更新时间。
-- Compact和Trim显示来自CoDeepSeedeX `runtime_payload_guard`的实时字符级进度。
-- Policy将近期消息保留数量显示为`keep ⤒24 msgs`。
-
-完整`/status`遥测需要CoDeepSeedeX `v0.3.9-alpha`或更新版本。
+---
 
 ## WeClaw Dev是什么？
 
@@ -575,6 +559,12 @@ dev分支增加的是日常从微信使用Agent时更需要的实用行为。
 
 ## 开发
 
+维护者文档：
+
+- 中文维护手册：[`docs/developer-handbook.zh-CN.md`](docs/developer-handbook.zh-CN.md)
+- 英文维护手册：[`docs/developer-handbook.md`](docs/developer-handbook.md)
+- 开发日志：[`docs/development-log.md`](docs/development-log.md)
+
 ```bash
 make dev
 go build -o weclaw .
@@ -605,56 +595,3 @@ weclaw start deepseek-thinking
 ## 许可证
 
 [MIT](LICENSE)
-- slash command输出会把Markdown当作视觉设计系统使用：引用块用于提示条，代码围栏用于状态面板，表格用于紧凑结构化数据，列表用于移动端阅读。
-
-<!-- WECLAW_V019_STATUS_DISPLAY_START -->
-### v0.1.9-alpha状态展示更新
-
-`/status`现在为CoDeepSeedeX支撑的profile提供紧凑遥测卡片，显示profile/model/session、Context、Tokens、Details、Cost、Balance、Pricing、Policy、Compact、Trim、Proxy和Paths。
-
-Cost、Pricing和Balance统一以人民币/CNY口径展示，并使用`￥`符号。Cost展示`last`、`session`、`aux`和最后的`total`。Pricing展示每百万token价格，例如`hit ￥0.02/M miss ￥1/M out ￥2/M`。
-
-WeClaw只格式化dsproxy结构化遥测字段，不自行查询价格、不换算币种、不拆分reasoning费用、不重新tokenize、不读取debug文件，也不用当前模型价格重算session费用。
-
-pre-release安装命令：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
-```
-
-已有用户可使用`weclaw upgrade --alpha`。
-
-需要CoDeepSeedeX v0.3.9-alpha或更新版本。CNY Cost/Pricing行需要dsproxy具备`p2.10a70-pricing-cny-primary-source`或更新版本中的CNY pricing telemetry契约。
-<!-- WECLAW_V019_STATUS_DISPLAY_END -->
-
-<!-- WECLAW_V019_LATEST_CLOSEOUT_START -->
-### v0.1.9-alpha Latest收口状态
-
-`v0.1.9-alpha`现在是GitHub普通Latest Release，不再是pre-release。标准安装和升级路径会解析到该版本。
-
-运行时Release状态：
-
-- 公开Release：`v0.1.9-alpha`
-- Release commit：`82ba8ca`
-- 内部运行时版本：`p0.1.5a86-cumulative-release-notes`
-- Release状态：`draft=false`，`prerelease=false`，Latest
-- 资产：linux amd64、linux arm64、darwin amd64、darwin arm64、windows amd64
-
-已验证用户路径：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
-weclaw upgrade
-weclaw version
-weclaw start deepseek-thinking resume
-```
-
-预期版本：
-
-```text
-weclaw public version: v0.1.9-alpha | 82ba8ca
-weclaw internal version: p0.1.5a86-cumulative-release-notes | 82ba8ca
-```
-
-除非出现新需求，否则v0.1.9-alpha的`/status`展示主线已闭环。
-<!-- WECLAW_V019_LATEST_CLOSEOUT_END -->

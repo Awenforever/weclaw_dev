@@ -1,34 +1,18 @@
 # WeClaw Dev
 
-## Latest `/status` telemetry
+<p align="center">
+  <strong>WeChat bridge for AI agents, optimized for Codex, DeepSeek and long-running chat workflows.</strong>
+</p>
 
-The current `v0.1.9-alpha` line includes the latest CoDeepSeedeX-backed `/status` telemetry:
+<p align="center">
+  <a href="README.md">English</a> · <a href="README_CN.md">中文文档</a>
+</p>
 
-- cache-aware `Tokens` display for `last`, `session`, and `aux`;
-- current-session scoped CNY `Cost`, `Pricing`, and `Balance`;
-- token-origin `Details` from dsproxy;
-- pre-prompt guards after `/new`, avoiding stale token, Details, Compact, and Trim values.
+> `weclaw_dev` is a development fork of [`fastclaw-ai/weclaw`](https://github.com/fastclaw-ai/weclaw).
+> It keeps the upstream WeChat AI Agent bridge model, while adding development-oriented behavior for Codex, DeepSeek, command formatting, session continuity and WeChat chat ergonomics.
+> Personal learning and research use only.
 
-Full cache-aware token display requires CoDeepSeedeX internal checkpoint `p2.10a83-deepseek-cache-accounting-contract` or later.
-
-## Current pre-release: v0.1.9-alpha
-
-`v0.1.9-alpha` now includes the WeClaw `/status` telemetry refresh from the a72-a75 line, the pinned pre-release installer fix from a77, and the raw GitHub fixed-tag pre-release entry from a78.
-
-Pre-release install must use the raw GitHub fixed-tag installer and pass the Release tag explicitly. Do not use jsDelivr fixed-tag URLs for pre-release installation, because jsDelivr can keep stale content after a public tag is moved during a pre-release refresh.
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
-```
-
-`v0.1.9-alpha` highlights:
-
-- Context shows the dsproxy-reported context window numerator and display limit.
-- Pricing shows current per-1M token prices and the pricing update date.
-- Compact and Trim show real-time char-level progress from CoDeepSeedeX `runtime_payload_guard`.
-- Policy displays the retained-message count as `keep ⤒24 msgs`.
-
-For full `/status` telemetry, use CoDeepSeedeX `v0.3.9-alpha` or newer.
+---
 
 ## What is WeClaw Dev?
 
@@ -581,7 +565,11 @@ Dev fork: https://github.com/Awenforever/weclaw_dev
 
 ## Development
 
-Detailed maintainer notes are kept in [`docs/developer-handbook.md`](docs/developer-handbook.md).
+Maintainer documentation:
+
+- English handbook: [`docs/developer-handbook.md`](docs/developer-handbook.md)
+- Chinese handbook: [`docs/developer-handbook.zh-CN.md`](docs/developer-handbook.zh-CN.md)
+- Development log: [`docs/development-log.md`](docs/development-log.md)
 
 ```bash
 make dev
@@ -613,58 +601,3 @@ weclaw start deepseek-thinking
 ## License
 
 [MIT](LICENSE)
-
----
-- Slash command output uses Markdown as a visual design system: quotes as callouts, code fences as status panels, tables for compact structured data, and lists for mobile readability.
-
-<!-- WECLAW_V019_STATUS_DISPLAY_START -->
-### v0.1.9-alpha status display update
-
-`/status` now provides a compact telemetry card for CoDeepSeedeX-backed profiles. It shows profile/model/session, Context, Tokens, Details, Cost, Balance, Pricing, Policy, Compact, Trim, Proxy, and Paths.
-
-Cost, Pricing, and Balance are displayed in RMB/CNY using `￥`. Cost shows `last`, `session`, `aux`, and trailing `total`. Pricing shows per-million-token prices such as `hit ￥0.02/M miss ￥1/M out ￥2/M`.
-
-WeClaw only formats dsproxy structured telemetry. It does not query provider prices, convert currencies, split reasoning cost, retokenize prompts, read debug files, or recompute session cost from the current model.
-
-Pre-release install command:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/v0.1.9-alpha/install.sh | sh -s -- --version v0.1.9-alpha
-```
-
-Existing users can use `weclaw upgrade --alpha`.
-
-Requires CoDeepSeedeX v0.3.9-alpha or newer. CNY Cost/Pricing rows require the dsproxy CNY pricing telemetry contract from `p2.10a70-pricing-cny-primary-source` or later.
-<!-- WECLAW_V019_STATUS_DISPLAY_END -->
-
-<!-- WECLAW_V019_LATEST_CLOSEOUT_START -->
-### v0.1.9-alpha Latest closeout
-
-`v0.1.9-alpha` is now the ordinary GitHub Latest Release, not a pre-release. Standard install and upgrade paths resolve to this version.
-
-Runtime release state:
-
-- Public Release: `v0.1.9-alpha`
-- Release commit: `82ba8ca`
-- Internal runtime version: `p0.1.5a86-cumulative-release-notes`
-- Release status: `draft=false`, `prerelease=false`, Latest
-- Assets: linux amd64, linux arm64, darwin amd64, darwin arm64, windows amd64
-
-Validated user path:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Awenforever/weclaw_dev/main/install.sh | sh
-weclaw upgrade
-weclaw version
-weclaw start deepseek-thinking resume
-```
-
-Expected version:
-
-```text
-weclaw public version: v0.1.9-alpha | 82ba8ca
-weclaw internal version: p0.1.5a86-cumulative-release-notes | 82ba8ca
-```
-
-This closes the v0.1.9-alpha `/status` display line unless new requirements arrive.
-<!-- WECLAW_V019_LATEST_CLOSEOUT_END -->

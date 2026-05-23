@@ -1,5 +1,20 @@
 # WeClaw Dev Development Log
 
+## p0.1.6a3-readme-restore
+
+- Fix: restored README and README_CN as user-facing entry documents instead of release-note or development-log dumps.
+- Fix: restored language links and upstream fork attribution at the top of both READMEs.
+- Fix: removed stale v0.1.9-alpha telemetry, pre-release, status-display and latest-closeout fragments from README bodies and footers.
+- Docs: added explicit English handbook, Chinese handbook and development-log links to the Development sections.
+- Boundary: public `v0.1.9-alpha` Release, assets and tag are not moved by this documentation restore.
+
+## p0.1.6a2-version-stage-governance-log-fix
+
+- Fix: repaired development-log placement after p0.1.6a1 and restored the p0.1.5a43 literal `\n` note.
+- Validation: confirmed the version-stage-governance entry exists once, the development-log H1 remains first, and p0.1.5a43 no longer contains a real newline inside an inline-code marker.
+- Boundary: public `v0.1.9-alpha` Release, assets and tag were not moved.
+
+
 ## p0.1.6a1-version-stage-governance
 
 - Documentation: added internal version stage governance to the developer handbooks.
