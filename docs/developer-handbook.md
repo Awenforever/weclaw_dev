@@ -10,6 +10,10 @@ Required rules:
 - The assistant is responsible for proposing the stage bump before generating patch commands when the current internal stage is no longer healthy.
 - Public release tags such as `v0.1.9-alpha` remain independent from internal `p` stage governance and must not be moved unless the user explicitly requests a public release update.
 
+## p0.1.6a4-status-trim-restore
+
+p0.1.6a4 restores the post-prompt `/status` Trim row when Compact is available from token-first dsproxy fields but Trim is explicitly unavailable. `formatDsproxyCompactionLines` must always preserve the original two-row Compact/Trim layout after primary usage is observed. If token-first Trim values are available, show them. If they are unavailable or intentionally suppressed by dsproxy profile isolation, keep `Trim    [...]  n/a  --/-- chars · no report` rather than dropping the row. This keeps WeClaw display-only and avoids showing stale cross-profile Trim reports.
+
 ## p0.1.5a103-status-token-separator-hide-policy-diagnostic
 
 p0.1.5a103 changes the `/status` Tokens separator to `hit~<ratio>||<tokens>` and removes user-facing auto-compact repair diagnostics from the normal Policy row. The Policy row still shows the real dsproxy active trigger, such as `trigger 750k tokens`. WeClaw must not rewrite that value to `900k`; actual legacy-profile migration belongs to dsproxy/profile repair.

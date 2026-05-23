@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+## p0.1.6a4-status-trim-restore
+
+- Fix: restored the post-prompt `/status` Trim row when Compact renders from token-first dsproxy fields but token-first Trim is unavailable.
+- Fix: `formatDsproxyCompactionLines` now keeps the original Compact/Trim two-row layout; unavailable Trim falls back to `n/a --/-- chars · no report` instead of disappearing.
+- Change: `weclawStatusTokenFirstTrimMap` now also reads token-first Trim maps under `runtime_payload_guard` and `context_window.runtime.payload_guard`.
+- Safety: unavailable or profile-mismatched Trim data remains suppressed; WeClaw does not show stale cross-profile Trim reports.
+- Boundary: public `v0.1.9-alpha` Release, assets and tag are not moved by this fix.
+
+
 ## p0.1.6a3-readme-restore
 
 - Fix: restored README and README_CN as user-facing entry documents instead of release-note or development-log dumps.

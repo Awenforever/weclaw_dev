@@ -2700,53 +2700,67 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 		lines = append(lines, legacyLines...)
 	}
 
-	if trim, ok := weclawStatusTokenFirstTrimMap(payload); ok {
-		before, beforeOK := weclawStatusTokenFirstFirstInt64(trim,
-			[]string{"before_tokens"},
-			[]string{"estimated_payload_tokens"},
-			[]string{"runtime_after_tokens"},
-		)
-		after, afterOK := weclawStatusTokenFirstFirstInt64(trim,
-			[]string{"after_tokens"},
-			[]string{"runtime_after_tokens"},
-		)
-		removed, removedOK := weclawStatusTokenFirstFirstInt64(trim,
-			[]string{"tokens_removed"},
-			[]string{"runtime_tokens_removed"},
-			[]string{"tokens_to_trim"},
-		)
-		applied, appliedOK := weclawStatusTokenFirstFirstBool(trim,
-			[]string{"applied"},
-			[]string{"runtime_applied"},
-			[]string{"trimmed"},
-		)
-		if !afterOK && beforeOK && removedOK {
-			after = before - removed
-			afterOK = true
+	trimLineAdded := false
+	for _, line := range lines {
+		if strings.HasPrefix(line, "Trim    ") {
+			trimLineAdded = true
+			break
 		}
-		if beforeOK && !afterOK {
-			after = before
-			afterOK = true
-		}
-		if beforeOK && afterOK && before > 0 {
-			status := "not triggered"
-			if appliedOK && applied {
-				status = "triggered"
+	}
+
+	if !trimLineAdded {
+		if trim, ok := weclawStatusTokenFirstTrimMap(payload); ok {
+			before, beforeOK := weclawStatusTokenFirstFirstInt64(trim,
+				[]string{"before_tokens"},
+				[]string{"estimated_payload_tokens"},
+				[]string{"runtime_after_tokens"},
+			)
+			after, afterOK := weclawStatusTokenFirstFirstInt64(trim,
+				[]string{"after_tokens"},
+				[]string{"runtime_after_tokens"},
+			)
+			removed, removedOK := weclawStatusTokenFirstFirstInt64(trim,
+				[]string{"tokens_removed"},
+				[]string{"runtime_tokens_removed"},
+				[]string{"tokens_to_trim"},
+			)
+			applied, appliedOK := weclawStatusTokenFirstFirstBool(trim,
+				[]string{"applied"},
+				[]string{"runtime_applied"},
+				[]string{"trimmed"},
+			)
+			if !afterOK && beforeOK && removedOK {
+				after = before - removed
+				afterOK = true
 			}
-			lines = append(lines, fmt.Sprintf(
-				"Trim    [%s]  %s  %s/%s tokens · %s",
-				formatCommandProgressBar(after, before, 20),
-				formatTokenPercent(after, before),
-				formatTokenCount(maxInt64(after, 0)),
-				formatTokenCount(before),
-				status,
-			))
+			if beforeOK && !afterOK {
+				after = before
+				afterOK = true
+			}
+			if beforeOK && afterOK && before > 0 {
+				status := "not triggered"
+				if appliedOK && applied {
+					status = "triggered"
+				}
+				lines = append(lines, fmt.Sprintf(
+					"Trim    [%s]  %s  %s/%s tokens · %s",
+					formatCommandProgressBar(after, before, 20),
+					formatTokenPercent(after, before),
+					formatTokenCount(maxInt64(after, 0)),
+					formatTokenCount(before),
+					status,
+				))
+				trimLineAdded = true
+			}
 		}
-	} else if len(lines) < 2 {
+	}
+
+	if !trimLineAdded && len(lines) < 2 {
 		if fallbackLines, ok := formatDsproxyRuntimePayloadGuardLines(payload); ok {
 			for _, line := range fallbackLines {
 				if strings.HasPrefix(line, "Trim    ") {
 					lines = append(lines, line)
+					trimLineAdded = true
 					break
 				}
 			}
@@ -2754,6 +2768,7 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 			for _, line := range legacyLines {
 				if strings.HasPrefix(line, "Trim    ") {
 					lines = append(lines, line)
+					trimLineAdded = true
 					break
 				}
 			}
@@ -2772,6 +2787,14 @@ func formatDsproxyCompactionLines(payload map[string]any) []string {
 			),
 		}
 	}
+
+	if !trimLineAdded {
+		lines = append(lines, fmt.Sprintf(
+			"Trim    [%s]  n/a  --/-- chars · no report",
+			formatCommandProgressBar(0, 0, 20),
+		))
+	}
+
 	return lines
 }
 
@@ -5063,8 +5086,17 @@ func weclawStatusTokenFirstFirstBool(root map[string]any, paths ...[]string) (bo
 func weclawStatusTokenFirstTrimMap(payload map[string]any) (map[string]any, bool) {
 	paths := [][]string{
 		{"token_first_runtime_trim"},
+		{"runtime_payload_guard", "token_first_runtime_trim"},
+		{"runtime_payload_guard", "trimming", "token_first_runtime_trim"},
+		{"compaction", "runtime_payload_guard", "token_first_runtime_trim"},
+		{"compaction", "runtime_payload_guard", "trimming", "token_first_runtime_trim"},
+		{"context_window", "runtime", "payload_guard", "token_first_runtime_trim"},
+		{"context_window", "runtime", "payload_guard", "trimming", "token_first_runtime_trim"},
 		{"runtime_trimming", "last_report", "token_first_runtime_trim"},
 		{"context_window", "runtime", "context", "trimming", "last_report", "token_first_runtime_trim"},
+		{"runtime_payload_guard", "trimming", "last_report", "token_first_trim_dry_run"},
+		{"compaction", "runtime_payload_guard", "trimming", "last_report", "token_first_trim_dry_run"},
+		{"context_window", "runtime", "payload_guard", "trimming", "last_report", "token_first_trim_dry_run"},
 		{"runtime_trimming", "last_report", "token_first_trim_dry_run"},
 		{"context_window", "runtime", "context", "trimming", "last_report", "token_first_trim_dry_run"},
 	}

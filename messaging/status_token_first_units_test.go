@@ -64,6 +64,78 @@ func TestTokenFirstStatusUnitsKeepOriginalCompactTrimRows(t *testing.T) {
 	}
 }
 
+func TestTokenFirstCompactWithUnavailableTrimStillShowsNoReportTrim(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"last_turn": map[string]any{
+				"available": true,
+				"total":     float64(21577),
+			},
+		},
+		"compaction": map[string]any{
+			"before_tokens": float64(21577),
+			"after_tokens":  float64(21577),
+			"compacted":     false,
+		},
+		"runtime_payload_guard": map[string]any{
+			"available": true,
+			"trimming": map[string]any{
+				"available": false,
+				"reason":    "runtime_trimming_tokens_unavailable",
+			},
+			"token_first_runtime_trim": map[string]any{
+				"available":      false,
+				"before_tokens":  nil,
+				"after_tokens":   nil,
+				"tokens_removed": float64(0),
+				"reason":         "no_runtime_trimming_report_observed",
+			},
+		},
+	}
+
+	got := strings.Join(formatDsproxyCompactionLines(payload), "\n")
+	if !strings.Contains(got, "Compact [") || !strings.Contains(got, "21.6k/21.6k tokens · not triggered") {
+		t.Fatalf("expected token-first Compact row, got:\n%s", got)
+	}
+	if !strings.Contains(got, "Trim    [") || !strings.Contains(got, "--/-- chars · no report") {
+		t.Fatalf("post-prompt status must keep a Trim no-report row when trim token fields are unavailable, got:\n%s", got)
+	}
+	if strings.Count(got, "Trim    [") != 1 {
+		t.Fatalf("expected exactly one Trim row, got:\n%s", got)
+	}
+}
+
+func TestTokenFirstTrimMapReadsRuntimePayloadGuardPath(t *testing.T) {
+	payload := map[string]any{
+		"tokens": map[string]any{
+			"last_turn": map[string]any{
+				"available": true,
+				"total":     float64(21577),
+			},
+		},
+		"compaction": map[string]any{
+			"before_tokens": float64(21577),
+			"after_tokens":  float64(21577),
+			"compacted":     false,
+		},
+		"runtime_payload_guard": map[string]any{
+			"available": true,
+			"token_first_runtime_trim": map[string]any{
+				"available":      true,
+				"before_tokens":  float64(412),
+				"after_tokens":   float64(412),
+				"tokens_removed": float64(0),
+				"applied":        false,
+			},
+		},
+	}
+
+	got := strings.Join(formatDsproxyCompactionLines(payload), "\n")
+	if !strings.Contains(got, "Trim    [") || !strings.Contains(got, "412/412 tokens · not triggered") {
+		t.Fatalf("expected token-first Trim row from runtime_payload_guard.token_first_runtime_trim, got:\n%s", got)
+	}
+}
+
 func TestTokenFirstPolicyDoesNotInventCompactTarget(t *testing.T) {
 	payload := map[string]any{
 		"context_window": map[string]any{

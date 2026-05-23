@@ -10,6 +10,10 @@
 - 当当前内部阶段已经不健康时，助手必须在生成补丁命令前主动提出阶段推进。
 - 公开Release标签，例如`v0.1.9-alpha`，与内部`p`阶段治理相互独立；除非用户明确要求公开Release更新，否则不得移动公开标签。
 
+## p0.1.6a4-status-trim-restore
+
+p0.1.6a4修复post-prompt `/status`中Compact已经从dsproxy token-first字段展示、但Trim显式不可用时Trim整行消失的问题。`formatDsproxyCompactionLines`在观察到primary usage之后必须保留原Compact/Trim双行布局。token-first Trim可用时展示token值；如果Trim不可用，或因dsproxy profile隔离被抑制，则显示`Trim    [...]  n/a  --/-- chars · no report`，不得删除整行，也不得展示跨profile旧Trim报告。
+
 ## p0.1.5a103-status-token-separator-hide-policy-diagnostic
 
 p0.1.5a103 changes the `/status` Tokens separator to `hit~<ratio>||<tokens>` and removes user-facing auto-compact repair diagnostics from the normal Policy row. The Policy row still shows the real dsproxy active trigger, such as `trigger 750k tokens`. WeClaw must not rewrite that value to `900k`; actual legacy-profile migration belongs to dsproxy/profile repair.
