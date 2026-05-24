@@ -1,5 +1,13 @@
 # WeClaw Dev Development Log
 
+## p0.1.6a5-docs-current-state-sync
+
+- Docs: synchronized the English developer handbook, Chinese developer handbook, and development log with the final `v0.1.9-alpha` Latest refresh after p0.1.6a4.
+- State: before this docs-only branch, `main=origin/main=e96b28e`, public tag `v0.1.9-alpha=e96b28e`, and internal tag `p0.1.6a4-status-trim-restore=e96b28e`.
+- Clarification: p0.1.6a4 restored the post-prompt Trim row in `/status`; p0.1.6a5 does not change runtime behavior.
+- Boundary: public `v0.1.9-alpha` Release, Release body, assets, and public tag are not moved by this docs-only sync.
+- Validation: `git diff --check`, `bash -n install.sh`, focused Go tests, and full Go tests are required before merging this docs sync.
+
 ## p0.1.6a4-status-trim-restore
 
 - Fix: restored the post-prompt `/status` Trim row when Compact renders from token-first dsproxy fields but token-first Trim is unavailable.

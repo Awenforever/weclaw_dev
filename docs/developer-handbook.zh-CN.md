@@ -10,6 +10,19 @@
 - 当当前内部阶段已经不健康时，助手必须在生成补丁命令前主动提出阶段推进。
 - 公开Release标签，例如`v0.1.9-alpha`，与内部`p`阶段治理相互独立；除非用户明确要求公开Release更新，否则不得移动公开标签。
 
+## p0.1.6a5-docs-current-state-sync
+
+p0.1.6a5仅维护文档。它把开发手册和开发日志同步到`p0.1.6a4-status-trim-restore`之后、`v0.1.9-alpha` Latest已刷新到`e96b28e`的最终状态。
+
+同步后的当前可信状态：
+
+- 本文档分支开始前，`main = origin/main = e96b28e`。
+- 公开Latest Release tag `v0.1.9-alpha`指向`e96b28e`。
+- 内部运行时tag `p0.1.6a4-status-trim-restore`指向`e96b28e`。
+- GitHub Release `WeClaw Dev v0.1.9-alpha`为非draft、非prerelease，并且是Latest。
+- `v0.1.9-alpha`刷新时五个平台资产已重建并上传。
+- 本文档节点不得移动公开tag、不得编辑GitHub Release正文、不得重建Release资产。
+
 ## p0.1.6a4-status-trim-restore
 
 p0.1.6a4修复post-prompt `/status`中Compact已经从dsproxy token-first字段展示、但Trim显式不可用时Trim整行消失的问题。`formatDsproxyCompactionLines`在观察到primary usage之后必须保留原Compact/Trim双行布局。token-first Trim可用时展示token值；如果Trim不可用，或因dsproxy profile隔离被抑制，则显示`Trim    [...]  n/a  --/-- chars · no report`，不得删除整行，也不得展示跨profile旧Trim报告。
@@ -181,41 +194,31 @@ p0.1.5a88将WeClaw `/status`适配到CoDeepSeedeX p2.10a73/p2.10a74契约。
 - Compact/Trim进度使用`runtime_payload_guard.*.progress_numerator_chars`、`progress_denominator_chars`和`progress_ratio`。
 - WeClaw保持纯展示层：不自行查价格、不换算币种、不重新tokenize、不读取debug文件，也不用当前模型价格重算session费用。
 
-## v0.1.9-alpha Latest收口后的当前可信状态
+## v0.1.9-alpha Latest刷新到p0.1.6a4后的当前可信状态
 
 运行时Release状态：
 
 - 公开Release：`v0.1.9-alpha`
-- 公开Release commit：`82ba8ca`
-- 公开资产对应内部运行时版本：`p0.1.5a86-cumulative-release-notes | 82ba8ca`
+- 公开Release commit：`e96b28e`
+- 公开资产对应内部运行时版本：`p0.1.6a4-status-trim-restore | e96b28e`
+- GitHub Release标题：`WeClaw Dev v0.1.9-alpha`
 - GitHub Release状态：`draft=false`，`prerelease=false`，Latest
 - Release资产：`weclaw_linux_amd64`、`weclaw_linux_arm64`、`weclaw_darwin_amd64`、`weclaw_darwin_arm64`、`weclaw_windows_amd64.exe`
-- Release更新时的`main`和`origin/main`：`82ba8ca`
-- p87仅为文档收口，不移动公开Release tag。
+- 本文档同步前的`main`和`origin/main`：`e96b28e`
+- 公开tag `v0.1.9-alpha`和内部tag `p0.1.6a4-status-trim-restore`均指向`e96b28e`。
 
-VM验证状态：
+验证和运行态：
 
-- Latest Release API返回`v0.1.9-alpha`且`prerelease=false`。
-- 从`main/install.sh`走标准安装路径会解析到`v0.1.9-alpha`。
-- 已安装同版本时安装器正确短路。
-- `weclaw upgrade`返回`Already up to date (v0.1.9-alpha)`。
-- `weclaw start deepseek-thinking resume`可成功启动运行时。
-- 先前从`v0.1.9-alpha`误提示到`v0.1.8-alpha`的降级提示，在标记`v0.1.9-alpha`为Latest后未复现。若后续VM或用户报告再次出现，再作为源码级更新提示缺陷重新打开。
-
-已闭环的`/status`主线：
-
-- 保留原始`█░`进度条。
-- Details行不再显示本地估算后缀。
-- Policy target已补充`chars`单位。
-- Cost、Pricing和Balance以人民币/CNY口径显示并使用`￥`。
-- Cost展示`last`、`session`、`aux`和最后的`total`。
-- Pricing展示dsproxy提供的CNY每百万token价格。
-- WeClaw只作为dsproxy结构化遥测的展示消费者，不自行查询价格、不换算币种、不拆分reasoning费用、不重新tokenize、不读取debug文件，也不用当前模型价格重算session费用。
+- p0.1.6a4修复了Compact从dsproxy token-first字段展示、但Trim不可用时post-prompt `/status`中Trim整行消失的问题。
+- p0.1.6a4发布前，focused `go test ./cmd ./messaging -count=1`和full `go test ./... -count=1`已通过。
+- 用户已确认p0.1.6a4之后当前`/status`正常。
+- 最终移交中观察到的允许未跟踪项只有`.debug/`和`messaging.zip`；后续每个任务仍必须重新审计真实工作区，而不能假设该状态不变。
 
 主线状态：
 
-- v0.1.9-alpha发布线已闭环。
+- `v0.1.9-alpha` Latest线已在`e96b28e`闭合。
 - 除非出现新的明确需求，否则不要继续做推测性WeClaw补丁。
+- 下一个默认内部节点是`p0.1.6a5-*`；如果任务主线发生明显变化，应先提出推进到`p0.1.7a1-*`，再设计补丁。
 
 ## p0.1.5a86累计版v0.1.9-alpha release notes
 
@@ -314,19 +317,19 @@ p0.1.5a76在a72-a75 `/status`遥测线完成后，刷新文档并将当前`v0.1.
 - 项目路径：`~/projects/weclaw-streaming`
 - GitHub仓库：`Awenforever/weclaw_dev`
 - 主分支：`main`
-- 当前Latest公开Release：`v0.1.8-alpha`
-- 当前Latest公开Release commit：`05cb93c`
-- 当前公开pre-release：`v0.1.9-alpha`，位于`<to-be-refreshed-by-p79>`。
-- 当前Release对应内部标记：`p0.1.5a69-release-v0.1.9-alpha-refresh`，位于`6a5f10f`
-- 当前内部开发标签：`p0.1.5a79-prerelease-install-command-curl-prefix`
-- 本次同步前最后一次审计基线：`main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- 当前活动开发线：`p0.1.5a79-prerelease-install-command-curl-prefix`
-- 旧公开Release `v0.1.7-alpha`仍位于`31fa432`，不得移动。
-- 目标`v0.1.9-alpha` GitHub Release标题为`WeClaw Dev v0.1.9-alpha`，必须创建为pre-release，并在使用CoDeepSeedeX集成时要求CoDeepSeedeX `v0.3.9-alpha`或更新版本。
-- `v0.1.8-alpha`的GitHub Release标题为`WeClaw Dev v0.1.8-alpha`，不是draft，不是prerelease，并且已有五个平台资产。
+- 当前Latest公开Release：`v0.1.9-alpha`
+- 当前Latest公开Release commit：`e96b28e`
+- GitHub Release标题：`WeClaw Dev v0.1.9-alpha`
+- GitHub Release状态：`draft=false`，`prerelease=false`，Latest
+- 当前内部运行时tag：`p0.1.6a4-status-trim-restore`
+- 当前内部运行时commit：`e96b28e`
+- 当前内部开发标签：`p0.1.6a5-docs-current-state-sync`
+- 当前文档维护节点：`p0.1.6a5-docs-current-state-sync`
 - 预期Release资产：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64和Windows amd64。
-- p0.1.5a51只记录VM中GitHub Release资产下载失败和宿主机代理修复方案，不移动公开Release。
-- 后续每个新任务都先做只读审计，确认`main`、`origin/main`、当前内部tag、公开Release tag、工作区干净状态以及开发手册和开发日志头部。
+- 公开`v0.1.9-alpha` Release现在已包含截至`e96b28e`的p0.1.6a4 Trim行恢复和README恢复线。
+- 旧公开Release `v0.1.8-alpha`只作为历史版本保留，不得移动。
+- 使用CoDeepSeedeX集成时，仍要求CoDeepSeedeX `v0.3.9-alpha`或更新版本。
+- 后续每个新任务都先做只读审计，确认`main`、`origin/main`、当前内部tag、公开Release tag、tracked工作区干净状态以及开发手册和开发日志头部。
 
 ## 2. 长期主线任务检查表
 
@@ -340,10 +343,10 @@ p0.1.5a76在a72-a75 `/status`遥测线完成后，刷新文档并将当前`v0.1.
 | WeClaw责任边界 | 当`dsproxy`已提供结构化契约时，WeClaw在常规`/effort`、`/model`、`/status`或telemetry路径中不直接编辑Codex profile文件。 | WeClaw `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | `/effort`路径中的profile修复逻辑已在`p0.1.5a57-dsproxy-telemetry-contract`中移除。 |
 | `/effort`集成 | `/effort max`调用权威`dsproxy profile set-effort <profile> max --json`契约，并展示`effort.user_facing`或`effort.deepseek_reasoning_effort`。 | WeClaw `p0.1.5a57-dsproxy-telemetry-contract` | verified | 2026-05-16 | 该路径不再由WeClaw直接编辑Codex profile文件。 |
 | `/status`契约集成 | `/status`读取`dsproxy status <route> --weclaw-json`，并对缺失或不可用字段明确降级。 | WeClaw `p0.1.5a61-dsproxy-runtime-status-followup`加CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | verified | 2026-05-17 | 状态输出读取可用的usage/cost/balance字段，保持token级Context与usage ledger累计值分离，并恢复单行Paths。 |
-| Telemetry展示质量 | 微信移动端输出保持紧凑、Markdown优先，并展示model、effort、context window、token usage、estimated cost、balance、compaction、proxy和单行paths。 | WeClaw `p0.1.5a61-dsproxy-runtime-status-followup` | verified | 2026-05-17 | WeClaw现在读取dsproxy的`summary.total_tokens`，保留estimated cost语义，并且不把`session_total`当作context used tokens。 |
+| Telemetry展示质量 | 微信移动端输出保持紧凑、Markdown优先，并展示model、effort、context window、token usage、cost、balance、Compact/Trim、proxy和paths。 | WeClaw `p0.1.6a4-status-trim-restore` | verified | 2026-05-24 | `/status`保持token-first展示线，并在Trim不可用时恢复Compact/Trim双行布局。 |
 | 证据优先审计纪律 | 源码和文档改动必须基于完整源码文件、完整主文档或完整函数/模块块级上下文，而不是孤立grep片段。 | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | grep/rg只能用于定位符号或验证标记，不能作为补丁设计的充分证据。 |
 | 跨项目反馈闭环 | 每轮WeClaw集成后，根据缺失字段、语义歧义或契约不稳定点，生成精确的CoDeepSeedeX后续需求prompt。 | WeClaw `p0.1.5a67-status-estcost-label`，CoDeepSeedeX `p2.10a59-weclaw-round3-token-attribution-plan` | in_progress | 2026-05-17 | WeClaw保留`aux`，将行尾`est`标记改为`Cost`标签，并保持pricing、token和compaction语义不变。 |
-| Release准备 | README、开发手册、开发日志、focused tests、full tests、Release notes和五个平台资产在公开Release发布前保持一致。 | 公开pre-release `v0.1.9-alpha`位于`6a5f10f`，另有发布后文档收口`p0.1.5a70-post-release-doc-finalize` | done | 2026-05-17 | `v0.1.9-alpha`已在a69刷新并重建五个平台资产。a70只替换手册中的临时refreshing占位，不移动公开Release tag。 |
+| Release准备 | README、开发手册、开发日志、focused tests、full tests、Release notes和五个平台资产在公开Release发布前后保持一致。 | 公开Latest `v0.1.9-alpha`位于`e96b28e`；内部运行时tag `p0.1.6a4-status-trim-restore`；文档同步节点`p0.1.6a5-docs-current-state-sync` | done | 2026-05-24 | `v0.1.9-alpha`已在p0.1.6a4后刷新为普通Latest并重建五平台资产。p0.1.6a5仅维护文档，不得移动公开tag。 |
 
 ### 第二轮CoDeepSeedeX契约验收
 

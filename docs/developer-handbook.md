@@ -10,6 +10,19 @@ Required rules:
 - The assistant is responsible for proposing the stage bump before generating patch commands when the current internal stage is no longer healthy.
 - Public release tags such as `v0.1.9-alpha` remain independent from internal `p` stage governance and must not be moved unless the user explicitly requests a public release update.
 
+## p0.1.6a5-docs-current-state-sync
+
+p0.1.6a5 is documentation-only. It synchronizes the developer handbooks and development log with the final `v0.1.9-alpha` Latest refresh to `e96b28e` after `p0.1.6a4-status-trim-restore`.
+
+Current trusted state after the sync:
+
+- `main = origin/main = e96b28e` before this docs-only branch.
+- Public Latest Release tag `v0.1.9-alpha` points to `e96b28e`.
+- Internal runtime tag `p0.1.6a4-status-trim-restore` points to `e96b28e`.
+- GitHub Release `WeClaw Dev v0.1.9-alpha` is non-draft, non-prerelease, and Latest.
+- The five platform assets were rebuilt and uploaded during the `v0.1.9-alpha` refresh.
+- This docs node must not move public tags, edit the GitHub Release body, or rebuild assets.
+
 ## p0.1.6a4-status-trim-restore
 
 p0.1.6a4 restores the post-prompt `/status` Trim row when Compact is available from token-first dsproxy fields but Trim is explicitly unavailable. `formatDsproxyCompactionLines` must always preserve the original two-row Compact/Trim layout after primary usage is observed. If token-first Trim values are available, show them. If they are unavailable or intentionally suppressed by dsproxy profile isolation, keep `Trim    [...]  n/a  --/-- chars · no report` rather than dropping the row. This keeps WeClaw display-only and avoids showing stale cross-profile Trim reports.
@@ -181,41 +194,31 @@ Rules:
 - Use `runtime_payload_guard.*.progress_numerator_chars`, `progress_denominator_chars`, and `progress_ratio` for Compact/Trim progress.
 - Keep WeClaw display-only: no local pricing lookup, no currency conversion, no retokenization, no debug-file reads, and no recomputing session cost from current model prices.
 
-## Current trusted state after v0.1.9-alpha Latest closeout
+## Current trusted state after v0.1.9-alpha Latest refresh to p0.1.6a4
 
 Runtime release state:
 
 - Public Release: `v0.1.9-alpha`
-- Public Release commit: `82ba8ca`
-- Runtime internal version for the public asset: `p0.1.5a86-cumulative-release-notes | 82ba8ca`
+- Public Release commit: `e96b28e`
+- Runtime internal version for the public asset: `p0.1.6a4-status-trim-restore | e96b28e`
+- GitHub Release title: `WeClaw Dev v0.1.9-alpha`
 - GitHub Release state: `draft=false`, `prerelease=false`, Latest
 - Release assets: `weclaw_linux_amd64`, `weclaw_linux_arm64`, `weclaw_darwin_amd64`, `weclaw_darwin_arm64`, `weclaw_windows_amd64.exe`
-- `main` and `origin/main` at the time of Release update: `82ba8ca`
-- p87 is docs-only and does not move the public Release tag.
+- `main` and `origin/main` before this docs-only sync: `e96b28e`
+- Public tag `v0.1.9-alpha` and internal tag `p0.1.6a4-status-trim-restore` both pointed to `e96b28e`.
 
-VM validation state:
+Validation and runtime state:
 
-- Latest Release API returned `v0.1.9-alpha` with `prerelease=false`.
-- Standard install path from `main/install.sh` resolved to `v0.1.9-alpha`.
-- Existing same-version install short-circuited correctly.
-- `weclaw upgrade` returned `Already up to date (v0.1.9-alpha)`.
-- `weclaw start deepseek-thinking resume` started the runtime successfully.
-- The earlier downgrade notice from `v0.1.9-alpha` to `v0.1.8-alpha` was not reproduced after marking `v0.1.9-alpha` as Latest. If it reappears in a future VM/user report, reopen as a source-level update-notice bug.
-
-Closed `/status` line:
-
-- Original `█░` progress bars retained.
-- Details row does not display the local-estimate suffix.
-- Policy target includes the `chars` unit.
-- Cost, Pricing, and Balance display RMB/CNY with `￥`.
-- Cost displays `last`, `session`, `aux`, and trailing `total`.
-- Pricing displays CNY per-million-token values from dsproxy.
-- WeClaw remains a display consumer of dsproxy structured telemetry and must not query prices, convert currencies, split reasoning cost, retokenize prompts, read debug files, or recompute session cost from the current model.
+- p0.1.6a4 restored the post-prompt Trim row when Compact is rendered from token-first dsproxy fields and Trim is unavailable.
+- Focused `go test ./cmd ./messaging -count=1` and full `go test ./... -count=1` passed for p0.1.6a4 before the public Latest refresh.
+- The user confirmed the current `/status` output is normal after p0.1.6a4.
+- The final handoff observed only allowed untracked local items: `.debug/` and `messaging.zip`; every future task must re-audit the actual worktree instead of assuming that state.
 
 Mainline status:
 
-- The v0.1.9-alpha release line is closed.
+- The `v0.1.9-alpha` Latest line is closed at `e96b28e`.
 - Do not continue speculative WeClaw patching unless a new concrete requirement arrives.
+- The next default internal node is `p0.1.6a5-*`; if the task bus changes materially, propose a new `p0.1.7a1-*` stage before patching.
 
 ## p0.1.5a86 cumulative v0.1.9-alpha release notes
 
@@ -310,19 +313,19 @@ This is the canonical English handoff for starting a new AI development conversa
 - Project path: `~/projects/weclaw-streaming`
 - GitHub repository: `Awenforever/weclaw_dev`
 - Main branch: `main`
-- Current Latest public Release: `v0.1.8-alpha`
-- Current Latest public Release commit: `05cb93c`
-- Current public pre-release: `v0.1.9-alpha` at `<to-be-refreshed-by-p79>`.
-- Current Release internal marker: `p0.1.5a69-release-v0.1.9-alpha-refresh` at `6a5f10f`
-- Current internal development tag: `p0.1.5a80-status-details-cost-format`
-- Last audited handoff baseline before this sync: `main=origin/main=p0.1.5a59-status-paths-restore=68ca2bb`
-- Current active development line: `p0.1.5a79-prerelease-install-command-curl-prefix`
-- Previous public Release `v0.1.7-alpha` remains at `31fa432` and must not be moved.
-- Target `v0.1.9-alpha` GitHub Release title is `WeClaw Dev v0.1.9-alpha`, must be created as a pre-release, and must require CoDeepSeedeX `v0.3.9-alpha` or newer when CoDeepSeedeX integration is used.
-- `v0.1.8-alpha` GitHub Release title is `WeClaw Dev v0.1.8-alpha`, is not draft, is not prerelease, and has five uploaded assets.
+- Current Latest public Release: `v0.1.9-alpha`
+- Current Latest public Release commit: `e96b28e`
+- GitHub Release title: `WeClaw Dev v0.1.9-alpha`
+- GitHub Release state: `draft=false`, `prerelease=false`, Latest
+- Current internal runtime tag: `p0.1.6a4-status-trim-restore`
+- Current internal runtime commit: `e96b28e`
+- Current internal development tag: `p0.1.6a5-docs-current-state-sync`
+- Current docs-maintenance node: `p0.1.6a5-docs-current-state-sync`
 - Expected Release assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
-- p0.1.5a51 only documented the VM GitHub Release asset download failure and host-proxy fix. It did not move the public Release.
-- Start every future task with a read-only audit of `main`, `origin/main`, the active internal tag, public Release tags, clean worktree state, and the handbook/log heads.
+- The public `v0.1.9-alpha` Release now includes the p0.1.6a4 Trim-row restore and README restore line through `e96b28e`.
+- Previous public Release `v0.1.8-alpha` remains historical and must not be moved.
+- CoDeepSeedeX integration still requires CoDeepSeedeX `v0.3.9-alpha` or newer when used.
+- Start every future task with a read-only audit of `main`, `origin/main`, the active internal tag, public Release tags, clean tracked worktree state, and the handbook/log heads.
 
 ## 2. Long-term mainline task tracker
 
@@ -336,10 +339,10 @@ Status vocabulary: `planned`, `in_progress`, `verified`, `blocked`, `done`, `sup
 | WeClaw ownership boundary | WeClaw does not directly edit Codex profile files for normal `/effort`, `/model`, `/status`, or telemetry paths when `dsproxy` provides a structured contract. | WeClaw `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Profile repair logic is removed from the `/effort` path in `p0.1.5a57-dsproxy-telemetry-contract`. |
 | `/effort` integration | `/effort max` calls the authoritative `dsproxy profile set-effort <profile> max --json` contract and displays `effort.user_facing` or `effort.deepseek_reasoning_effort`. | WeClaw `p0.1.5a57-dsproxy-telemetry-contract` | verified | 2026-05-16 | WeClaw no longer edits Codex profile files in this path. |
 | `/status` contract integration | `/status` consumes `dsproxy status <route> --weclaw-json` and renders returned data with explicit fallback for unavailable fields. | WeClaw `p0.1.5a61-dsproxy-runtime-status-followup` plus CoDeepSeedeX `p2.10a55-weclaw-runtime-status-contract` | verified | 2026-05-17 | Status output reads available usage/cost/balance fields, keeps token-level Context separate from usage ledger totals, and restores a single-line Paths row. |
-| Telemetry display quality | Mobile WeChat output remains compact and Markdown-first while showing model, effort, context window, token usage, estimated cost, balance, compaction, proxy, and a single-line paths row. | WeClaw `p0.1.5a59-status-paths-restore` | verified | 2026-05-17 | Compact `/status` hides internal diagnostics but retains user-useful runtime paths. |
+| Telemetry display quality | Mobile WeChat output remains compact and Markdown-first while showing model, effort, context window, token usage, cost, balance, Compact/Trim, proxy, and paths. | WeClaw `p0.1.6a4-status-trim-restore` | verified | 2026-05-24 | `/status` keeps the token-first display line and restores the Compact/Trim two-row layout when Trim is unavailable. |
 | Evidence-first audit discipline | Source and document changes are based on full source files, full canonical documents, or complete function/module blocks rather than isolated grep snippets. | `p0.1.5a56-mainline-tracker-audit-policy` | in_progress | 2026-05-16 | Grep/rg may help locate symbols or verify markers, but it is not sufficient evidence for patch design. |
 | Cross-project feedback loop | After each WeClaw integration round, produce a precise CoDeepSeedeX follow-up prompt for missing fields, ambiguous semantics, or unstable contract behavior. | WeClaw `p0.1.5a67-status-estcost-label`; CoDeepSeedeX `p2.10a59-weclaw-round3-token-attribution-plan` | in_progress | 2026-05-17 | WeClaw keeps `aux`, replaces the trailing `est` marker with an `Cost` label, and leaves pricing/token/compaction semantics unchanged. |
-| Release readiness | README, handbooks, development log, focused tests, full tests, Release notes, and five platform assets are consistent before public Release publication. | Public pre-release `v0.1.9-alpha` at `6a5f10f` plus post-release doc finalization `p0.1.5a70-post-release-doc-finalize` | done | 2026-05-17 | `v0.1.9-alpha` was refreshed to a69 with five rebuilt assets. a70 only replaces temporary refreshing placeholders in handbooks and must not move the public Release tag. |
+| Release readiness | README, handbooks, development log, focused tests, full tests, Release notes, and five platform assets are consistent before or after a public Release refresh. | Public Latest `v0.1.9-alpha` at `e96b28e`; internal runtime tag `p0.1.6a4-status-trim-restore`; docs sync `p0.1.6a5-docs-current-state-sync` | done | 2026-05-24 | `v0.1.9-alpha` was refreshed as ordinary Latest with five rebuilt assets after p0.1.6a4. p0.1.6a5 is docs-only and must not move the public tag. |
 
 ### Second-round CoDeepSeedeX contract acceptance
 
