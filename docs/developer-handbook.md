@@ -1,6 +1,19 @@
 ## Internal version stage governance
 
 
+## p0.1.6a8-artifact-delivery-contract
+
+p0.1.6a8 formalizes artifact delivery beyond the legacy standalone-path convention. Agents may still output a supported absolute local path on its own line, but the preferred contract is now a structured `WECLAW_ARTIFACT` block with `path`, `type`, and `send=true`.
+
+Rules:
+
+- `WECLAW_ARTIFACT` blocks are parsed by WeClaw, validated against supported attachment extensions and allowed roots, and then delivered to the active WeChat chat through the existing media path.
+- Successful artifact blocks are replaced in the outgoing text with `Sent attachment: <filename>`.
+- Failed artifact blocks are replaced or appended with `Attachment send failed: <filename>`.
+- `send=false` keeps the artifact from being sent, which lets an agent mention intermediate files without delivering them.
+- Standalone absolute local paths remain supported for backward compatibility.
+- This node does not move public `v0.1.9-alpha`, edit the public Release body, or rebuild Release assets.
+
 ## p0.1.6a7-agent-context-injection-efficiency
 
 p0.1.6a7 optimizes the p0.1.6a6 agent context injection strategy and broadens the image/file wording into an artifact-delivery lifecycle contract. ACP/Codex app-server and legacy ACP paths now receive the full WeClaw capability contract once per WeClaw conversation instead of on every user turn, while later turns keep the raw user message to avoid repeated token cost.
@@ -345,8 +358,8 @@ This is the canonical English handoff for starting a new AI development conversa
 - GitHub Release state: `draft=false`, `prerelease=false`, Latest
 - Current internal runtime tag: `p0.1.6a4-status-trim-restore`
 - Current internal runtime commit: `e96b28e`
-- Current internal development tag: `p0.1.6a7-agent-context-injection-efficiency`
-- Current development node: `p0.1.6a7-agent-context-injection-efficiency`
+- Current internal development tag: `p0.1.6a8-artifact-delivery-contract`
+- Current development node: `p0.1.6a8-artifact-delivery-contract`
 - Expected Release assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
 - The public `v0.1.9-alpha` Release now includes the p0.1.6a4 Trim-row restore and README restore line through `e96b28e`.
 - Previous public Release `v0.1.8-alpha` remains historical and must not be moved.

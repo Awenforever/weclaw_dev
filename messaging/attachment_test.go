@@ -98,3 +98,65 @@ func TestRewriteReplyWithAttachmentResults(t *testing.T) {
 		t.Fatalf("expected failure note, got %q", got)
 	}
 }
+
+func TestExtractLocalAttachmentPathsFromWeClawArtifactBlock(t *testing.T) {
+	dir := t.TempDir()
+	docPath := filepath.Join(dir, "report.docx")
+	pngPath := filepath.Join(dir, "cover.png")
+	if err := os.WriteFile(docPath, []byte("docx"), 0o644); err != nil {
+		t.Fatalf("write docx: %v", err)
+	}
+	if err := os.WriteFile(pngPath, []byte("png"), 0o644); err != nil {
+		t.Fatalf("write png: %v", err)
+	}
+
+	reply := strings.Join([]string{
+		"已生成交付物：",
+		"WECLAW_ARTIFACT:",
+		"path=" + docPath,
+		"type=document",
+		"send=true",
+		"END_WECLAW_ARTIFACT",
+		"WECLAW_ARTIFACT: file://" + pngPath,
+		"send=false",
+		"END_WECLAW_ARTIFACT",
+	}, "\n")
+
+	got := extractLocalAttachmentPaths(reply)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 path, got %d (%v)", len(got), got)
+	}
+	if got[0] != docPath {
+		t.Fatalf("got[0] = %q, want %q", got[0], docPath)
+	}
+}
+
+func TestRewriteReplyWithWeClawArtifactBlockResults(t *testing.T) {
+	sentPath := "/tmp/report.docx"
+	failedPath := "/tmp/archive.zip"
+	reply := strings.Join([]string{
+		"已生成交付物：",
+		"WECLAW_ARTIFACT:",
+		"path=" + sentPath,
+		"type=document",
+		"send=true",
+		"END_WECLAW_ARTIFACT",
+		"WECLAW_ARTIFACT:",
+		"path=" + failedPath,
+		"type=archive",
+		"send=true",
+		"END_WECLAW_ARTIFACT",
+	}, "\n")
+
+	got := rewriteReplyWithAttachmentResults(reply, []string{sentPath}, []string{failedPath})
+
+	if strings.Contains(got, "WECLAW_ARTIFACT") || strings.Contains(got, "path="+sentPath) {
+		t.Fatalf("expected artifact blocks to be replaced, got %q", got)
+	}
+	if !strings.Contains(got, "Sent attachment: report.docx") {
+		t.Fatalf("expected sent artifact replacement, got %q", got)
+	}
+	if strings.Count(got, "Attachment send failed: archive.zip") != 1 {
+		t.Fatalf("expected one failure note, got %q", got)
+	}
+}

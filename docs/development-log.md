@@ -1,6 +1,14 @@
 # WeClaw Dev Development Log
 
 
+## p0.1.6a8-artifact-delivery-contract
+
+- Feature: added structured `WECLAW_ARTIFACT` block parsing for user-facing local deliverables while preserving the existing standalone absolute-path attachment convention.
+- Change: successful artifact blocks are replaced with `Sent attachment: <filename>` and failed artifact blocks produce one `Attachment send failed: <filename>` note.
+- Change: `send=false` artifact blocks are ignored by the send extractor, so agents can mention intermediate files without delivering them.
+- Boundary: artifact delivery still uses the existing supported extension list, allowed attachment roots, and media sender. Public `v0.1.9-alpha`, Release body, assets and public tag are not moved.
+- Tests: added extraction and rewrite coverage for structured artifact blocks and updated the agent prompt contract test.
+
 ## p0.1.6a7-agent-context-injection-efficiency
 
 - Change: optimized WeClaw runtime context injection so ACP/Codex app-server and legacy ACP paths receive the full WeClaw capability contract once per WeClaw conversation instead of on every user turn.

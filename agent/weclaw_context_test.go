@@ -11,7 +11,8 @@ func TestMergeWeClawSystemPromptIncludesWechatAttachmentContract(t *testing.T) {
 		"WeClaw runtime context:",
 		"active WeChat chat",
 		"user-facing artifacts",
-		"absolute local path on a line by itself",
+		"WECLAW_ARTIFACT",
+		"standalone absolute local path",
 		"png",
 		"docx",
 	} {

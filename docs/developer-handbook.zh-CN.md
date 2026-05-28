@@ -1,6 +1,19 @@
 ## 内部版本阶段治理
 
 
+## p0.1.6a8-artifact-delivery-contract
+
+p0.1.6a8把交付物发送从旧的“独立路径约定”提升为结构化契约。Agent仍可把受支持的绝对本地路径单独输出在一行，但首选方式变为包含`path`、`type`和`send=true`的`WECLAW_ARTIFACT`块。
+
+规则：
+
+- WeClaw会解析`WECLAW_ARTIFACT`块，校验支持的附件扩展名和允许根目录，然后复用现有媒体发送链路投递到当前微信聊天。
+- 成功发送的artifact块会在输出文本中替换为`Sent attachment: <filename>`。
+- 发送失败的artifact块会替换或追加为`Attachment send failed: <filename>`。
+- `send=false`表示不发送该artifact，可用于Agent提到中间文件但不交付的场景。
+- 独立绝对本地路径继续保留，作为向后兼容路径。
+- 本节点不移动公开`v0.1.9-alpha`，不编辑公开Release正文，不重建Release资产。
+
 ## p0.1.6a7-agent-context-injection-efficiency
 
 p0.1.6a7优化p0.1.6a6的Agent上下文注入策略，并把“图片/文件发送”提升为更通用的交付物生命周期契约。ACP/Codex app-server和legacy ACP路径只在每个WeClaw会话第一次进入Agent时注入完整WeClaw能力契约，后续turn保持用户消息原文，避免每轮重复消耗token。
@@ -349,8 +362,8 @@ p0.1.5a76在a72-a75 `/status`遥测线完成后，刷新文档并将当前`v0.1.
 - GitHub Release状态：`draft=false`，`prerelease=false`，Latest
 - 当前内部运行时tag：`p0.1.6a4-status-trim-restore`
 - 当前内部运行时commit：`e96b28e`
-- 当前内部开发标签：`p0.1.6a7-agent-context-injection-efficiency`
-- 当前开发节点：`p0.1.6a7-agent-context-injection-efficiency`
+- 当前内部开发标签：`p0.1.6a8-artifact-delivery-contract`
+- 当前开发节点：`p0.1.6a8-artifact-delivery-contract`
 - 预期Release资产：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64和Windows amd64。
 - 公开`v0.1.9-alpha` Release现在已包含截至`e96b28e`的p0.1.6a4 Trim行恢复和README恢复线。
 - 旧公开Release `v0.1.8-alpha`只作为历史版本保留，不得移动。
