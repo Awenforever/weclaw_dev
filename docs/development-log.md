@@ -1,5 +1,14 @@
 # WeClaw Dev Development Log
 
+
+## p0.1.6a6-agent-wechat-capability-contract
+
+- Feature: injected a WeClaw runtime capability contract into configured agents so they understand the active WeChat chat and local attachment send workflow.
+- Change: ACP/Codex app-server and CLI paths now compose the runtime contract above user messages when no reliable native system channel exists; HTTP and Claude-style CLI paths receive the merged system prompt.
+- Fix: `save_dir` is now included in allowed attachment roots alongside the agent working directory and `~/.weclaw/workspace`.
+- Tests: added unit coverage for the capability contract prompt, Codex app-server input composition, and configured save-dir attachment roots.
+- Boundary: public `v0.1.9-alpha` Release, Release body, assets and public tag are not moved by this runtime-contract fix.
+
 ## p0.1.6a5-docs-current-state-sync
 
 - Docs: synchronized the English developer handbook, Chinese developer handbook, and development log with the final `v0.1.9-alpha` Latest refresh after p0.1.6a4.

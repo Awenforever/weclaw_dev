@@ -517,7 +517,7 @@ func (a *ACPAgent) ChatStream(ctx context.Context, conversationID string, messag
 	go func() {
 		result, err := a.rpc(ctx, "session/prompt", promptParams{
 			SessionID: sessionID,
-			Prompt:    []promptEntry{{Type: "text", Text: message}},
+			Prompt:    a.promptEntriesForMessage(message),
 		})
 		if result != nil {
 			log.Printf("[acp] prompt result (session=%s): %s", sessionID, string(result))
@@ -571,6 +571,14 @@ func (a *ACPAgent) ChatStream(ctx context.Context, conversationID string, messag
 			return result, nil
 		}
 	}
+}
+
+func (a *ACPAgent) promptEntriesForMessage(message string) []promptEntry {
+	return []promptEntry{{Type: "text", Text: ComposeUserMessageWithSystemPrompt(a.systemPrompt, message)}}
+}
+
+func (a *ACPAgent) codexInputForMessage(message string) []codexUserInput {
+	return []codexUserInput{{Type: "text", Text: ComposeUserMessageWithSystemPrompt(a.systemPrompt, message)}}
 }
 
 func (a *ACPAgent) getOrCreateSession(ctx context.Context, conversationID string) (string, bool, error) {
@@ -744,7 +752,7 @@ func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string
 		_, err := a.rpc(ctx, "turn/start", codexTurnStartParams{
 			ThreadID:       tid,
 			ApprovalPolicy: "never",
-			Input:          []codexUserInput{{Type: "text", Text: message}},
+			Input:          a.codexInputForMessage(message),
 			SandboxPolicy:  map[string]interface{}{"type": "dangerFullAccess"},
 			Model:          a.model,
 			ModelProvider:  a.modelProvider,

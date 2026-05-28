@@ -270,7 +270,7 @@ func (a *CLIAgent) chatClaude(ctx context.Context, conversationID string, messag
 
 // chatCodex handles codex CLI invocation using "codex exec".
 func (a *CLIAgent) chatCodex(ctx context.Context, message string) (string, error) {
-	args := []string{"exec", message}
+	args := []string{"exec", ComposeUserMessageWithSystemPrompt(a.systemPrompt, message)}
 	if a.model != "" {
 		args = append(args, "--model", a.model)
 	}

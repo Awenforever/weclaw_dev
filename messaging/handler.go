@@ -4044,8 +4044,12 @@ func (h *Handler) allowedAttachmentRoots(agentName string) []string {
 
 	h.mu.RLock()
 	agentDir := h.agentWorkDirs[agentName]
+	saveDir := h.saveDir
 	h.mu.RUnlock()
 
+	if saveDir != "" {
+		roots = append(roots, saveDir)
+	}
 	if agentDir != "" {
 		roots = append(roots, agentDir)
 	}

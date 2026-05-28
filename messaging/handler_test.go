@@ -241,6 +241,20 @@ func TestSendReplyWithMediaOptionsSingleTextModeSendsOneFinalReply(t *testing.T)
 	}
 }
 
+func TestAllowedAttachmentRootsIncludesConfiguredSaveDir(t *testing.T) {
+	h := NewHandler(nil, nil)
+	h.SetSaveDir("/tmp/weclaw-save")
+	h.SetAgentWorkDirs(map[string]string{"codex": "/tmp/weclaw-cwd"})
+
+	got := h.allowedAttachmentRoots("codex")
+	joined := strings.Join(got, "\n")
+	for _, want := range []string{".weclaw", "/tmp/weclaw-save", "/tmp/weclaw-cwd"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("allowed roots %q missing %q", joined, want)
+		}
+	}
+}
+
 func TestProgressSenderIsNotParagraphChunked(t *testing.T) {
 	h := NewHandler(nil, nil)
 	ag := &fakeStreamingAgent{

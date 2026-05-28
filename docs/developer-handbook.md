@@ -1,5 +1,19 @@
 ## Internal version stage governance
 
+
+## p0.1.6a6-agent-wechat-capability-contract
+
+p0.1.6a6 adds an agent-facing WeClaw runtime capability contract. WeClaw now injects a concise runtime context into configured agents so they understand that user turns come from the active WeChat chat, that "send it to me" or "通过微信发给我" targets the current chat, and that WeClaw can send supported local image/file paths as attachments.
+
+Rules:
+
+- The contract is injected as system/developer context where the agent path supports it.
+- For ACP/Codex app-server and CLI protocols without a reliable native system channel, WeClaw composes the runtime contract above the current user message while preserving the raw user request text.
+- The agent should output a supported absolute local path on its own line when it wants WeClaw to send a generated image/file.
+- WeClaw must not teach agents to claim they cannot send through WeChat when the local attachment workflow applies.
+- `save_dir`, agent working directory, and `~/.weclaw/workspace` are valid attachment roots for the send workflow.
+- This node does not move public `v0.1.9-alpha`, edit the public Release body, or rebuild Release assets.
+
 Internal `p*.*.*a*` tags are not simple build counters. They describe an active development stage plus the iteration number inside that stage. When the stage semantics become unhealthy, the task bus changes, or the `a*` suffix has grown too large to remain readable, maintainers must advance to a new `p` stage instead of continuing to stack more `a` nodes.
 
 Required rules:
@@ -319,8 +333,8 @@ This is the canonical English handoff for starting a new AI development conversa
 - GitHub Release state: `draft=false`, `prerelease=false`, Latest
 - Current internal runtime tag: `p0.1.6a4-status-trim-restore`
 - Current internal runtime commit: `e96b28e`
-- Current internal development tag: `p0.1.6a5-docs-current-state-sync`
-- Current docs-maintenance node: `p0.1.6a5-docs-current-state-sync`
+- Current internal development tag: `p0.1.6a6-agent-wechat-capability-contract`
+- Current development node: `p0.1.6a6-agent-wechat-capability-contract`
 - Expected Release assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
 - The public `v0.1.9-alpha` Release now includes the p0.1.6a4 Trim-row restore and README restore line through `e96b28e`.
 - Previous public Release `v0.1.8-alpha` remains historical and must not be moved.

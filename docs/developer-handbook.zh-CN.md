@@ -1,5 +1,19 @@
 ## 内部版本阶段治理
 
+
+## p0.1.6a6-agent-wechat-capability-contract
+
+p0.1.6a6新增面向Agent的WeClaw运行时能力契约。WeClaw现在会向已配置Agent注入简洁的运行环境上下文，让Agent知道用户消息来自当前微信聊天，“发给我”或“通过微信发给我”的目标就是当前聊天，并且WeClaw可以把受支持的本地图片/文件路径作为附件发送出去。
+
+规则：
+
+- Agent路径支持system/developer上下文时，优先用该上下文注入能力契约。
+- 对ACP/Codex app-server和CLI这类缺少稳定原生system通道的协议，WeClaw会把运行时契约组合到当前用户消息之前，同时保留原始用户请求文本。
+- 当Agent希望WeClaw发送生成的图片/文件时，应把受支持的绝对本地路径单独输出在一行。
+- 当本地附件发送工作流适用时，WeClaw不得让Agent继续声称“不能通过微信发送”。
+- `save_dir`、Agent工作目录和`~/.weclaw/workspace`都是发送工作流的有效附件根目录。
+- 本节点不移动公开`v0.1.9-alpha`，不编辑公开Release正文，不重建Release资产。
+
 内部`p*.*.*a*`标签不是单纯的构建流水号。它应同时表达当前开发阶段和该阶段内的迭代次数。当阶段语义已经不健康、任务主线发生变化，或者`a*`后缀已经膨胀到影响可读性时，必须推进到新的`p`阶段，而不是继续在旧阶段下堆叠更多`a`节点。
 
 强制规则：
@@ -323,8 +337,8 @@ p0.1.5a76在a72-a75 `/status`遥测线完成后，刷新文档并将当前`v0.1.
 - GitHub Release状态：`draft=false`，`prerelease=false`，Latest
 - 当前内部运行时tag：`p0.1.6a4-status-trim-restore`
 - 当前内部运行时commit：`e96b28e`
-- 当前内部开发标签：`p0.1.6a5-docs-current-state-sync`
-- 当前文档维护节点：`p0.1.6a5-docs-current-state-sync`
+- 当前内部开发标签：`p0.1.6a6-agent-wechat-capability-contract`
+- 当前开发节点：`p0.1.6a6-agent-wechat-capability-contract`
 - 预期Release资产：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64和Windows amd64。
 - 公开`v0.1.9-alpha` Release现在已包含截至`e96b28e`的p0.1.6a4 Trim行恢复和README恢复线。
 - 旧公开Release `v0.1.8-alpha`只作为历史版本保留，不得移动。

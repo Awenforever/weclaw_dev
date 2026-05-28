@@ -62,6 +62,54 @@ func TestACPAgentChatStreamCodexRawInputAndDeltasAreFallbackOnly(t *testing.T) {
 	}
 }
 
+func TestACPAgentChatStreamCodexIncludesWeClawContextWhenConfigured(t *testing.T) {
+	a := NewACPAgent(ACPAgentConfig{
+		Command:      "codex",
+		Args:         []string{"app-server"},
+		SystemPrompt: MergeWeClawSystemPrompt("Prefer short confirmations."),
+	})
+	a.started = true
+	var turnParams codexTurnStartParams
+	a.rpcCall = func(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
+		switch method {
+		case "thread/start":
+			return json.RawMessage(`{"thread":{"id":"thread-1"}}`), nil
+		case "turn/start":
+			var ok bool
+			turnParams, ok = params.(codexTurnStartParams)
+			if !ok {
+				t.Fatalf("turn/start params type = %T, want codexTurnStartParams", params)
+			}
+			go func() {
+				time.Sleep(10 * time.Millisecond)
+				a.handleCodexItemCompleted(json.RawMessage(`{"threadId":"thread-1","item":{"id":"msg-1","type":"agentMessage","text":"ok","phase":"final_answer"}}`))
+				a.handleCodexTurnEvent("turn/completed", json.RawMessage(`{"threadId":"thread-1"}`))
+			}()
+			return json.RawMessage(`{}`), nil
+		default:
+			t.Fatalf("unexpected rpc method %s", method)
+			return nil, nil
+		}
+	}
+
+	reply, err := a.ChatStream(context.Background(), "user-1", "通过微信发给我", nil)
+	if err != nil {
+		t.Fatalf("ChatStream returned error: %v", err)
+	}
+	if reply != "ok" {
+		t.Fatalf("reply = %q, want ok", reply)
+	}
+	if len(turnParams.Input) != 1 {
+		t.Fatalf("turn/start input count = %d, want 1", len(turnParams.Input))
+	}
+	input := turnParams.Input[0].Text
+	for _, want := range []string{"WeClaw runtime context:", "active WeChat chat", "send through WeChat", "通过微信发给我", "Prefer short confirmations."} {
+		if !strings.Contains(input, want) {
+			t.Fatalf("turn/start input missing %q in:\n%s", want, input)
+		}
+	}
+}
+
 func TestACPAgentChatStreamCodexCompletedAgentMessageEmitsCompleteText(t *testing.T) {
 	a := NewACPAgent(ACPAgentConfig{Command: "codex", Args: []string{"app-server"}})
 	a.started = true

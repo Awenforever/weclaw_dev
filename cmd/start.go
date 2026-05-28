@@ -452,6 +452,8 @@ func createAgentByName(ctx context.Context, cfg *config.Config, name string) age
 		return nil
 	}
 
+	systemPrompt := agent.MergeWeClawSystemPrompt(agCfg.SystemPrompt)
+
 	switch agCfg.Type {
 	case "acp":
 		if err := ensureDsproxyRouteForProfile(ctx, name); err != nil {
@@ -465,7 +467,7 @@ func createAgentByName(ctx context.Context, cfg *config.Config, name string) age
 			Env:           agCfg.Env,
 			Model:         agCfg.Model,
 			ModelProvider: agCfg.ModelProvider,
-			SystemPrompt:  agCfg.SystemPrompt,
+			SystemPrompt:  systemPrompt,
 		})
 		if err := ag.Start(ctx); err != nil {
 			log.Printf("[agent] failed to start ACP agent %q: %v", name, err)
@@ -481,7 +483,7 @@ func createAgentByName(ctx context.Context, cfg *config.Config, name string) age
 			Cwd:          agCfg.Cwd,
 			Env:          agCfg.Env,
 			Model:        agCfg.Model,
-			SystemPrompt: agCfg.SystemPrompt,
+			SystemPrompt: systemPrompt,
 		})
 		log.Printf("[agent] created CLI agent: %s (command=%s, type=%s, model=%s)", name, agCfg.Command, agCfg.Type, agCfg.Model)
 		return ag
@@ -495,7 +497,7 @@ func createAgentByName(ctx context.Context, cfg *config.Config, name string) age
 			APIKey:       agCfg.APIKey,
 			Headers:      agCfg.Headers,
 			Model:        agCfg.Model,
-			SystemPrompt: agCfg.SystemPrompt,
+			SystemPrompt: systemPrompt,
 			MaxHistory:   agCfg.MaxHistory,
 		})
 		log.Printf("[agent] created HTTP agent: %s (endpoint=%s, model=%s)", name, agCfg.Endpoint, agCfg.Model)
