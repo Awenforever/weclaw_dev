@@ -28,17 +28,18 @@ type ACPAgent struct {
 	env           map[string]string
 	protocol      string // "legacy_acp" or "codex_app_server"
 
-	mu                 sync.Mutex
-	cmd                *exec.Cmd
-	stdin              io.WriteCloser
-	scanner            *bufio.Scanner
-	started            bool
-	nextID             atomic.Int64
-	sessions           map[string]string // conversationID -> sessionID (legacy ACP)
-	threads            map[string]string // conversationID -> threadID (codex app-server)
-	resumedThreads     map[string]bool
-	tokenUsageMu       sync.RWMutex
-	tokenUsageByThread map[string]TokenUsageSnapshot
+	mu                    sync.Mutex
+	cmd                   *exec.Cmd
+	stdin                 io.WriteCloser
+	scanner               *bufio.Scanner
+	started               bool
+	nextID                atomic.Int64
+	sessions              map[string]string // conversationID -> sessionID (legacy ACP)
+	threads               map[string]string // conversationID -> threadID (codex app-server)
+	resumedThreads        map[string]bool
+	wechatContextInjected map[string]bool
+	tokenUsageMu          sync.RWMutex
+	tokenUsageByThread    map[string]TokenUsageSnapshot
 
 	// pending tracks in-flight JSON-RPC requests
 	pendingMu sync.Mutex
@@ -206,21 +207,22 @@ func NewACPAgent(cfg ACPAgentConfig) *ACPAgent {
 	}
 	protocol := detectACPProtocol(cfg.Command, cfg.Args)
 	return &ACPAgent{
-		command:            cfg.Command,
-		args:               cfg.Args,
-		model:              cfg.Model,
-		modelProvider:      cfg.ModelProvider,
-		systemPrompt:       cfg.SystemPrompt,
-		cwd:                cfg.Cwd,
-		env:                cfg.Env,
-		protocol:           protocol,
-		sessions:           make(map[string]string),
-		threads:            make(map[string]string),
-		resumedThreads:     make(map[string]bool),
-		tokenUsageByThread: make(map[string]TokenUsageSnapshot),
-		pending:            make(map[int64]chan *rpcResponse),
-		notifyCh:           make(map[string]chan *sessionUpdate),
-		turnCh:             make(map[string]chan *codexTurnEvent),
+		command:               cfg.Command,
+		args:                  cfg.Args,
+		model:                 cfg.Model,
+		modelProvider:         cfg.ModelProvider,
+		systemPrompt:          cfg.SystemPrompt,
+		cwd:                   cfg.Cwd,
+		env:                   cfg.Env,
+		protocol:              protocol,
+		sessions:              make(map[string]string),
+		threads:               make(map[string]string),
+		resumedThreads:        make(map[string]bool),
+		wechatContextInjected: make(map[string]bool),
+		tokenUsageByThread:    make(map[string]TokenUsageSnapshot),
+		pending:               make(map[int64]chan *rpcResponse),
+		notifyCh:              make(map[string]chan *sessionUpdate),
+		turnCh:                make(map[string]chan *codexTurnEvent),
 	}
 }
 
@@ -349,6 +351,7 @@ func (a *ACPAgent) ResetSession(ctx context.Context, conversationID string) (str
 	if a.protocol == protocolCodexAppServer {
 		a.mu.Lock()
 		delete(a.threads, conversationID)
+		delete(a.wechatContextInjected, conversationID)
 		a.mu.Unlock()
 		log.Printf("[acp] thread reset (conversation=%s), creating new thread", conversationID)
 
@@ -361,6 +364,7 @@ func (a *ACPAgent) ResetSession(ctx context.Context, conversationID string) (str
 
 	a.mu.Lock()
 	delete(a.sessions, conversationID)
+	delete(a.wechatContextInjected, conversationID)
 	a.mu.Unlock()
 	log.Printf("[acp] session reset (conversation=%s), creating new session", conversationID)
 
@@ -414,11 +418,13 @@ func (a *ACPAgent) ResumeSession(conversationID, sessionID string) error {
 			a.resumedThreads = make(map[string]bool)
 		}
 		a.threads[conversationID] = sessionID
+		delete(a.wechatContextInjected, conversationID)
 		a.resumedThreads[conversationID] = true
 		log.Printf("[acp] resume thread configured (thread=%s, conversation=%s)", sessionID, conversationID)
 		return nil
 	}
 	a.sessions[conversationID] = sessionID
+	delete(a.wechatContextInjected, conversationID)
 	log.Printf("[acp] resume session configured (session=%s, conversation=%s)", sessionID, conversationID)
 	return nil
 }
@@ -517,7 +523,7 @@ func (a *ACPAgent) ChatStream(ctx context.Context, conversationID string, messag
 	go func() {
 		result, err := a.rpc(ctx, "session/prompt", promptParams{
 			SessionID: sessionID,
-			Prompt:    a.promptEntriesForMessage(message),
+			Prompt:    a.promptEntriesForMessage(conversationID, message),
 		})
 		if result != nil {
 			log.Printf("[acp] prompt result (session=%s): %s", sessionID, string(result))
@@ -573,12 +579,39 @@ func (a *ACPAgent) ChatStream(ctx context.Context, conversationID string, messag
 	}
 }
 
-func (a *ACPAgent) promptEntriesForMessage(message string) []promptEntry {
-	return []promptEntry{{Type: "text", Text: ComposeUserMessageWithSystemPrompt(a.systemPrompt, message)}}
+func (a *ACPAgent) promptEntriesForMessage(conversationID, message string) []promptEntry {
+	return []promptEntry{{Type: "text", Text: a.weclawUserMessage(conversationID, message)}}
 }
 
-func (a *ACPAgent) codexInputForMessage(message string) []codexUserInput {
-	return []codexUserInput{{Type: "text", Text: ComposeUserMessageWithSystemPrompt(a.systemPrompt, message)}}
+func (a *ACPAgent) codexInputForMessage(conversationID, message string) []codexUserInput {
+	return []codexUserInput{{Type: "text", Text: a.weclawUserMessage(conversationID, message)}}
+}
+
+func (a *ACPAgent) weclawUserMessage(conversationID, message string) string {
+	if a.shouldInjectWeClawContext(conversationID) {
+		return ComposeUserMessageWithSystemPrompt(a.systemPrompt, message)
+	}
+	return message
+}
+
+func (a *ACPAgent) shouldInjectWeClawContext(conversationID string) bool {
+	if strings.TrimSpace(a.systemPrompt) == "" {
+		return false
+	}
+	conversationID = strings.TrimSpace(conversationID)
+	if conversationID == "" {
+		return true
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.wechatContextInjected == nil {
+		a.wechatContextInjected = make(map[string]bool)
+	}
+	if a.wechatContextInjected[conversationID] {
+		return false
+	}
+	a.wechatContextInjected[conversationID] = true
+	return true
 }
 
 func (a *ACPAgent) getOrCreateSession(ctx context.Context, conversationID string) (string, bool, error) {
@@ -752,7 +785,7 @@ func (a *ACPAgent) chatCodexAppServer(ctx context.Context, conversationID string
 		_, err := a.rpc(ctx, "turn/start", codexTurnStartParams{
 			ThreadID:       tid,
 			ApprovalPolicy: "never",
-			Input:          a.codexInputForMessage(message),
+			Input:          a.codexInputForMessage(conversationID, message),
 			SandboxPolicy:  map[string]interface{}{"type": "dangerFullAccess"},
 			Model:          a.model,
 			ModelProvider:  a.modelProvider,

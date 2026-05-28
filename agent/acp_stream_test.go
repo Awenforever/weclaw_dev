@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -62,29 +63,35 @@ func TestACPAgentChatStreamCodexRawInputAndDeltasAreFallbackOnly(t *testing.T) {
 	}
 }
 
-func TestACPAgentChatStreamCodexIncludesWeClawContextWhenConfigured(t *testing.T) {
+func TestACPAgentChatStreamCodexInjectsWeClawContextOncePerConversation(t *testing.T) {
 	a := NewACPAgent(ACPAgentConfig{
 		Command:      "codex",
 		Args:         []string{"app-server"},
 		SystemPrompt: MergeWeClawSystemPrompt("Prefer short confirmations."),
 	})
 	a.started = true
-	var turnParams codexTurnStartParams
+	var inputs []string
+	turnCount := 0
 	a.rpcCall = func(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
 		switch method {
 		case "thread/start":
 			return json.RawMessage(`{"thread":{"id":"thread-1"}}`), nil
 		case "turn/start":
-			var ok bool
-			turnParams, ok = params.(codexTurnStartParams)
+			turnParams, ok := params.(codexTurnStartParams)
 			if !ok {
 				t.Fatalf("turn/start params type = %T, want codexTurnStartParams", params)
 			}
-			go func() {
+			if len(turnParams.Input) != 1 {
+				t.Fatalf("turn/start input count = %d, want 1", len(turnParams.Input))
+			}
+			inputs = append(inputs, turnParams.Input[0].Text)
+			turnCount++
+			reply := fmt.Sprintf("ok-%d", turnCount)
+			go func(turn int, replyText string) {
 				time.Sleep(10 * time.Millisecond)
-				a.handleCodexItemCompleted(json.RawMessage(`{"threadId":"thread-1","item":{"id":"msg-1","type":"agentMessage","text":"ok","phase":"final_answer"}}`))
+				a.handleCodexItemCompleted(json.RawMessage(fmt.Sprintf(`{"threadId":"thread-1","item":{"id":"msg-%d","type":"agentMessage","text":%q,"phase":"final_answer"}}`, turn, replyText)))
 				a.handleCodexTurnEvent("turn/completed", json.RawMessage(`{"threadId":"thread-1"}`))
-			}()
+			}(turnCount, reply)
 			return json.RawMessage(`{}`), nil
 		default:
 			t.Fatalf("unexpected rpc method %s", method)
@@ -92,21 +99,27 @@ func TestACPAgentChatStreamCodexIncludesWeClawContextWhenConfigured(t *testing.T
 		}
 	}
 
-	reply, err := a.ChatStream(context.Background(), "user-1", "通过微信发给我", nil)
+	first, err := a.ChatStream(context.Background(), "user-1", "通过微信发给我", nil)
 	if err != nil {
-		t.Fatalf("ChatStream returned error: %v", err)
+		t.Fatalf("first ChatStream returned error: %v", err)
 	}
-	if reply != "ok" {
-		t.Fatalf("reply = %q, want ok", reply)
+	second, err := a.ChatStream(context.Background(), "user-1", "普通后续问题", nil)
+	if err != nil {
+		t.Fatalf("second ChatStream returned error: %v", err)
 	}
-	if len(turnParams.Input) != 1 {
-		t.Fatalf("turn/start input count = %d, want 1", len(turnParams.Input))
+	if first != "ok-1" || second != "ok-2" {
+		t.Fatalf("replies = %q/%q, want ok-1/ok-2", first, second)
 	}
-	input := turnParams.Input[0].Text
-	for _, want := range []string{"WeClaw runtime context:", "active WeChat chat", "send through WeChat", "通过微信发给我", "Prefer short confirmations."} {
-		if !strings.Contains(input, want) {
-			t.Fatalf("turn/start input missing %q in:\n%s", want, input)
+	if len(inputs) != 2 {
+		t.Fatalf("captured inputs = %d, want 2", len(inputs))
+	}
+	for _, want := range []string{"WeClaw runtime context:", "active WeChat chat", "user-facing artifacts", "通过微信发给我", "Prefer short confirmations."} {
+		if !strings.Contains(inputs[0], want) {
+			t.Fatalf("first turn input missing %q in:\n%s", want, inputs[0])
 		}
+	}
+	if inputs[1] != "普通后续问题" {
+		t.Fatalf("second turn input = %q, want raw follow-up without repeated WeClaw context", inputs[1])
 	}
 }
 

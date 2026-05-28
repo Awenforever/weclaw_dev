@@ -10,9 +10,10 @@ func TestMergeWeClawSystemPromptIncludesWechatAttachmentContract(t *testing.T) {
 	for _, want := range []string{
 		"WeClaw runtime context:",
 		"active WeChat chat",
-		"send through WeChat",
-		"absolute file path on a line by itself",
+		"user-facing artifacts",
+		"absolute local path on a line by itself",
 		"png",
+		"docx",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("merged prompt missing %q in:\n%s", want, got)

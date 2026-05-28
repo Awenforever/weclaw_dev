@@ -1,6 +1,13 @@
 # WeClaw Dev Development Log
 
 
+## p0.1.6a7-agent-context-injection-efficiency
+
+- Change: optimized WeClaw runtime context injection so ACP/Codex app-server and legacy ACP paths receive the full WeClaw capability contract once per WeClaw conversation instead of on every user turn.
+- Change: broadened the contract from image/file wording to an artifact-delivery lifecycle: generated user-facing images, documents, spreadsheets, slide decks, PDFs, archives, videos, and similar local files should be saved under an allowed root and exposed as a standalone local path for WeChat delivery.
+- Boundary: system-capable paths keep using native system prompt channels; public `v0.1.9-alpha`, Release body, assets and public tag are not moved.
+- Tests: added coverage for one-time Codex app-server context injection and artifact-delivery contract wording.
+
 ## p0.1.6a6-agent-wechat-capability-contract
 
 - Feature: injected a WeClaw runtime capability contract into configured agents so they understand the active WeChat chat and local attachment send workflow.

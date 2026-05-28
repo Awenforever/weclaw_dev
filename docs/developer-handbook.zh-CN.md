@@ -1,6 +1,18 @@
 ## 内部版本阶段治理
 
 
+## p0.1.6a7-agent-context-injection-efficiency
+
+p0.1.6a7优化p0.1.6a6的Agent上下文注入策略，并把“图片/文件发送”提升为更通用的交付物生命周期契约。ACP/Codex app-server和legacy ACP路径只在每个WeClaw会话第一次进入Agent时注入完整WeClaw能力契约，后续turn保持用户消息原文，避免每轮重复消耗token。
+
+规则：
+
+- 支持system/developer上下文的Agent路径继续优先使用原生system prompt通道。
+- 缺少可靠原生system通道的持久会话路径只做一次完整WeClaw上下文注入；reset/resume后重新注入一次。
+- 契约不再围绕“图片”单点描述，而是要求Agent将用户可见的本地交付物保存到允许根目录，并输出独立绝对路径以便WeClaw发送到当前微信聊天。
+- 交付物包括图片、Word/Excel/PPT、PDF、压缩包、文本/CSV、视频等文件型结果；普通文本回答不需要附件发送。
+- 本节点不移动公开`v0.1.9-alpha`，不编辑公开Release正文，不重建Release资产。
+
 ## p0.1.6a6-agent-wechat-capability-contract
 
 p0.1.6a6新增面向Agent的WeClaw运行时能力契约。WeClaw现在会向已配置Agent注入简洁的运行环境上下文，让Agent知道用户消息来自当前微信聊天，“发给我”或“通过微信发给我”的目标就是当前聊天，并且WeClaw可以把受支持的本地图片/文件路径作为附件发送出去。
@@ -337,8 +349,8 @@ p0.1.5a76在a72-a75 `/status`遥测线完成后，刷新文档并将当前`v0.1.
 - GitHub Release状态：`draft=false`，`prerelease=false`，Latest
 - 当前内部运行时tag：`p0.1.6a4-status-trim-restore`
 - 当前内部运行时commit：`e96b28e`
-- 当前内部开发标签：`p0.1.6a6-agent-wechat-capability-contract`
-- 当前开发节点：`p0.1.6a6-agent-wechat-capability-contract`
+- 当前内部开发标签：`p0.1.6a7-agent-context-injection-efficiency`
+- 当前开发节点：`p0.1.6a7-agent-context-injection-efficiency`
 - 预期Release资产：Linux amd64、Linux arm64、Darwin amd64、Darwin arm64和Windows amd64。
 - 公开`v0.1.9-alpha` Release现在已包含截至`e96b28e`的p0.1.6a4 Trim行恢复和README恢复线。
 - 旧公开Release `v0.1.8-alpha`只作为历史版本保留，不得移动。

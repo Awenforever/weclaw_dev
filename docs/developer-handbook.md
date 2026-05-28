@@ -1,6 +1,18 @@
 ## Internal version stage governance
 
 
+## p0.1.6a7-agent-context-injection-efficiency
+
+p0.1.6a7 optimizes the p0.1.6a6 agent context injection strategy and broadens the image/file wording into an artifact-delivery lifecycle contract. ACP/Codex app-server and legacy ACP paths now receive the full WeClaw capability contract once per WeClaw conversation instead of on every user turn, while later turns keep the raw user message to avoid repeated token cost.
+
+Rules:
+
+- Agent paths with native system/developer context keep using the system prompt channel.
+- Persistent conversation paths without a reliable native system channel inject the full WeClaw runtime context once; reset/resume clears that marker so the next turn injects it again.
+- The contract is artifact-oriented rather than image-only: generated user-facing local deliverables should be saved under an allowed root and exposed as a standalone absolute path so WeClaw can deliver them to the current WeChat chat.
+- Artifacts include images, Word/Excel/PPT files, PDFs, archives, text/CSV files, videos, and similar file-shaped outputs; ordinary text answers do not need attachment delivery.
+- This node does not move public `v0.1.9-alpha`, edit the public Release body, or rebuild Release assets.
+
 ## p0.1.6a6-agent-wechat-capability-contract
 
 p0.1.6a6 adds an agent-facing WeClaw runtime capability contract. WeClaw now injects a concise runtime context into configured agents so they understand that user turns come from the active WeChat chat, that "send it to me" or "通过微信发给我" targets the current chat, and that WeClaw can send supported local image/file paths as attachments.
@@ -333,8 +345,8 @@ This is the canonical English handoff for starting a new AI development conversa
 - GitHub Release state: `draft=false`, `prerelease=false`, Latest
 - Current internal runtime tag: `p0.1.6a4-status-trim-restore`
 - Current internal runtime commit: `e96b28e`
-- Current internal development tag: `p0.1.6a6-agent-wechat-capability-contract`
-- Current development node: `p0.1.6a6-agent-wechat-capability-contract`
+- Current internal development tag: `p0.1.6a7-agent-context-injection-efficiency`
+- Current development node: `p0.1.6a7-agent-context-injection-efficiency`
 - Expected Release assets: Linux amd64, Linux arm64, Darwin amd64, Darwin arm64, and Windows amd64.
 - The public `v0.1.9-alpha` Release now includes the p0.1.6a4 Trim-row restore and README restore line through `e96b28e`.
 - Previous public Release `v0.1.8-alpha` remains historical and must not be moved.
